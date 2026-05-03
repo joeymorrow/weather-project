@@ -13,3 +13,6 @@ buddy_state.json
 *.log
 buddy_logs.txt
 model_usage.csv
+
+# Saved old iterations
+archived_iterations/
