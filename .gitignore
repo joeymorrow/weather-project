@@ -1,0 +1,15 @@
+# Environments
+.env
+venv/
+__pycache__/
+*.pyc
+
+# IDEs
+.vscode/
+.idea/
+
+# State/Logs
+buddy_state.json
+*.log
+buddy_logs.txt
+model_usage.csv

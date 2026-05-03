@@ -1,0 +1,7 @@
+services:
+  weather-dashboard:
+    build: .
+    network_mode: "host"
+    restart: always
+    volumes:
+      - .:/app

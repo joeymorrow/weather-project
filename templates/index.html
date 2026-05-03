@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <style>
+        :root { --accent: #00ffff; --bg: #010103; --dim: rgba(0, 238, 255, 0.55); --buddy-blue: #1a73e8; }
+        body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; width: 100vw; }
+        #header { position: absolute; top: 4vh; width: 100%; text-align: center; font-size: 1.1rem; letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.8; text-transform: uppercase; }
+        #location { position: absolute; top: 7vh; width: 100%; text-align: center; font-size: 0.8rem; opacity: 0.4; letter-spacing: 2px; }
+        #lore-trigger { position: fixed; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
+        .lore-box { position: fixed; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
+        #lore-trigger:hover + .lore-box { opacity: 1; pointer-events: all; }
+        .pod { position: absolute; width: 80px; height: 80px; border-radius: 50%; border: 1px solid rgba(0,255,255,0.05); background: rgba(0,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; opacity: 0.15; transition: 1.5s; }
+        .pod.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 40px var(--accent); }
+        #pos-coffee { left: 5vw; top: 15vh; } #pos-office { left: 5vw; top: 40vh; } #pos-gym { left: 5vw; top: 65vh; } #pos-store { left: 15vw; top: 80vh; }
+        #pos-library { right: 5vw; top: 15vh; } #pos-garage { right: 5vw; top: 40vh; } #pos-park { right: 5vw; top: 65vh; } #pos-kitchen { right: 15vw; top: 80vh; }
+        #pos-bed { position: absolute; left: 50%; bottom: 8vh; transform: translateX(-50%); width: 150px; height: 80px; border-radius: 20px; border: 2px solid var(--accent); display: none; align-items: center; justify-content: center; font-size: 4rem; background: rgba(255,255,255,0.03); z-index: 5; }
+        #center-info { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 85vw; pointer-events: none; z-index: 10; }
+        .date-line { font-size: 1.3rem; color: var(--accent); opacity: 0.6; margin-bottom: 5px; }
+        .clock { font-size: 3.5rem; color: var(--accent); } .temp { font-size: 10rem; font-weight: 100; color: #fff; line-height: 0.8; letter-spacing: -5px; }
+        .suggestion { font-size: 1.35rem; color: #fff; font-style: italic; margin: 15px auto; line-height: 1.3; }
+        .pulse-line { font-size: 1.1rem; color: var(--accent); opacity: 0.8; margin-top: 10px; text-transform: uppercase; font-weight: bold; border-top: 1px solid rgba(0,255,255,0.1); padding-top: 10px; width: 100%; }
+        #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s, top 1.5s; z-index: 1000; cursor: pointer; }
+        .buddy-body { width: 50px; height: 70px; background: var(--buddy-blue); border-radius: 50% 50% 40% 40%; position: absolute; left: 25px; top: 25px; box-shadow: inset -5px -5px 15px rgba(0,0,0,0.5); }
+        .visor { width: 36px; height: 14px; background: #000; border-radius: 6px; position: absolute; top: 16px; left: 7px; border: 1px solid var(--accent); display: flex; align-items: center; justify-content: space-around; overflow: hidden; }
+        .eye { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; animation: blink 6s infinite; }
+        .mouth { position: absolute; width: 8px; height: 2px; background: var(--accent); bottom: 3px; left: 50%; transform: translateX(-50%); border-radius: 2px; display: none; }
+        .arm { width: 12px; height: 30px; background: var(--buddy-blue); border-radius: 8px; position: absolute; top: 40px; }
+        .arm.left { left: 10px; } .arm.right { right: 10px; }
+        .zzz-socket { position: absolute; top: -35px; left: 30px; font-size: 2.5rem; opacity: 0; pointer-events: none; }
+        .bubble { position: absolute; background: rgba(0,0,0,0.95); border: 2px solid var(--accent); padding: 8px 12px; border-radius: 12px; color: var(--accent); font-size: 0.85rem; bottom: 130%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-weight: bold; }
+        .sleeping .eye { opacity: 0 !important; }
+        .sleeping .mouth { display: block !important; animation: yawn 5s infinite !important; }
+        .sleeping .bubble { display: none !important; }
+        @media (max-width: 600px) { .temp { font-size: 7rem; } #header { font-size: 0.8rem; letter-spacing: 1px; } }
+        @keyframes yawn { 0%, 70%, 100% { height: 2px; width: 8px; } 85% { height: 10px; width: 12px; border-radius: 50%; } }
+        @keyframes drift-zzz { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-60px) scale(1.2); } }
+        @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0); } }
+    </style>
+</head>
+<body>
+    <div id="header">MORROW EDGE | BEACON Buddy</div>
+    <div id="location">SAULT STE. MARIE, MICHIGAN</div>
+    <div id="lore-trigger">i</div>
+    <div class="lore-box">Hi I'm Buddy! Integrated Model Discovery 6.0 Active. Click my body to meet my creators!</div>
+    <div class="pods"><div class="pod" id="pos-coffee">☕</div><div class="pod" id="pos-office">💻</div><div class="pod" id="pos-gym">💪</div><div class="pod" id="pos-store">🛍️</div><div class="pod" id="pos-library">📖</div><div class="pod" id="pos-garage">🔧</div><div class="pod" id="pos-park">🚲</div><div class="pod" id="pos-kitchen">🍳</div><div id="pos-bed">🛏️</div></div>
+    <div id="center-info">
+        <div class="date-line" id="ui-date"></div><div class="clock" id="ui-clock">--:-- --</div>
+        <div class="temp-row" style="display:flex; justify-content:center; align-items:center;"><img id="ui-icon" src="" style="width:100px;"><div class="temp"><span id="ui-temp">--</span>°</div></div>
+        <div id="ui-desc" style="font-size: 1.3rem; opacity: 0.7;">Syncing...</div><div class="suggestion" id="ui-sugg">Ready...</div><div class="pulse-line" id="ui-pulse">Sault Pulse: --</div>
+    </div>
+    <div id="buddy-container" onclick="location.href='https://morrowedge.com'">
+        <div class="bubble" id="ui-bbl">...</div><div class="zzz-socket" id="ui-zzz">💤</div>
+        <div class="arm left"></div><div class="buddy-body"><div class="visor"><div class="eye"></div><div class="eye"></div><div class="mouth" id="ui-mouth"></div></div></div>
+        <div class="arm right"><div class="hand-socket" id="ui-hand"></div></div>
+    </div>
+    <script>
+        let currentStation = "";
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('ui-clock').innerText = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        }
+        async function fetchState() {
+            try {
+                const res = await fetch('/api/state');
+                const s = await res.json();
+                document.getElementById('ui-date').innerText = s.date;
+                document.getElementById('ui-temp').innerText = s.temp;
+                document.getElementById('ui-desc').innerText = `${s.desc} | H: ${s.high}° L: ${s.low}°`;
+                document.getElementById('ui-sugg').innerText = s.suggestion;
+                document.getElementById('ui-pulse').innerText = `Sault Pulse: ${s.pulse}`;
+                document.getElementById('ui-bbl').innerText = s.bubble;
+                
+                const container = document.getElementById('buddy-container');
+                if (s.is_sleeping) {
+                    container.classList.add('sleeping');
+                    document.getElementById('ui-zzz').style.animation = 'drift-zzz 4s infinite';
+                } else {
+                    container.classList.remove('sleeping');
+                    document.getElementById('ui-zzz').style.animation = 'none';
+                }
+                
+                document.getElementById('ui-icon').src = `https://openweathermap.org/img/wn/${s.icon}@4x.png`;
+                document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
+                const t = document.getElementById(`pos-${s.station}`); if(t) t.classList.add('active');
+                document.getElementById('pos-bed').style.display = s.show_bed ? 'flex' : 'none';
+                
+                const hands = {'mug':'☕','wrench':'🛠️','obd2':'🔌','laptop':'💻','book':'📖','zzz':'😴'};
+                document.getElementById('ui-hand').innerText = hands[s.acc_css] || '';
+                currentStation = s.station; syncBuddy();
+            } catch(e) {}
+        }
+        function syncBuddy() {
+            const t = document.getElementById(`pos-${currentStation}`);
+            const b = document.getElementById('buddy-container');
+            if (t && b) {
+                const r = t.getBoundingClientRect();
+                b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2)) + 'px';
+                const off = (window.innerWidth < 600) ? 5 : 10;
+                b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - off) + 'px';
+            }
+        }
+        setInterval(updateClock, 1000); setInterval(fetchState, 30000);
+        updateClock(); fetchState(); window.addEventListener('resize', syncBuddy);
+    </script>
+</body>
+</html>
