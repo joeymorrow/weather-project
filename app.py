@@ -16,7 +16,7 @@ state = {
     "temp": 0, "suggestion": "Initializing...", "station": "office", 
     "desc": "Syncing...", "high": 0, "low": 0, "date": "", "time": "--", "icon": "01d",
     "bubble": "...", "pulse": "Anchoring Sault Pulse...",
-    "acc_css": "none", "is_sleeping": False, "show_bed": False
+    "forecast": "Loading forecast...", "acc_css": "none", "is_sleeping": False, "show_bed": False
 }
 
 if os.path.exists(STATE_FILE):
@@ -56,12 +56,14 @@ def run_sync():
         st_id = "bed" if is_sleep else next((v for k,v in {6:"coffee", 8:"office", 16:"gym", 17:"store", 19:"library", 20:"garage", 21:"kitchen"}.items() if h >= k), "coffee")
 
         client = genai.Client(api_key=G_KEY)
+        forecast_context = ", ".join([f"{i['dt_txt'].split(' ')[1][:5]} {i['weather'][0]['description']} {int(i['main']['temp'])}F" for i in f['list'][:8]])
         prompt = f"""
-        Sault MI. Weather: {w['weather'][0]['description']}. Station: {st_id}. Sleep: {is_sleep}.
+        Sault MI. Weather: {w['weather'][0]['description']}. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
         Task 2 (Pulse): Regional objective reassurance (shipping, bridges, locks).
+        Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
         Forbidden: grit, resilience, whispers, quilts, northern, soul.
-        Return JSON: {{ "tip": "attire", "say": "task", "pulse": "reassurance", "acc": "tool/none" }}
+        Return JSON: {{ "tip": "attire", "say": "task", "pulse": "reassurance", "acc": "tool/none", "forecast": "summary" }}
         """
         
         success = False
@@ -69,7 +71,11 @@ def run_sync():
             try:
                 resp = client.models.generate_content(model=m_id, contents=prompt)
                 ai = json.loads(re.sub(r'```json|```', '', resp.text).strip())
-                state.update({"suggestion": ai.get("tip"), "bubble": ai.get("say"), "pulse": ai.get("pulse"), "acc_css": "zzz" if is_sleep else ai.get("acc", "none")})
+                state.update({
+                    "suggestion": ai.get("tip"), "bubble": ai.get("say"), 
+                    "pulse": ai.get("pulse"), "acc_css": "zzz" if is_sleep else ai.get("acc", "none"),
+                    "forecast": ai.get("forecast", "Weather data processing...")
+                })
                 print(f"[API] Success via {m_id}", flush=True)
                 success = True; break
             except: continue

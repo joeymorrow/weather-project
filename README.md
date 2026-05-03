@@ -81,3 +81,40 @@ To expose this local dashboard to the internet securely without opening firewall
 5. **Route the Traffic:** In the Cloudflare Tunnel setup, map a Public Hostname (e.g., `weather.yourdomain.com`) to the local service URL: `http://localhost:5000`.
 
 *Note: The tunnel token (`<YOUR_UNIQUE_TUNNEL_TOKEN>`) is highly sensitive. It is managed directly by the `cloudflared` system service and should never be added to your `.env` file or GitHub repository.*
+
+## TV Display via ADB & Cron
+
+The project includes a `tv_schedule.sh` script to automatically turn a TV or display on/off and open the weather dashboard using ADB (Android Debug Bridge). 
+
+1. Ensure the `adb` package is installed:
+   ```bash
+   sudo apt install adb
+   ```
+2. Enable **Developer Options** and **Network Debugging** on your Android TV/device.
+3. Edit your `.env` file to include your TV's local IP address and your dashboard's URL:
+   ```env
+   TV_IP="192.168.1.X"
+   DASHBOARD_URL="https://your-dashboard-url.com"
+   ```
+4. Test the script manually to confirm it can wake the device and launch the URL:
+   ```bash
+   ./tv_schedule.sh on
+   ```
+   *(Note: The first time you connect, your TV will display a prompt asking you to allow the connection. You must select "Always allow from this computer".)*
+
+### Automating with Cron
+
+To automate turning the TV on and off at specific times (e.g., turning on at 7:00 AM and off at 10:00 PM), add the script to your cron jobs:
+
+1. Open your crontab:
+   ```bash
+   crontab -e
+   ```
+2. Add the following lines (adjust the paths and times as needed):
+   ```cron
+   # Turn TV on at 7:00 AM every day
+   0 7 * * * /path/to/weather-project/tv_schedule.sh on
+
+   # Turn TV off at 10:00 PM every day
+   0 22 * * * /path/to/weather-project/tv_schedule.sh off
+   ```
