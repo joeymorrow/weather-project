@@ -1,0 +1,19 @@
+name: Deploy Weather Dashboard
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Rebuild and Deploy
+        run: |
+          sudo docker-compose down || true
+          sudo docker-compose up -d --build
