@@ -6,7 +6,7 @@ name: Deploy Weather Dashboard
 on:
   push:
     branches:
-      - ci/cd
+      - master
   workflow_dispatch:
 
 jobs:
