@@ -41,7 +41,7 @@ A local weather and scheduling dashboard powered by AI.
 **🛑 IMPORTANT DEPLOYMENT RULE 🛑**
 DO NOT start the Docker container manually from the host machine using `docker compose up`. 
 Deployment is STRICTLY managed by the self-hosted GitHub Runner. 
-To deploy, commit your changes and push to the `master` branch. 
+To deploy, commit your changes and push to the `main` branch. 
 The runner will securely construct the `.env` file automatically using GitHub Secrets and restart the container.
 
 ## Contributing and Setting Up VS Code
