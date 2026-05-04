@@ -38,6 +38,8 @@
         @keyframes yawn { 0%, 70%, 100% { height: 2px; width: 8px; } 85% { height: 10px; width: 12px; border-radius: 50%; } }
         @keyframes drift-zzz { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-60px) scale(1.2); } }
         @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0); } }
+        @keyframes fadeBubble { 0% { opacity: 0; } 100% { opacity: 1; } }
+        .bubble-update { animation: fadeBubble 0.8s ease-out; }
     </style>
 </head>
 <body>
@@ -75,7 +77,14 @@
                 document.getElementById('ui-forecast').innerText = s.forecast || '';
                 document.getElementById('ui-sugg').innerText = s.suggestion;
                 document.getElementById('ui-pulse').innerText = `Sault Pulse: ${s.pulse}`;
-                document.getElementById('ui-bbl').innerText = s.bubble;
+                
+                const bbl = document.getElementById('ui-bbl');
+                if (bbl.innerText !== s.bubble) {
+                    bbl.classList.remove('bubble-update');
+                    void bbl.offsetWidth; // Trigger reflow to reset animation
+                    bbl.innerText = s.bubble;
+                    bbl.classList.add('bubble-update');
+                }
                 
                 const container = document.getElementById('buddy-container');
                 if (s.is_sleeping) {
