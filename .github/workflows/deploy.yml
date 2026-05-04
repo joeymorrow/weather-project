@@ -1,3 +1,6 @@
+# 🛑 HARD RULE: This workflow is the ONLY approved method for deploying the docker container.
+# Do not run docker-compose manually on the host. The runner manages the deployment lifecycle.
+
 name: Deploy Weather Dashboard
 
 on:
@@ -12,6 +15,17 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
+
+      - name: Create .env from Secrets
+        run: |
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
+          echo "OPENWEATHERMAP_API_KEY=${{ secrets.OPENWEATHERMAP_API_KEY }}" >> .env
+          if [ -n "${{ secrets.TV_IP }}" ]; then
+            echo "TV_IP=${{ secrets.TV_IP }}" >> .env
+          fi
+          if [ -n "${{ secrets.DASHBOARD_URL }}" ]; then
+            echo "DASHBOARD_URL=${{ secrets.DASHBOARD_URL }}" >> .env
+          fi
 
       - name: Rebuild and Deploy
         run: |

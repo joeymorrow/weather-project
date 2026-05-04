@@ -22,17 +22,19 @@ A local weather and scheduling dashboard powered by AI.
    ```
    Add your `GEMINI_API_KEY` and `OPENWEATHERMAP_API_KEY`.
 
-4. **Run via Docker (Recommended):**
-   ```bash
-   sudo docker-compose up -d --build
-   ```
-   Or run it locally with Python:
+4. **Run via Python (Local Development ONLY):**
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
    python app.py
    ```
+
+**🛑 IMPORTANT DEPLOYMENT RULE 🛑**
+DO NOT start the Docker container manually from the host machine using `docker-compose up`. 
+Deployment is STRICTLY managed by the self-hosted GitHub Runner. 
+To deploy, commit your changes and push to the `ci\cd` branch. 
+The runner will securely construct the `.env` file automatically using GitHub Secrets and restart the container.
 
 ## Contributing and Setting Up VS Code
 
