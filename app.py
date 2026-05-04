@@ -53,17 +53,17 @@ def run_sync():
         now = datetime.now(TZ)
         h = now.hour
         is_sleep = (h >= 22 or h < 6)
-        st_id = "bed" if is_sleep else next((v for k,v in {6:"coffee", 8:"office", 16:"gym", 17:"store", 19:"library", 20:"garage", 21:"kitchen"}.items() if h >= k), "coffee")
+        st_id = "bed" if is_sleep else next((v for k,v in {21:"kitchen", 20:"garage", 19:"library", 17:"store", 16:"gym", 8:"office", 6:"coffee"}.items() if h >= k), "coffee")
 
         client = genai.Client(api_key=G_KEY)
         forecast_context = ", ".join([f"{i['dt_txt'].split(' ')[1][:5]} {i['weather'][0]['description']} {int(i['main']['temp'])}F" for i in f['list'][:8]])
         prompt = f"""
         Sault MI. Weather: {w['weather'][0]['description']}. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
-        Task 2 (Pulse): Regional objective reassurance (shipping, bridges, locks).
+        Task 2 (Pulse): A short 1-sentence atmospheric observation of the daily rhythm and local vibe in Sault Ste. Marie based on the current time and weather.
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
         Forbidden: grit, resilience, whispers, quilts, northern, soul.
-        Return JSON: {{ "tip": "attire", "say": "task", "pulse": "reassurance", "acc": "tool/none", "forecast": "summary" }}
+        Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary" }}
         """
         
         success = False
