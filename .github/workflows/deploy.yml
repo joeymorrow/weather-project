@@ -63,7 +63,6 @@ jobs:
 
       - name: Rebuild and Deploy
         run: |
-          docker-compose down || true
           docker-compose up -d --build
 
       - name: Post-deploy smoke test
