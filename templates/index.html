@@ -30,7 +30,7 @@
         .arm { width: 12px; height: 30px; background: var(--buddy-blue); border-radius: 8px; position: absolute; top: 40px; }
         .arm.left { left: 10px; } .arm.right { right: 10px; }
         .zzz-socket { position: absolute; top: -35px; left: 30px; font-size: 2.5rem; opacity: 0; pointer-events: none; }
-        .bubble { position: absolute; background: rgba(0,0,0,0.95); border: 2px solid var(--accent); padding: 8px 12px; border-radius: 12px; color: var(--accent); font-size: 0.85rem; bottom: 130%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-weight: bold; }
+        .bubble { position: absolute; background: rgba(0,0,0,0.95); border: 2px solid var(--accent); padding: 8px 12px; border-radius: 12px; color: var(--accent); font-size: 0.85rem; bottom: 130%; left: 50%; transform: translateX(-50%); white-space: normal; width: max-content; max-width: 220px; text-align: center; font-weight: bold; z-index: 10; }
         .sleeping .eye { opacity: 0 !important; }
         .sleeping .mouth { display: block !important; animation: yawn 5s infinite !important; }
         .sleeping .bubble { display: none !important; }
@@ -104,6 +104,15 @@
                 b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2)) + 'px';
                 const off = (window.innerWidth < 600) ? 5 : 10;
                 b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - off) + 'px';
+                
+                const bbl = document.getElementById('ui-bbl');
+                if (r.left < window.innerWidth / 3) {
+                    bbl.style.left = '10%'; bbl.style.transform = 'translateX(0)';
+                } else if (r.left > (window.innerWidth / 3) * 2) {
+                    bbl.style.left = '90%'; bbl.style.transform = 'translateX(-100%)';
+                } else {
+                    bbl.style.left = '50%'; bbl.style.transform = 'translateX(-50%)';
+                }
             }
         }
         setInterval(updateClock, 1000); setInterval(fetchState, 30000);
