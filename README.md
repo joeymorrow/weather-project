@@ -30,6 +30,14 @@ A local weather and scheduling dashboard powered by AI.
    python app.py
    ```
 
+5. **Enable Services on Boot (Recommended):**
+   To ensure your weather dashboard and deployment pipeline survive a power outage or reboot, enable the necessary services:
+   ```bash
+   sudo systemctl enable docker
+   # If using cloudflared: sudo systemctl enable cloudflared
+   # For GitHub Runner, run `sudo ./svc.sh install` and `sudo ./svc.sh start` inside your runner directory.
+   ```
+
 **🛑 IMPORTANT DEPLOYMENT RULE 🛑**
 DO NOT start the Docker container manually from the host machine using `docker-compose up`. 
 Deployment is STRICTLY managed by the self-hosted GitHub Runner. 
