@@ -1,5 +1,5 @@
 # 🛑 HARD RULE: This workflow is the ONLY approved method for deploying the docker container.
-# Do not run docker-compose manually on the host. The runner manages the deployment lifecycle.
+# Do not run docker compose manually on the host. The runner manages the deployment lifecycle.
 
 name: Deploy Weather Dashboard
 
@@ -63,11 +63,11 @@ jobs:
 
       - name: Rebuild and Deploy
         run: |
-          docker-compose up -d --build
+          docker compose up -d --build
 
       - name: Post-deploy smoke test
         run: |
-          docker-compose ps
+          docker compose ps
           for i in $(seq 1 12); do
             if curl --fail http://127.0.0.1:5000/ >/dev/null 2>&1; then
               echo "Web service is healthy"
@@ -78,7 +78,7 @@ jobs:
           done
           if ! curl --fail http://127.0.0.1:5000/ >/dev/null 2>&1; then
             echo "Web service did not respond on http://127.0.0.1:5000 after 60 seconds." >&2
-            docker-compose logs --tail 80
+            docker compose logs --tail 80
             exit 1
           fi
           echo "Web smoke test passed."
