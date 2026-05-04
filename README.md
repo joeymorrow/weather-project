@@ -41,7 +41,7 @@ A local weather and scheduling dashboard powered by AI.
 **🛑 IMPORTANT DEPLOYMENT RULE 🛑**
 DO NOT start the Docker container manually from the host machine using `docker compose up`. 
 Deployment is STRICTLY managed by the self-hosted GitHub Runner. 
-To deploy, commit your changes and push to the `ci\cd` branch. 
+To deploy, commit your changes and push to the `ci/cd` branch. 
 The runner will securely construct the `.env` file automatically using GitHub Secrets and restart the container.
 
 ## Contributing and Setting Up VS Code
@@ -88,7 +88,7 @@ To expose this local dashboard to the internet securely without opening firewall
    sudo dpkg -i cloudflared.deb
    sudo cloudflared service install <YOUR_UNIQUE_TUNNEL_TOKEN>
    ```
-5. **Route the Traffic:** In the Cloudflare Tunnel setup, map a Public Hostname (e.g., `weather.yourdomain.com`) to the local service URL: `http://localhost:5000`.
+5. **Route the Traffic:** In the Cloudflare Tunnel setup, map a Public Hostname (e.g., `weather.yourdomain.com`) to the local service URL: `http://127.0.0.1:5000`.
 
 *Note: The tunnel token (`<YOUR_UNIQUE_TUNNEL_TOKEN>`) is highly sensitive. It is managed directly by the `cloudflared` system service and should never be added to your `.env` file or GitHub repository.*
 
