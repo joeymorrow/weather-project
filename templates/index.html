@@ -56,9 +56,9 @@
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: default; }
         #build-stamp:hover { opacity: 0.5; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; }
-        #buddy-container:hover { z-index: 2500 !important; transform: scale(1) !important; filter: brightness(1) !important; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 0.3s ease, filter 0.3s ease, z-index 0s !important; }
+        #buddy-container:hover { z-index: 2500 !important; transform: scale(1) translate(0px, 0px) !important; filter: brightness(1) !important; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 0.3s ease, filter 0.3s ease, z-index 0s !important; }
         #buddy-container::before { content: ''; position: absolute; inset: -45px; border-radius: 50%; }
-        .bg-mode { transform: scale(0.75); z-index: 3 !important; filter: brightness(0.85); }
+        .bg-mode { transform: scale(0.85) translate(45px, -35px); z-index: 20 !important; filter: brightness(1); }
         .orbiting-front { animation: orbit-front 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
         .orbiting-back { animation: orbit-back 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
         @keyframes swing-right { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(120px); } }
@@ -101,6 +101,11 @@
         @keyframes rave-colors { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
         .rave-bg { animation: rave-colors 0.5s infinite alternate !important; }
         .bubble-update { animation: fadeBubble 0.8s ease-out; }
+        @media (max-width: 600px) {
+            #center-info { top: 43%; width: 95vw; }
+            #location { margin-bottom: 0.5vh; }
+            .date-line { margin-bottom: 0.5vh; }
+        }
     </style>
 </head>
 <body class="{% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
@@ -136,6 +141,48 @@
         let lastPulse = {{ pulse | tojson | safe }};
         let lastInteraction = 0;
         let keyBuffer = "";
+        const podOrder = ['coffee', 'office', 'gym', 'store', 'library', 'garage', 'park', 'kitchen'];
+
+        function layoutPods() {
+            const isMobile = window.innerWidth <= 600;
+            const activeIdx = podOrder.indexOf(currentStation);
+            
+            podOrder.forEach((station, i) => {
+                const pod = document.getElementById(`pos-${station}`);
+                if (!pod) return;
+                
+                if (isMobile) {
+                    // Fade out the wheel entirely when Buddy goes to sleep
+                    if (currentStation === 'bed') {
+                        pod.style.opacity = '0';
+                        pod.style.pointerEvents = 'none';
+                        return;
+                    }
+
+                    const diff = i - activeIdx;
+                    const angle = -90 + (diff * 35);
+                    const rad = angle * (Math.PI / 180);
+                    
+                    const cx = window.innerWidth / 2;
+                    const cy = window.innerHeight * 0.95; // Wheel center anchored at bottom
+                    const r = window.innerWidth * 0.42;
+                    
+                    let x = cx + r * Math.cos(rad);
+                    let y = cy + r * Math.sin(rad);
+                    
+                    if (diff === 0) y -= 15; // Pop active pod slightly higher
+                    
+                    pod.style.left = `${x}px`; pod.style.top = `${y}px`; pod.style.bottom = 'auto';
+                    pod.style.transform = `translate(-50%, -50%) scale(${diff === 0 ? 1 : 0.7})`;
+                    
+                    if (Math.abs(diff) > 2) { pod.style.opacity = '0'; pod.style.pointerEvents = 'none'; } 
+                    else { pod.style.opacity = ''; pod.style.pointerEvents = ''; }
+                } else {
+                    pod.style.left = ''; pod.style.top = ''; pod.style.bottom = '';
+                    pod.style.transform = ''; pod.style.opacity = ''; pod.style.pointerEvents = '';
+                }
+            });
+        }
 
         window.addEventListener('keydown', (e) => {
             lastInteraction = Date.now();
@@ -387,7 +434,10 @@
                                 setTimeout(() => { b.classList.remove('bg-mode', 'orbiting-front'); }, 2500);
                             } else {
                                 b.classList.add('orbiting-back');
-                                setTimeout(() => { b.classList.add('bg-mode'); b.classList.remove('orbiting-back'); }, 2500);
+                                setTimeout(() => { 
+                                    if (window.innerWidth > 600) b.classList.add('bg-mode'); 
+                                    b.classList.remove('orbiting-back'); 
+                                }, 2500);
                             }
                         }, 3000); // Give him a moment to read the pulse before getting bored
                     }
@@ -398,37 +448,45 @@
         function syncBuddy() {
             if (window.onDate || window.isRaving || window.isKaiju) return; // Freeze his position during eggs
             
+            layoutPods();
+
             const t = document.getElementById(`pos-${currentStation}`);
             const b = document.getElementById('buddy-container');
             if (t && b) {
-                const r = t.getBoundingClientRect();
-                
                 if (b.dataset.station !== currentStation) {
                     b.dataset.station = currentStation;
                     
-                    // Randomly swing left or right while travelling
                     const swingWrapper = document.getElementById('buddy-swing');
                     if (swingWrapper && currentStation !== 'bed') {
                         swingWrapper.classList.remove('swing-r', 'swing-l');
-                        void swingWrapper.offsetWidth; // Trigger reflow to restart animation
+                        void swingWrapper.offsetWidth; 
                         swingWrapper.classList.add(Math.random() > 0.5 ? 'swing-r' : 'swing-l');
                     }
 
-                    if (Math.random() > 0.5 && currentStation !== 'bed') {
+                    if (window.innerWidth > 600 && Math.random() > 0.5 && currentStation !== 'bed') {
                         b.classList.add('bg-mode');
                     } else {
                         b.classList.remove('bg-mode');
                     }
                 }
+                
+                if (window.innerWidth <= 600) b.classList.remove('bg-mode');
 
-                b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2)) + 'px';
-                const off = (window.innerWidth < 600) ? 5 : 10;
-                b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - off) + 'px';
+                let rLeft;
+                if (window.innerWidth <= 600 && currentStation !== 'bed') {
+                    const cx = window.innerWidth / 2; const cy = window.innerHeight * 0.95 - 15;
+                    b.style.left = (cx - (b.offsetWidth/2)) + 'px'; b.style.top = (cy - (b.offsetHeight/2) - 55) + 'px';
+                    rLeft = cx - 40; 
+                } else {
+                    const r = t.getBoundingClientRect();
+                    b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2)) + 'px'; b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - 10) + 'px';
+                    rLeft = r.left; 
+                }
                 
                 const bbl = document.getElementById('ui-bbl');
-                if (r.left < window.innerWidth / 3) {
+                if (rLeft < window.innerWidth / 3) {
                     bbl.style.left = '10%'; bbl.style.transform = 'translateX(0)';
-                } else if (r.left > (window.innerWidth / 3) * 2) {
+                } else if (rLeft > (window.innerWidth / 3) * 2) {
                     bbl.style.left = '90%'; bbl.style.transform = 'translateX(-100%)';
                 } else {
                     bbl.style.left = '50%'; bbl.style.transform = 'translateX(-50%)';
