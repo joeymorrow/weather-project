@@ -1,4 +1,13 @@
 <!DOCTYPE html>
+<!-- 
+  =========================================
+  🥚 EASTER EGG HUNT! 🥚
+  You found the source code! To trigger the 
+  hidden Spaghetti Date, open your browser's 
+  Developer Console and type: 
+  takeBuddyOnDate() 
+  =========================================
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -32,6 +41,8 @@
         .bg-mode { transform: scale(0.75); z-index: 3 !important; filter: brightness(0.85); }
         .orbiting-front { animation: orbit-front 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
         .orbiting-back { animation: orbit-back 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
+        .fade-out { opacity: 0 !important; }
+        .date-line, .clock, .temp, #ui-icon, #ui-desc, .forecast-line, .suggestion, .pulse-line { transition: opacity 0.8s ease-in-out; }
         #buddy-float { width: 100%; height: 100%; position: relative; animation: float 6s ease-in-out infinite; }
         .buddy-aura { position: absolute; width: 140px; height: 140px; left: -20px; top: -10px; background: radial-gradient(circle, rgba(0,255,255,0.4) 0%, transparent 65%); border-radius: 50%; z-index: -1; animation: pulse-aura 3s infinite alternate; pointer-events: none; }
         .buddy-body { width: 54px; height: 72px; background: var(--buddy-blue); border-radius: 45%; position: absolute; left: 23px; top: 22px; box-shadow: inset -5px -10px 15px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.5), 0 0 15px rgba(0,255,255,0.3); }
@@ -60,6 +71,9 @@
     </style>
 </head>
 <body>
+    <div style="position: absolute; top: 1vh; width: 100%; text-align: center; font-size: 0.7rem; color: var(--accent); opacity: 0.5; z-index: 3000;">
+        🕵️‍♂️ Psst... there are easter eggs hidden in the source code. Find them and use them!
+    </div>
     <div id="header">MORROW EDGE | BEACON Buddy</div>
     <div id="location">SAULT STE. MARIE, MICHIGAN</div>
     <div id="lore-trigger">i</div>
@@ -85,6 +99,65 @@
     <script>
         let currentStation = "";
         let lastPulse = "";
+        let lastInteraction = 0;
+
+        // Track user interaction to prevent UI shifting while they are looking
+        ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(evt => 
+            window.addEventListener(evt, () => lastInteraction = Date.now())
+        );
+
+        function softUpdate(id, val, isImg = false) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const current = isImg ? el.src : el.innerText;
+            if (current !== val && val) {
+                el.classList.add('fade-out');
+                setTimeout(() => { if (isImg) el.src = val; else el.innerText = val; el.classList.remove('fade-out'); }, 800);
+            }
+        }
+
+        // 🍝 EASTER EGG: Spaghetti Date
+        window.takeBuddyOnDate = function() {
+            const center = document.getElementById('center-info');
+            const b = document.getElementById('buddy-container');
+            const bbl = document.getElementById('ui-bbl');
+            const eyes = document.querySelectorAll('.eye');
+
+            window.onDate = true; // Suspend normal routines
+            center.style.display = 'none';
+            
+            const restaurant = document.createElement('div');
+            restaurant.id = 'restaurant-overlay';
+            restaurant.style.cssText = 'position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 20; color: #fff;';
+            restaurant.innerHTML = '<div style="font-size: 8rem; margin-bottom: -20px;">🍝🕯️</div><div style="font-size: 2rem;">Luigi\'s Fine Pasta</div><div style="color: var(--accent); font-style: italic; margin-top:10px;">*Romantic accordion music plays*</div>';
+            document.body.appendChild(restaurant);
+
+            b.style.left = (window.innerWidth / 2 - b.offsetWidth / 2) + 'px';
+            b.style.top = (window.innerHeight * 0.55) + 'px';
+            b.classList.remove('bg-mode');
+
+            setTimeout(() => {
+                bbl.innerText = "...I cannot eat.";
+                bbl.style.left = '50%';
+                bbl.style.transform = 'translateX(-50%)';
+                bbl.classList.remove('bubble-update');
+                void bbl.offsetWidth;
+                bbl.classList.add('bubble-update');
+                
+                eyes.forEach(e => e.style.animation = 'none'); // Stop blinking to stare
+            }, 1500); // 1.5 seconds for him to fly to the table
+
+            setTimeout(() => {
+                restaurant.remove();
+                center.style.display = 'block';
+                eyes.forEach(e => e.style.animation = 'blink 6s infinite');
+                window.onDate = false; // Date is over!
+                syncBuddy(); 
+                fetchState(true);
+            }, 7500); // 1.5s flight + 6 seconds of staring
+            
+            return "Taking Buddy out for spaghetti...";
+        };
 
         async function moveBuddy(station) {
             currentStation = station;
@@ -95,23 +168,28 @@
             bbl.innerText = "Rerouting...";
             bbl.classList.add('bubble-update');
             await fetch('/api/move/' + station);
-            setTimeout(fetchState, 1500); // Fetch updated AI state shortly after
+            setTimeout(() => fetchState(true), 1500); // Force update to show reroute response
         }
 
         function updateClock() {
             const now = new Date();
             document.getElementById('ui-clock').innerText = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         }
-        async function fetchState() {
+        async function fetchState(force = false) {
+            if (window.onDate) return; // Don't interrupt his date!
+            
+            // Pause updates if user interacted in the last 60 seconds (unless manually routing Buddy)
+            if (!force && (Date.now() - lastInteraction < 60000)) return;
+
             try {
                 const res = await fetch('/api/state?_=' + new Date().getTime());
                 const s = await res.json();
-                document.getElementById('ui-date').innerText = s.date;
-                document.getElementById('ui-temp').innerText = s.temp;
-                document.getElementById('ui-desc').innerText = `${s.desc} | H: ${s.high}° L: ${s.low}°`;
-                document.getElementById('ui-forecast').innerText = s.forecast || '';
-                document.getElementById('ui-sugg').innerText = s.suggestion;
-                document.getElementById('ui-pulse').innerText = s.pulse;
+                softUpdate('ui-date', s.date);
+                softUpdate('ui-temp', s.temp);
+                softUpdate('ui-desc', `${s.desc} | H: ${s.high}° L: ${s.low}°`);
+                softUpdate('ui-forecast', s.forecast || '');
+                softUpdate('ui-sugg', s.suggestion);
+                softUpdate('ui-pulse', s.pulse);
                 
                 const bbl = document.getElementById('ui-bbl');
                 if (bbl.innerText !== s.bubble) {
@@ -130,7 +208,7 @@
                     document.getElementById('ui-zzz').style.animation = 'none';
                 }
                 
-                document.getElementById('ui-icon').src = `https://openweathermap.org/img/wn/${s.icon}@4x.png`;
+                softUpdate('ui-icon', `https://openweathermap.org/img/wn/${s.icon}@4x.png`, true);
                 document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
                 const t = document.getElementById(`pos-${s.station}`); if(t) t.classList.add('active');
                 document.getElementById('pos-bed').style.display = s.show_bed ? 'flex' : 'none';
@@ -163,6 +241,8 @@
             } catch(e) {}
         }
         function syncBuddy() {
+            if (window.onDate) return; // Freeze his position while on the date
+            
             const t = document.getElementById(`pos-${currentStation}`);
             const b = document.getElementById('buddy-container');
             if (t && b) {
@@ -191,7 +271,7 @@
                 }
             }
         }
-        setInterval(updateClock, 1000); setInterval(fetchState, 30000);
+        setInterval(updateClock, 1000); setInterval(() => fetchState(), 30000);
         updateClock(); fetchState(); window.addEventListener('resize', syncBuddy);
     </script>
 </body>

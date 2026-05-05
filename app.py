@@ -106,7 +106,7 @@ def run_sync():
 def sync_loop():
     while True:
         run_sync()
-        time.sleep(180)
+        time.sleep(600)
 
 @app.route('/')
 def index(): return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state)
