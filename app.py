@@ -145,6 +145,10 @@ def move_buddy(station):
     
     return jsonify(success=True)
 
+# When run with Gunicorn, this starts the sync loop without blocking the workers
+if __name__ != '__main__':
+    threading.Thread(target=sync_loop, daemon=True).start()
+
 if __name__ == '__main__':
     threading.Thread(target=sync_loop, daemon=True).start()
     app.run(host='0.0.0.0', port=5000, debug=False)
