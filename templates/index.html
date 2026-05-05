@@ -11,18 +11,20 @@
         #lore-trigger { position: fixed; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
         .lore-box { position: fixed; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
         #lore-trigger:hover + .lore-box { opacity: 1; pointer-events: all; }
-        .pod { position: absolute; width: 80px; height: 80px; border-radius: 50%; border: 1px solid rgba(0,255,255,0.05); background: rgba(0,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; opacity: 0.15; transition: 1.5s; }
+        .pod { position: absolute; width: 80px; height: 80px; border-radius: 50%; border: 1px solid rgba(0,255,255,0.05); background: rgba(0,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; opacity: 0.15; transition: all 0.4s ease; cursor: pointer; }
+        .pod:hover { opacity: 0.6; transform: scale(1.1); border-color: var(--accent); box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); z-index: 100; }
         .pod.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 40px var(--accent); }
         #pos-coffee { left: 5vw; top: 15vh; } #pos-office { left: 5vw; top: 40vh; } #pos-gym { left: 5vw; top: 65vh; } #pos-store { left: 15vw; top: 80vh; }
         #pos-library { right: 5vw; top: 15vh; } #pos-garage { right: 5vw; top: 40vh; } #pos-park { right: 5vw; top: 65vh; } #pos-kitchen { right: 15vw; top: 80vh; }
-        #pos-bed { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); width: 150px; height: 80px; border-radius: 20px; border: 2px solid var(--accent); display: none; align-items: center; justify-content: center; font-size: 4rem; background: rgba(255,255,255,0.03); z-index: 5; }
+        #pos-bed { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); width: 150px; height: 80px; border-radius: 20px; border: 2px solid var(--accent); display: none; align-items: center; justify-content: center; font-size: 4rem; background: rgba(255,255,255,0.03); z-index: 5; cursor: pointer; transition: all 0.4s ease; }
+        #pos-bed:hover { opacity: 0.8; transform: translateX(-50%) scale(1.05); border-color: #fff; box-shadow: 0 0 15px rgba(255, 255, 255, 0.3); z-index: 100; }
         #center-info { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 85vw; pointer-events: none; z-index: 10; }
         .date-line { font-size: 1.3rem; color: var(--accent); opacity: 0.6; margin-bottom: 5px; }
         .clock { font-size: 3.5rem; color: var(--accent); } .temp { font-size: 10rem; font-weight: 100; color: #fff; line-height: 0.8; letter-spacing: -5px; }
         .suggestion { font-size: 1.35rem; color: #fff; font-style: italic; margin: 15px auto; line-height: 1.3; }
         .forecast-line { font-size: 1.1rem; color: #fff; opacity: 0.9; margin: 10px auto; max-width: 80%; line-height: 1.4; }
         .pulse-line { font-size: 0.95rem; color: var(--accent); opacity: 0.75; margin: 15px auto 0; font-style: italic; font-weight: normal; border-top: 1px solid rgba(0,255,255,0.1); padding-top: 12px; width: 100%; max-width: 600px; line-height: 1.5; letter-spacing: 0.5px; }
-        #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s, top 1.5s; z-index: 1000; cursor: pointer; }
+        #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out; z-index: 1000; cursor: pointer; animation: float 6s ease-in-out infinite; }
         .buddy-body { width: 50px; height: 70px; background: var(--buddy-blue); border-radius: 50% 50% 40% 40%; position: absolute; left: 25px; top: 25px; box-shadow: inset -5px -5px 15px rgba(0,0,0,0.5); }
         .visor { width: 36px; height: 14px; background: #000; border-radius: 6px; position: absolute; top: 16px; left: 7px; border: 1px solid var(--accent); display: flex; align-items: center; justify-content: space-around; overflow: hidden; }
         .eye { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; animation: blink 6s infinite; }
@@ -39,6 +41,7 @@
         @keyframes drift-zzz { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-60px) scale(1.2); } }
         @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0); } }
         @keyframes fadeBubble { 0% { opacity: 0; } 100% { opacity: 1; } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
         .bubble-update { animation: fadeBubble 0.8s ease-out; }
     </style>
 </head>
@@ -47,7 +50,7 @@
     <div id="location">SAULT STE. MARIE, MICHIGAN</div>
     <div id="lore-trigger">i</div>
     <div class="lore-box">Hi I'm Buddy! Integrated Model Discovery 6.0 Active. Click my body to meet my creators!</div>
-    <div class="pods"><div class="pod" id="pos-coffee">☕</div><div class="pod" id="pos-office">💻</div><div class="pod" id="pos-gym">💪</div><div class="pod" id="pos-store">🛍️</div><div class="pod" id="pos-library">📖</div><div class="pod" id="pos-garage">🔧</div><div class="pod" id="pos-park">🚲</div><div class="pod" id="pos-kitchen">🍳</div><div id="pos-bed">🛏️</div></div>
+    <div class="pods"><div class="pod" id="pos-coffee" onclick="moveBuddy('coffee')">☕</div><div class="pod" id="pos-office" onclick="moveBuddy('office')">💻</div><div class="pod" id="pos-gym" onclick="moveBuddy('gym')">💪</div><div class="pod" id="pos-store" onclick="moveBuddy('store')">🛍️</div><div class="pod" id="pos-library" onclick="moveBuddy('library')">📖</div><div class="pod" id="pos-garage" onclick="moveBuddy('garage')">🔧</div><div class="pod" id="pos-park" onclick="moveBuddy('park')">🚲</div><div class="pod" id="pos-kitchen" onclick="moveBuddy('kitchen')">🍳</div><div id="pos-bed" onclick="moveBuddy('bed')">🛏️</div></div>
     <div id="center-info">
         <div class="date-line" id="ui-date"></div><div class="clock" id="ui-clock">--:-- --</div>
         <div class="temp-row" style="display:flex; justify-content:center; align-items:center;"><img id="ui-icon" src="" style="width:100px;"><div class="temp"><span id="ui-temp">--</span>°</div></div>
