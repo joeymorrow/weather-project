@@ -56,9 +56,9 @@
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: default; }
         #build-stamp:hover { opacity: 0.5; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; }
-        #buddy-container:hover { z-index: 2500 !important; transform: scale(1) translate(0px, 0px) !important; filter: brightness(1) !important; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 0.3s ease, filter 0.3s ease, z-index 0s !important; }
+        #buddy-container:hover { z-index: 2500 !important; transform: scale(1) !important; filter: brightness(1) !important; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 0.3s ease, filter 0.3s ease, z-index 0s !important; }
         #buddy-container::before { content: ''; position: absolute; inset: -45px; border-radius: 50%; }
-        .bg-mode { transform: scale(0.85) translate(45px, -35px); z-index: 20 !important; filter: brightness(1); }
+        .bg-mode { transform: scale(0.85); z-index: 3 !important; filter: brightness(0.85); }
         .orbiting-front { animation: orbit-front 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
         .orbiting-back { animation: orbit-back 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
         @keyframes swing-right { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(120px); } }
@@ -91,8 +91,8 @@
         @keyframes pulse-aura { 0% { transform: scale(0.8); opacity: 0.5; } 100% { transform: scale(1.1); opacity: 1; } }
         @keyframes spin-elemental { 100% { transform: rotate(360deg); } }
         @keyframes ripple-elemental { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.6); opacity: 0; } }
-        @keyframes orbit-front { 0% { transform: scale(0.75) translateX(0); z-index: 3; filter: brightness(0.85); } 49% { z-index: 3; } 50% { transform: scale(0.85) translateX(140px); z-index: 1000; filter: brightness(0.95); } 100% { transform: scale(1) translateX(0); z-index: 1000; filter: brightness(1); } }
-        @keyframes orbit-back { 0% { transform: scale(1) translateX(0); z-index: 1000; filter: brightness(1); } 49% { z-index: 1000; } 50% { transform: scale(0.85) translateX(-140px); z-index: 3; filter: brightness(0.95); } 100% { transform: scale(0.75) translateX(0); z-index: 3; filter: brightness(0.85); } }
+        @keyframes orbit-front { 0% { transform: scale(0.85); z-index: 3; filter: brightness(0.85); } 49% { z-index: 3; } 50% { transform: scale(0.95) translateY(-15px); z-index: 1000; filter: brightness(0.95); } 100% { transform: scale(1); z-index: 1000; filter: brightness(1); } }
+        @keyframes orbit-back { 0% { transform: scale(1); z-index: 1000; filter: brightness(1); } 49% { z-index: 1000; } 50% { transform: scale(0.95) translateY(-15px); z-index: 3; filter: brightness(0.95); } 100% { transform: scale(0.85); z-index: 3; filter: brightness(0.85); } }
         @keyframes crazy-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(1080deg); } }
         .crazy-spin { animation: crazy-spin 1.5s ease-in-out !important; }
         @keyframes shake { 0% { transform: translate(2px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(0px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(2px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(2px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
@@ -455,6 +455,7 @@
             if (t && b) {
                 if (b.dataset.station !== currentStation) {
                     b.dataset.station = currentStation;
+                    b.dataset.orbitSide = Math.random() > 0.5 ? 'left' : 'right';
                     
                     const swingWrapper = document.getElementById('buddy-swing');
                     if (swingWrapper && currentStation !== 'bed') {
@@ -479,8 +480,12 @@
                     rLeft = cx - 40; 
                 } else {
                     const r = t.getBoundingClientRect();
-                    b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2)) + 'px'; b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - 10) + 'px';
-                    rLeft = r.left; 
+                    let xOffset = 0;
+                    if (currentStation !== 'bed') {
+                        xOffset = b.dataset.orbitSide === 'left' ? -55 : 55;
+                    }
+                    b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2) + xOffset) + 'px'; b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - 10) + 'px';
+                    rLeft = r.left + xOffset; 
                 }
                 
                 const bbl = document.getElementById('ui-bbl');
