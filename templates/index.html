@@ -32,7 +32,7 @@
         body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: background 5s ease, color 5s ease; }
         #header-container { display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 20; pointer-events: none; }
         #header { font-size: clamp(1rem, 1.8vw, 2rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.8; text-transform: uppercase; text-align: center; }
-        #location { font-size: 1.5rem; opacity: 0.4; letter-spacing: 2px; margin-bottom: 2vh; text-align: center; }
+        #location { font-size: clamp(1rem, 1.5vw, 1.8rem); opacity: 0.4; letter-spacing: 2px; margin-bottom: 2vh; text-align: center; }
         #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
         .lore-box { position: absolute; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
         #lore-trigger:hover + .lore-box { opacity: 1; pointer-events: all; }
@@ -47,8 +47,8 @@
         #pos-bed { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 200px); height: clamp(60px, 8vmin, 100px); border-radius: 20px; border: 2px solid var(--pod-border); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 4rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
         #pos-bed:hover { filter: grayscale(0%) opacity(1); transform: translateX(-50%) scale(1.05); border-color: var(--accent); box-shadow: 0 0 20px var(--pod-hover-glow); z-index: 100; }
         #pos-bed.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); pointer-events: none; z-index: 6; }
-        #center-info { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 85vw; pointer-events: none; z-index: 10; }
-        .date-line { font-size: 1.2rem; color: var(--accent); opacity: 0.6; margin-bottom: 2vh; text-align: center; }
+        #center-info { position: absolute; top: 54%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 85vw; pointer-events: none; z-index: 10; }
+        .date-line { font-size: clamp(0.9rem, 1.2vw, 1.5rem); color: var(--accent); opacity: 0.6; margin-bottom: 2vh; text-align: center; }
         .clock { font-size: clamp(3rem, 6vw, 5rem); color: var(--accent); } .temp { font-size: clamp(6rem, 14vw, 14rem); font-weight: 100; color: var(--text-main); line-height: 0.8; letter-spacing: -5px; }
         .suggestion { font-size: clamp(1rem, 2vw, 1.8rem); color: var(--accent); font-weight: bold; margin: 15px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 8px 24px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); }
         .forecast-line { font-size: clamp(0.9rem, 1.5vw, 1.4rem); color: var(--text-main); opacity: 0.9; margin: 10px auto; max-width: 80%; line-height: 1.4; }
