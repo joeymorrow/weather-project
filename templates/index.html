@@ -101,9 +101,55 @@
         .rave-bg { animation: rave-colors 0.5s infinite alternate !important; }
         .bubble-update { animation: fadeBubble 0.8s ease-out; }
         @media (max-width: 600px) {
-            #center-info { top: 43%; width: 95vw; }
-            #location { margin-bottom: 0.5vh; }
-            .date-line { margin-bottom: 0.5vh; }
+            /* 1. Force the body into a safe vertical flex stack */
+            body {
+                display: flex !important;
+                flex-direction: column !important;
+                padding-bottom: 20px !important;
+                justify-content: flex-start !important;
+                height: 100vh !important;
+                overflow-x: hidden;
+            }
+            
+            /* 2. Shrink header and allow it to text-wrap instead of shifting layout */
+            #header-container { order: 1; position: relative !important; z-index: 20; }
+            #header { font-size: clamp(1rem, 4.5vw, 1.5rem) !important; }
+            #location { font-size: clamp(0.8rem, 4vw, 1.1rem) !important; margin-bottom: 0.5vh !important; white-space: normal !important; word-wrap: break-word; }
+            .date-line { margin-bottom: 0.5vh !important; }
+            
+            /* 3. Strip absolute positioning from info and pull it neatly into the stack */
+            #center-info {
+                order: 2;
+                position: relative !important;
+                top: auto !important;
+                left: auto !important;
+                transform: none !important;
+                width: 95vw !important;
+                display: flex !important;
+                flex-direction: column !important;
+                margin: 10px auto !important;
+            }
+            
+            /* 4. Anchor Buddy securely below the text, pushing him down using auto margin */
+            #buddy-container {
+                order: 3;
+                position: relative !important;
+                top: auto !important;
+                left: auto !important;
+                transform: none !important;
+                margin: auto auto 20px auto !important;
+                z-index: 50 !important;
+            }
+            
+            /* Move the speech bubble safely above Buddy's head */
+            .bubble { bottom: 120% !important; left: 50% !important; transform: translateX(-50%) !important; z-index: 100 !important; margin-bottom: 10px !important; }
+            
+            /* 5. Force the pods into a static, single row at the very bottom */
+            .pods { order: 4; display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; justify-content: center !important; width: 100% !important; position: relative !important; z-index: 60 !important; }
+            
+            /* Overrides the JS opacity/pointer-events wheel logic and locks them at 60% scale */
+            .pod { position: relative !important; left: auto !important; top: auto !important; transform: scale(0.6) !important; margin: -10px -5px !important; opacity: 1 !important; pointer-events: auto !important; }
+            #pos-bed { position: relative !important; left: auto !important; bottom: auto !important; transform: scale(0.6) !important; margin: -10px -5px !important; }
         }
     </style>
 </head>
