@@ -22,11 +22,11 @@
     <title>Morrow Edge | BEACON</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
     <style>
-        :root { color-scheme: dark; --accent: #00ffff; --bg: #010103; --dim: rgba(0, 238, 255, 0.55); --buddy-blue: #1a73e8; --text-main: #fff; }
-        body.day-mode { color-scheme: light; --bg: #e4eef6; --accent: #006064; --dim: rgba(0, 96, 100, 0.7); --buddy-blue: #00838f; --text-main: #002b36; }
+        :root { color-scheme: dark; --accent: #00ffff; --bg: #010103; --dim: rgba(0, 238, 255, 0.55); --buddy-blue: #1a73e8; --text-main: #fff; --pod-border: rgba(0,255,255,0.15); --pod-bg: rgba(0,255,255,0.03); --pod-hover-glow: rgba(0, 255, 255, 0.3); --pod-active-bg: rgba(0,255,255,0.15); }
+        body.day-mode { color-scheme: light; --bg: #eaf0f6; --accent: #006064; --dim: rgba(0, 96, 100, 0.7); --buddy-blue: #00838f; --text-main: #002b36; --pod-border: rgba(0,96,100,0.15); --pod-bg: rgba(0,96,100,0.05); --pod-hover-glow: rgba(0, 96, 100, 0.2); --pod-active-bg: rgba(0,96,100,0.1); }
         body.day-mode .suggestion { background: rgba(0, 96, 100, 0.05); border-color: rgba(0, 96, 100, 0.2); }
         body.day-mode .buddy-body { box-shadow: inset -5px -10px 15px rgba(0,0,0,0.1), 0 8px 20px rgba(0,0,0,0.2), 0 0 15px rgba(0,96,100,0.2); }
-        body.golden-mode { color-scheme: dark; --bg: #1a0b12; --accent: #ff8c42; --dim: rgba(255, 140, 66, 0.7); --buddy-blue: #d84b20; --text-main: #ffe0b2; }
+        body.golden-mode { color-scheme: dark; --bg: #1a0b12; --accent: #ff8c42; --dim: rgba(255, 140, 66, 0.7); --buddy-blue: #d84b20; --text-main: #ffe0b2; --pod-border: rgba(255,140,66,0.15); --pod-bg: rgba(255,140,66,0.05); --pod-hover-glow: rgba(255, 140, 66, 0.2); --pod-active-bg: rgba(255,140,66,0.1); }
         body.golden-mode .suggestion { background: rgba(255, 140, 66, 0.05); border-color: rgba(255, 140, 66, 0.2); }
         body.golden-mode .buddy-body { box-shadow: inset -5px -10px 15px rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.3), 0 0 15px rgba(255,140,66,0.2); }
         body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: background 5s ease, color 5s ease; }
@@ -36,16 +36,17 @@
         #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
         .lore-box { position: absolute; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
         #lore-trigger:hover + .lore-box { opacity: 1; pointer-events: all; }
-        .pod { position: absolute; width: clamp(60px, 8vmin, 100px); height: clamp(60px, 8vmin, 100px); border-radius: 50%; border: 1px solid rgba(0,255,255,0.05); background: rgba(0,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 2.5rem); opacity: 0.15; transition: all 0.4s ease; cursor: pointer; z-index: 5; }
-        .pod:hover { opacity: 0.6; transform: scale(1.1); border-color: var(--accent); box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); z-index: 100 !important; }
-        .pod.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 40px var(--accent), inset 0 0 20px var(--accent); background: rgba(0,255,255,0.15); z-index: 6; pointer-events: none; }
+        .pod { position: absolute; width: clamp(60px, 8vmin, 100px); height: clamp(60px, 8vmin, 100px); border-radius: 50%; border: 1px solid var(--pod-border); background: var(--pod-bg); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 2.5rem); filter: grayscale(80%) opacity(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+        .pod:hover { filter: grayscale(0%) opacity(1); transform: scale(1.1); border-color: var(--accent); box-shadow: 0 0 20px var(--pod-hover-glow); z-index: 100 !important; }
+        .pod.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); z-index: 6; pointer-events: none; }
         .pod::before, .pod::after { content: ''; position: absolute; border-radius: 50%; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
-        .pod.active::before { inset: -8px; border: 2px dashed var(--accent); animation: spin-elemental 6s linear infinite; opacity: 1; }
-        .pod.active::after { inset: 0; border: 2px solid var(--accent); animation: ripple-elemental 2.5s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; opacity: 1; }
+        .pod.active::before { inset: -8px; border: 2px dashed var(--accent); animation: spin-elemental 8s linear infinite; opacity: 0.5; }
+        .pod.active::after { inset: 0; border: 2px solid var(--accent); animation: ripple-elemental 3s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; opacity: 0.6; }
         #pos-coffee { left: 5vw; top: 15vh; } #pos-office { left: 5vw; top: 40vh; } #pos-gym { left: 5vw; top: 65vh; } #pos-store { left: 15vw; top: 80vh; }
         #pos-library { right: 5vw; top: 15vh; } #pos-garage { right: 5vw; top: 40vh; } #pos-park { right: 5vw; top: 65vh; } #pos-kitchen { right: 15vw; top: 80vh; }
-        #pos-bed { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 200px); height: clamp(60px, 8vmin, 100px); border-radius: 20px; border: 2px solid var(--accent); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 4rem); background: rgba(255,255,255,0.03); z-index: 5; cursor: pointer; transition: all 0.4s ease; }
-        #pos-bed:hover { opacity: 0.8; transform: translateX(-50%) scale(1.05); border-color: var(--text-main); box-shadow: 0 0 15px rgba(255, 255, 255, 0.3); z-index: 100; }
+        #pos-bed { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 200px); height: clamp(60px, 8vmin, 100px); border-radius: 20px; border: 2px solid var(--pod-border); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 4rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+        #pos-bed:hover { filter: grayscale(0%) opacity(1); transform: translateX(-50%) scale(1.05); border-color: var(--accent); box-shadow: 0 0 20px var(--pod-hover-glow); z-index: 100; }
+        #pos-bed.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); pointer-events: none; z-index: 6; }
         #center-info { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 85vw; pointer-events: none; z-index: 10; }
         .date-line { font-size: 1.2rem; color: var(--accent); opacity: 0.6; margin-bottom: 2vh; text-align: center; }
         .clock { font-size: clamp(3rem, 6vw, 5rem); color: var(--accent); } .temp { font-size: clamp(6rem, 14vw, 14rem); font-weight: 100; color: var(--text-main); line-height: 0.8; letter-spacing: -5px; }
