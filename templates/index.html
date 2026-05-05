@@ -30,6 +30,8 @@
         #build-stamp { position: fixed; bottom: 8px; right: 12px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: none; z-index: 2000; letter-spacing: 1px; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; }
         .bg-mode { transform: scale(0.75); z-index: 3 !important; filter: brightness(0.85); }
+        .orbiting-front { animation: orbit-front 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
+        .orbiting-back { animation: orbit-back 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
         #buddy-float { width: 100%; height: 100%; position: relative; animation: float 6s ease-in-out infinite; }
         .buddy-aura { position: absolute; width: 140px; height: 140px; left: -20px; top: -10px; background: radial-gradient(circle, rgba(0,255,255,0.4) 0%, transparent 65%); border-radius: 50%; z-index: -1; animation: pulse-aura 3s infinite alternate; pointer-events: none; }
         .buddy-body { width: 54px; height: 72px; background: var(--buddy-blue); border-radius: 45%; position: absolute; left: 23px; top: 22px; box-shadow: inset -5px -10px 15px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.5), 0 0 15px rgba(0,255,255,0.3); }
@@ -52,6 +54,8 @@
         @keyframes pulse-aura { 0% { transform: scale(0.8); opacity: 0.5; } 100% { transform: scale(1.1); opacity: 1; } }
         @keyframes spin-elemental { 100% { transform: rotate(360deg); } }
         @keyframes ripple-elemental { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.6); opacity: 0; } }
+        @keyframes orbit-front { 0% { transform: scale(0.75) translateX(0); z-index: 3; filter: brightness(0.85); } 49% { z-index: 3; } 50% { transform: scale(0.85) translateX(140px); z-index: 1000; filter: brightness(0.95); } 100% { transform: scale(1) translateX(0); z-index: 1000; filter: brightness(1); } }
+        @keyframes orbit-back { 0% { transform: scale(1) translateX(0); z-index: 1000; filter: brightness(1); } 49% { z-index: 1000; } 50% { transform: scale(0.85) translateX(-140px); z-index: 3; filter: brightness(0.95); } 100% { transform: scale(0.75) translateX(0); z-index: 3; filter: brightness(0.85); } }
         .bubble-update { animation: fadeBubble 0.8s ease-out; }
     </style>
 </head>
@@ -80,6 +84,7 @@
     </div>
     <script>
         let currentStation = "";
+        let lastPulse = "";
 
         async function moveBuddy(station) {
             currentStation = station;
@@ -133,6 +138,28 @@
                 const hands = {'mug':'☕','wrench':'🛠️','obd2':'🔌','laptop':'💻','book':'📖','zzz':'😴'};
                 document.getElementById('ui-hand').innerText = hands[s.acc_css] || '';
                 currentStation = s.station; syncBuddy();
+                
+                // Check if the pulse is uninspired ("lame")
+                if (s.pulse !== lastPulse && lastPulse !== "") {
+                    if (s.pulse.length < 85 && s.station !== 'bed') {
+                        setTimeout(() => {
+                            bbl.innerText = "Yawn... standard rhythm today.";
+                            bbl.classList.remove('bubble-update');
+                            void bbl.offsetWidth;
+                            bbl.classList.add('bubble-update');
+                            
+                            const b = document.getElementById('buddy-container');
+                            if (b.classList.contains('bg-mode')) {
+                                b.classList.add('orbiting-front');
+                                setTimeout(() => { b.classList.remove('bg-mode', 'orbiting-front'); }, 2500);
+                            } else {
+                                b.classList.add('orbiting-back');
+                                setTimeout(() => { b.classList.add('bg-mode'); b.classList.remove('orbiting-back'); }, 2500);
+                            }
+                        }, 3000); // Give him a moment to read the pulse before getting bored
+                    }
+                }
+                lastPulse = s.pulse;
             } catch(e) {}
         }
         function syncBuddy() {
