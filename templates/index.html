@@ -21,11 +21,12 @@
     <meta name="color-scheme" content="dark">
     <style>
         :root { color-scheme: dark; --accent: #00ffff; --bg: #010103; --dim: rgba(0, 238, 255, 0.55); --buddy-blue: #1a73e8; }
-        body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; width: 100vw; }
-        #header { position: absolute; top: 4vh; width: 100%; text-align: center; font-size: clamp(1rem, 1.8vw, 2rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.8; text-transform: uppercase; z-index: 20; pointer-events: none; }
-        #location { position: absolute; top: 7vh; width: 100%; text-align: center; font-size: clamp(0.7rem, 1.2vw, 1.2rem); opacity: 0.4; letter-spacing: 2px; z-index: 20; pointer-events: none; }
-        #lore-trigger { position: fixed; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
-        .lore-box { position: fixed; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
+        body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; }
+        #header-container { display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 20; pointer-events: none; }
+        #header { font-size: clamp(1rem, 1.8vw, 2rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.8; text-transform: uppercase; text-align: center; }
+        #location { font-size: 1.5rem; opacity: 0.4; letter-spacing: 2px; margin-bottom: 2vh; text-align: center; }
+        #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
+        .lore-box { position: absolute; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
         #lore-trigger:hover + .lore-box { opacity: 1; pointer-events: all; }
         .pod { position: absolute; width: clamp(60px, 8vmin, 100px); height: clamp(60px, 8vmin, 100px); border-radius: 50%; border: 1px solid rgba(0,255,255,0.05); background: rgba(0,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 2.5rem); opacity: 0.15; transition: all 0.4s ease; cursor: pointer; z-index: 5; }
         .pod:hover { opacity: 0.6; transform: scale(1.1); border-color: var(--accent); box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); z-index: 100 !important; }
@@ -38,12 +39,12 @@
         #pos-bed { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 200px); height: clamp(60px, 8vmin, 100px); border-radius: 20px; border: 2px solid var(--accent); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 4rem); background: rgba(255,255,255,0.03); z-index: 5; cursor: pointer; transition: all 0.4s ease; }
         #pos-bed:hover { opacity: 0.8; transform: translateX(-50%) scale(1.05); border-color: #fff; box-shadow: 0 0 15px rgba(255, 255, 255, 0.3); z-index: 100; }
         #center-info { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 85vw; pointer-events: none; z-index: 10; }
-        .date-line { font-size: clamp(1rem, 2vw, 1.5rem); color: var(--accent); opacity: 0.6; margin-bottom: 5px; }
+        .date-line { font-size: 1.2rem; color: var(--accent); opacity: 0.6; margin-bottom: 2vh; text-align: center; }
         .clock { font-size: clamp(3rem, 6vw, 5rem); color: var(--accent); } .temp { font-size: clamp(6rem, 14vw, 14rem); font-weight: 100; color: #fff; line-height: 0.8; letter-spacing: -5px; }
         .suggestion { font-size: clamp(1rem, 2vw, 1.8rem); color: var(--accent); font-weight: bold; margin: 15px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 8px 24px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); }
         .forecast-line { font-size: clamp(0.9rem, 1.5vw, 1.4rem); color: #fff; opacity: 0.9; margin: 10px auto; max-width: 80%; line-height: 1.4; }
         .pulse-line { font-size: clamp(0.85rem, 1.2vw, 1.2rem); color: var(--accent); opacity: 0.75; margin: 15px auto 0; font-style: italic; font-weight: normal; border-top: 1px solid rgba(0,255,255,0.1); padding-top: 12px; width: 100%; max-width: 600px; line-height: 1.5; letter-spacing: 0.5px; }
-        #build-stamp { position: fixed; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: default; }
+        #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: default; }
         #build-stamp:hover { opacity: 0.5; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; }
         #buddy-container:hover { z-index: 2500 !important; transform: scale(1) !important; filter: brightness(1) !important; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 0.3s ease, filter 0.3s ease, z-index 0s !important; }
@@ -94,14 +95,17 @@
     </style>
 </head>
 <body>
-    <div id="header">MORROW EDGE | BEACON Buddy</div>
-    <div id="location">SAULT STE. MARIE, MICHIGAN</div>
+    <div id="header-container">
+        <div id="header">MORROW EDGE | BEACON Buddy</div>
+        <div class="date-line" id="ui-date">{{ date }}</div>
+        <div id="location">SAULT STE. MARIE, MICHIGAN</div>
+    </div>
     <div id="lore-trigger">i</div>
     <div class="lore-box">Hi I'm Buddy! Integrated Model Discovery 6.0 Active. Click my body to meet my creators!</div>
     <div id="build-stamp">BUILD: {{ build_timestamp }}</div>
     <div class="pods"><div class="pod" id="pos-coffee" onclick="moveBuddy('coffee')">☕</div><div class="pod" id="pos-office" onclick="moveBuddy('office')">💻</div><div class="pod" id="pos-gym" onclick="moveBuddy('gym')">💪</div><div class="pod" id="pos-store" onclick="moveBuddy('store')">🛍️</div><div class="pod" id="pos-library" onclick="moveBuddy('library')">📖</div><div class="pod" id="pos-garage" onclick="moveBuddy('garage')">🔧</div><div class="pod" id="pos-park" onclick="moveBuddy('park')">🚲</div><div class="pod" id="pos-kitchen" onclick="moveBuddy('kitchen')">🍳</div><div id="pos-bed" onclick="moveBuddy('bed')">🛏️</div></div>
     <div id="center-info">
-        <div class="date-line" id="ui-date">{{ date }}</div><div class="clock" id="ui-clock">--:-- --</div>
+        <div class="clock" id="ui-clock">--:-- --</div>
         <div class="temp-row" style="display:flex; justify-content:center; align-items:center;"><img id="ui-icon" src="https://openweathermap.org/img/wn/{{ icon }}@4x.png" style="width: clamp(80px, 10vw, 150px);"><div class="temp"><span id="ui-temp">{{ temp }}</span>°</div></div>
         <div id="ui-desc" style="font-size: clamp(1.1rem, 2vw, 1.5rem); opacity: 0.7;">{{ desc }} | H: {{ high }}° L: {{ low }}°</div>
         <div class="forecast-line" id="ui-forecast">{{ forecast }}</div>
