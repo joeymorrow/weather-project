@@ -11,9 +11,12 @@
         #lore-trigger { position: fixed; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
         .lore-box { position: fixed; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
         #lore-trigger:hover + .lore-box { opacity: 1; pointer-events: all; }
-        .pod { position: absolute; width: 80px; height: 80px; border-radius: 50%; border: 1px solid rgba(0,255,255,0.05); background: rgba(0,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; opacity: 0.15; transition: all 0.4s ease; cursor: pointer; }
-        .pod:hover { opacity: 0.6; transform: scale(1.1); border-color: var(--accent); box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); z-index: 100; }
-        .pod.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 40px var(--accent); }
+        .pod { position: absolute; width: 80px; height: 80px; border-radius: 50%; border: 1px solid rgba(0,255,255,0.05); background: rgba(0,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; opacity: 0.15; transition: all 0.4s ease; cursor: pointer; z-index: 5; }
+        .pod:hover { opacity: 0.6; transform: scale(1.1); border-color: var(--accent); box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); z-index: 100 !important; }
+        .pod.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 40px var(--accent), inset 0 0 20px var(--accent); background: rgba(0,255,255,0.15); z-index: 6; }
+        .pod::before, .pod::after { content: ''; position: absolute; border-radius: 50%; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+        .pod.active::before { inset: -8px; border: 2px dashed var(--accent); animation: spin-elemental 6s linear infinite; opacity: 1; }
+        .pod.active::after { inset: 0; border: 2px solid var(--accent); animation: ripple-elemental 2.5s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; opacity: 1; }
         #pos-coffee { left: 5vw; top: 15vh; } #pos-office { left: 5vw; top: 40vh; } #pos-gym { left: 5vw; top: 65vh; } #pos-store { left: 15vw; top: 80vh; }
         #pos-library { right: 5vw; top: 15vh; } #pos-garage { right: 5vw; top: 40vh; } #pos-park { right: 5vw; top: 65vh; } #pos-kitchen { right: 15vw; top: 80vh; }
         #pos-bed { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); width: 150px; height: 80px; border-radius: 20px; border: 2px solid var(--accent); display: none; align-items: center; justify-content: center; font-size: 4rem; background: rgba(255,255,255,0.03); z-index: 5; cursor: pointer; transition: all 0.4s ease; }
@@ -25,8 +28,11 @@
         .forecast-line { font-size: 1.1rem; color: #fff; opacity: 0.9; margin: 10px auto; max-width: 80%; line-height: 1.4; }
         .pulse-line { font-size: 0.95rem; color: var(--accent); opacity: 0.75; margin: 15px auto 0; font-style: italic; font-weight: normal; border-top: 1px solid rgba(0,255,255,0.1); padding-top: 12px; width: 100%; max-width: 600px; line-height: 1.5; letter-spacing: 0.5px; }
         #build-stamp { position: fixed; bottom: 8px; right: 12px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: none; z-index: 2000; letter-spacing: 1px; }
-        #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out; z-index: 1000; cursor: pointer; animation: float 6s ease-in-out infinite; }
-        .buddy-body { width: 54px; height: 72px; background: var(--buddy-blue); border-radius: 45%; position: absolute; left: 23px; top: 22px; box-shadow: inset -5px -10px 15px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.5); }
+        #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; }
+        .bg-mode { transform: scale(0.75); z-index: 3 !important; filter: brightness(0.85); }
+        #buddy-float { width: 100%; height: 100%; position: relative; animation: float 6s ease-in-out infinite; }
+        .buddy-aura { position: absolute; width: 140px; height: 140px; left: -20px; top: -10px; background: radial-gradient(circle, rgba(0,255,255,0.4) 0%, transparent 65%); border-radius: 50%; z-index: -1; animation: pulse-aura 3s infinite alternate; pointer-events: none; }
+        .buddy-body { width: 54px; height: 72px; background: var(--buddy-blue); border-radius: 45%; position: absolute; left: 23px; top: 22px; box-shadow: inset -5px -10px 15px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.5), 0 0 15px rgba(0,255,255,0.3); }
         .visor { width: 44px; height: 22px; background: #000; border-radius: 12px; position: absolute; top: 15px; left: 5px; display: flex; align-items: center; justify-content: space-around; overflow: hidden; box-shadow: inset 0 3px 6px rgba(255,255,255,0.2); }
         .eye { width: 8px; height: 5px; background: var(--accent); border-radius: 50%; animation: blink 6s infinite; box-shadow: 0 0 8px var(--accent); }
         .mouth { position: absolute; width: 8px; height: 2px; background: var(--accent); bottom: 3px; left: 50%; transform: translateX(-50%); border-radius: 2px; display: none; }
@@ -43,6 +49,9 @@
         @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0); } }
         @keyframes fadeBubble { 0% { opacity: 0; } 100% { opacity: 1; } }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+        @keyframes pulse-aura { 0% { transform: scale(0.8); opacity: 0.5; } 100% { transform: scale(1.1); opacity: 1; } }
+        @keyframes spin-elemental { 100% { transform: rotate(360deg); } }
+        @keyframes ripple-elemental { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.6); opacity: 0; } }
         .bubble-update { animation: fadeBubble 0.8s ease-out; }
     </style>
 </head>
@@ -62,9 +71,12 @@
         <div class="suggestion" id="ui-sugg">Ready...</div><div class="pulse-line" id="ui-pulse">--</div>
     </div>
     <div id="buddy-container" onclick="location.href='https://morrowedge.com'">
-        <div class="bubble" id="ui-bbl">...</div><div class="zzz-socket" id="ui-zzz">💤</div>
-        <div class="arm left"></div><div class="buddy-body"><div class="visor"><div class="eye"></div><div class="eye"></div><div class="mouth" id="ui-mouth"></div></div></div>
-        <div class="arm right"><div class="hand-socket" id="ui-hand"></div></div>
+        <div id="buddy-float">
+            <div class="buddy-aura"></div>
+            <div class="bubble" id="ui-bbl">...</div><div class="zzz-socket" id="ui-zzz">💤</div>
+            <div class="arm left"></div><div class="buddy-body"><div class="visor"><div class="eye"></div><div class="eye"></div><div class="mouth" id="ui-mouth"></div></div></div>
+            <div class="arm right"><div class="hand-socket" id="ui-hand"></div></div>
+        </div>
     </div>
     <script>
         let currentStation = "";
@@ -128,6 +140,16 @@
             const b = document.getElementById('buddy-container');
             if (t && b) {
                 const r = t.getBoundingClientRect();
+                
+                if (b.dataset.station !== currentStation) {
+                    b.dataset.station = currentStation;
+                    if (Math.random() > 0.5 && currentStation !== 'bed') {
+                        b.classList.add('bg-mode');
+                    } else {
+                        b.classList.remove('bg-mode');
+                    }
+                }
+
                 b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2)) + 'px';
                 const off = (window.innerWidth < 600) ? 5 : 10;
                 b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - off) + 'px';
