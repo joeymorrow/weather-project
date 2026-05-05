@@ -47,6 +47,9 @@ jobs:
     needs: qa
     runs-on: self-hosted
     steps:
+      - name: Clean up workspace permissions
+        run: sudo chown -R $USER:$USER . || true
+
       - name: Checkout Code
         uses: actions/checkout@v5
 
