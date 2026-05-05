@@ -6,6 +6,13 @@
   hidden Spaghetti Date, open your browser's 
   Developer Console and type: 
   takeBuddyOnDate() 
+  activateRaveMode()
+  unleashKaijuBuddy()
+  
+  Or try typing these secret words directly 
+  on your keyboard:
+  - "matrix"
+  - "spin"
   =========================================
 -->
 <html lang="en">
@@ -67,6 +74,13 @@
         @keyframes ripple-elemental { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.6); opacity: 0; } }
         @keyframes orbit-front { 0% { transform: scale(0.75) translateX(0); z-index: 3; filter: brightness(0.85); } 49% { z-index: 3; } 50% { transform: scale(0.85) translateX(140px); z-index: 1000; filter: brightness(0.95); } 100% { transform: scale(1) translateX(0); z-index: 1000; filter: brightness(1); } }
         @keyframes orbit-back { 0% { transform: scale(1) translateX(0); z-index: 1000; filter: brightness(1); } 49% { z-index: 1000; } 50% { transform: scale(0.85) translateX(-140px); z-index: 3; filter: brightness(0.95); } 100% { transform: scale(0.75) translateX(0); z-index: 3; filter: brightness(0.85); } }
+        @keyframes crazy-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(1080deg); } }
+        .crazy-spin { animation: crazy-spin 1.5s ease-in-out !important; }
+        @keyframes shake { 0% { transform: translate(2px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(0px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(2px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(2px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
+        .shake-screen { animation: shake 0.5s infinite; }
+        .kaiju-mode { transform: scale(8) !important; transition: transform 2s ease-in-out !important; }
+        @keyframes rave-colors { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+        .rave-bg { animation: rave-colors 0.5s infinite alternate !important; }
         .bubble-update { animation: fadeBubble 0.8s ease-out; }
     </style>
 </head>
@@ -100,11 +114,39 @@
         let currentStation = "";
         let lastPulse = "";
         let lastInteraction = 0;
+        let keyBuffer = "";
 
-        // Track user interaction to prevent UI shifting while they are looking
-        ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(evt => 
-            window.addEventListener(evt, () => lastInteraction = Date.now())
-        );
+        window.addEventListener('keydown', (e) => {
+            lastInteraction = Date.now();
+            if (e.key && e.key.length === 1) {
+                keyBuffer += e.key.toLowerCase();
+                if (keyBuffer.length > 15) keyBuffer = keyBuffer.slice(-15);
+                
+                // Easter Egg 1: Spin
+                if (keyBuffer.endsWith('spin')) {
+                    const b = document.getElementById('buddy-container');
+                    b.classList.add('crazy-spin');
+                    setTimeout(() => b.classList.remove('crazy-spin'), 1500);
+                    keyBuffer = "";
+                }
+                // Easter Egg 2: Matrix Mode
+                if (keyBuffer.endsWith('matrix')) {
+                    document.documentElement.style.setProperty('--accent', '#00ff00');
+                    document.documentElement.style.setProperty('--dim', '#00aa00');
+                    document.documentElement.style.setProperty('--buddy-blue', '#003300');
+                    document.body.style.fontFamily = 'monospace';
+                    const bbl = document.getElementById('ui-bbl');
+                    bbl.innerText = "Wake up...";
+                    bbl.classList.remove('bubble-update');
+                    void bbl.offsetWidth;
+                    bbl.classList.add('bubble-update');
+                    keyBuffer = "";
+                }
+            }
+        });
+
+        // Track user interaction (mouse/touch) to prevent UI shifting
+        ['mousemove', 'mousedown', 'touchstart'].forEach(evt => window.addEventListener(evt, () => lastInteraction = Date.now()));
 
         function leaveForMorrowEdge() {
             if (window.onDate) return; // Don't leave if he's eating pasta!
@@ -177,6 +219,57 @@
             return "Taking Buddy out for spaghetti...";
         };
 
+        // 🕺 EASTER EGG: Rave Mode
+        window.activateRaveMode = function() {
+            if (window.onDate || window.isKaiju) return "Buddy is busy!";
+            window.isRaving = true;
+            document.body.classList.add('rave-bg');
+            document.querySelectorAll('.pod').forEach(p => p.classList.add('active'));
+            
+            const b = document.getElementById('buddy-container');
+            const bbl = document.getElementById('ui-bbl');
+            b.style.animation = 'crazy-spin 0.8s infinite';
+            
+            bbl.innerText = "WUB WUB WUB WUB";
+            bbl.classList.remove('bubble-update');
+            void bbl.offsetWidth;
+            bbl.classList.add('bubble-update');
+            
+            setTimeout(() => {
+                document.body.classList.remove('rave-bg');
+                b.style.animation = '';
+                window.isRaving = false;
+                syncBuddy();
+                fetchState(true);
+            }, 8000);
+            return "Dropping the bass...";
+        };
+
+        // 🦖 EASTER EGG: Kaiju Buddy
+        window.unleashKaijuBuddy = function() {
+            if (window.onDate || window.isRaving) return "Buddy is busy!";
+            window.isKaiju = true;
+            const b = document.getElementById('buddy-container');
+            const bbl = document.getElementById('ui-bbl');
+            
+            b.style.left = (window.innerWidth / 2 - b.offsetWidth / 2) + 'px';
+            b.style.top = (window.innerHeight / 2 - b.offsetHeight / 2) + 'px';
+            b.classList.add('kaiju-mode');
+            document.body.classList.add('shake-screen');
+            
+            bbl.innerText = "I REQUIRE MORE RAM.";
+            bbl.classList.add('bubble-update');
+
+            setTimeout(() => {
+                b.classList.remove('kaiju-mode');
+                document.body.classList.remove('shake-screen');
+                window.isKaiju = false;
+                syncBuddy();
+                fetchState(true);
+            }, 7000);
+            return "Oh no... what have you done?";
+        };
+
         async function moveBuddy(station) {
             currentStation = station;
             document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
@@ -194,7 +287,7 @@
             document.getElementById('ui-clock').innerText = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         }
         async function fetchState(force = false) {
-            if (window.onDate) return; // Don't interrupt his date!
+            if (window.onDate || window.isRaving || window.isKaiju) return; // Don't interrupt easter eggs!
             
             // Pause updates if user interacted in the last 60 seconds (unless manually routing Buddy)
             if (!force && (Date.now() - lastInteraction < 60000)) return;
@@ -259,7 +352,7 @@
             } catch(e) {}
         }
         function syncBuddy() {
-            if (window.onDate) return; // Freeze his position while on the date
+            if (window.onDate || window.isRaving || window.isKaiju) return; // Freeze his position during eggs
             
             const t = document.getElementById(`pos-${currentStation}`);
             const b = document.getElementById('buddy-container');
