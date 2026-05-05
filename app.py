@@ -11,6 +11,8 @@ TZ = pytz.timezone('America/Detroit')
 G_KEY = os.environ.get("GEMINI_API_KEY", "")
 OWM_KEY = os.environ.get("OPENWEATHERMAP_API_KEY", "")
 STATE_FILE = "buddy_state.json"
+manual_override = None
+override_expiry = 0
 
 state = {
     "temp": 0, "suggestion": "Initializing...", "station": "office", 
@@ -55,6 +57,13 @@ def run_sync():
         is_sleep = (h >= 22 or h < 6)
         st_id = "bed" if is_sleep else next((v for k,v in {21:"kitchen", 20:"garage", 19:"library", 17:"store", 16:"gym", 8:"office", 6:"coffee"}.items() if h >= k), "coffee")
 
+        global manual_override, override_expiry
+        if manual_override and time.time() < override_expiry:
+            st_id = manual_override
+            is_sleep = (st_id == "bed")
+        else:
+            manual_override = None
+
         client = genai.Client(api_key=G_KEY)
         forecast_context = ", ".join([f"{i['dt_txt'].split(' ')[1][:5]} {i['weather'][0]['description']} {int(i['main']['temp'])}F" for i in f['list'][:8]])
         time_str = now.strftime('%I:%M %p')
@@ -89,7 +98,7 @@ def run_sync():
             "low": int(min([i['main']['temp_min'] for i in f['list'][:8]])),
             "desc": w['weather'][0]['description'].title(), "icon": w['weather'][0]['icon'],
             "date": now.strftime(f"%A, %B {day}{suffix}, %Y"), "time": now.strftime('%I:%M %p'), 
-            "station": st_id, "is_sleeping": is_sleep, "show_bed": (h >= 21 or h < 6)
+            "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6)
         })
         with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
     except Exception as e: print(f"[ERROR] {e}", flush=True)
@@ -103,6 +112,16 @@ def sync_loop():
 def index(): return render_template('index.html', **state)
 @app.route('/api/state')
 def get_state(): return jsonify(state)
+
+@app.route('/api/move/<station>')
+def move_buddy(station):
+    global state, manual_override, override_expiry
+    manual_override = station
+    override_expiry = time.time() + 3600 # Manual override lasts 1 hour
+    now = datetime.now(TZ)
+    state.update({"station": station, "is_sleeping": (station == "bed"), "bubble": "Rerouting...", "acc_css": "none" if station != "bed" else "zzz", "show_bed": (station == "bed" or now.hour >= 21 or now.hour < 6)})
+    threading.Thread(target=run_sync, daemon=True).start()
+    return jsonify(success=True)
 
 if __name__ == '__main__':
     threading.Thread(target=sync_loop, daemon=True).start()

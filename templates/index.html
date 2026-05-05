@@ -66,6 +66,19 @@
     </div>
     <script>
         let currentStation = "";
+
+        async function moveBuddy(station) {
+            currentStation = station;
+            document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
+            const t = document.getElementById(`pos-${station}`); if(t) t.classList.add('active');
+            syncBuddy();
+            const bbl = document.getElementById('ui-bbl');
+            bbl.innerText = "Rerouting...";
+            bbl.classList.add('bubble-update');
+            await fetch('/api/move/' + station);
+            setTimeout(fetchState, 1500); // Fetch updated AI state shortly after
+        }
+
         function updateClock() {
             const now = new Date();
             document.getElementById('ui-clock').innerText = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
