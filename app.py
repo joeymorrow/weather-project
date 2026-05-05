@@ -57,6 +57,14 @@ def run_sync():
         h = now.hour
         is_sleep = (h >= 22 or h < 6)
         st_id = "bed" if is_sleep else next((v for k,v in {21:"kitchen", 20:"garage", 19:"library", 17:"store", 16:"gym", 8:"office", 6:"coffee"}.items() if h >= k), "coffee")
+        
+        # Calculate dynamic daylight state and precipitation
+        sunrise = w['sys']['sunrise']
+        sunset = w['sys']['sunset']
+        now_ts = now.timestamp()
+        is_golden = (sunrise - 900 <= now_ts < sunrise + 2700) or (sunset - 2700 <= now_ts < sunset + 900)
+        is_day = (sunrise + 2700) <= now_ts < (sunset - 2700)
+        pop = int(f['list'][0].get('pop', 0) * 100)
 
         global manual_override, override_expiry
         if manual_override and time.time() < override_expiry:
