@@ -57,10 +57,11 @@ def run_sync():
 
         client = genai.Client(api_key=G_KEY)
         forecast_context = ", ".join([f"{i['dt_txt'].split(' ')[1][:5]} {i['weather'][0]['description']} {int(i['main']['temp'])}F" for i in f['list'][:8]])
+        time_str = now.strftime('%I:%M %p')
         prompt = f"""
-        Sault MI. Weather: {w['weather'][0]['description']}. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
+        Sault MI. Time: {time_str}. Weather: {w['weather'][0]['description']}. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
-        Task 2 (Pulse): A short 1-sentence atmospheric observation of the daily rhythm and local vibe in Sault Ste. Marie based on the current time and weather.
+        Task 2 (Pulse): 1-sentence sensory snapshot of the exact current moment in Sault Ste. Marie.
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
         Forbidden: grit, resilience, whispers, quilts, northern, soul.
         Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary" }}
