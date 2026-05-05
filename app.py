@@ -61,7 +61,7 @@ def run_sync():
         prompt = f"""
         Sault MI. Time: {time_str}. Weather: {w['weather'][0]['description']}. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
-        Task 2 (Pulse): 1-sentence professional PR statement highlighting the city's vibe at this exact moment. You must focus on community vitality, incorporating the provided Weather only if it indicates a severe or exceptional event.
+        Task 2 (Pulse): 1-sentence captivating observation of the city's immediate rhythm tailored for a mature audience. Use understated, precise language to highlight community vitality, reserving weather mentions strictly for severe events.
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
         Forbidden: grit, resilience, whispers, quilts, northern, soul.
         Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary" }}
