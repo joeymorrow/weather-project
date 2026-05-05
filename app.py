@@ -18,7 +18,8 @@ state = {
     "temp": 0, "suggestion": "Initializing...", "station": "office", 
     "desc": "Syncing...", "high": 0, "low": 0, "date": "", "time": "--", "icon": "01d",
     "bubble": "...", "pulse": "Anchoring Sault Pulse...",
-    "forecast": "Loading forecast...", "acc_css": "none", "is_sleeping": False, "show_bed": False
+    "forecast": "Loading forecast...", "acc_css": "none", "is_sleeping": False, "show_bed": False,
+    "is_day": False, "is_golden": False, "pop": 0
 }
 
 if os.path.exists(STATE_FILE):
@@ -69,7 +70,7 @@ def run_sync():
         time_str = now.strftime('%I:%M %p')
         date_str = now.strftime('%B %d')
         prompt = f"""
-        Sault MI. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
+        Sault MI. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
         Task 2 (Pulse): 1-sentence sleek, minimalist status update on the city's current rhythm. Use crisp, modern phrasing suited for a high-tech UI, but keep the tone chill, warm, and subtly optimistic (avoid sounding clinical or depressing). Colloquially refer to the city as "the Sault" or "the Soo" when applicable. Reserve weather mentions strictly for severe events.
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
@@ -100,7 +101,8 @@ def run_sync():
             "low": int(min([i['main']['temp_min'] for i in f['list'][:8]])),
             "desc": w['weather'][0]['description'].title(), "icon": w['weather'][0]['icon'],
             "date": now.strftime(f"%A, %B {day}{suffix}, %Y"), "time": now.strftime('%I:%M %p'), 
-            "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6)
+            "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6),
+            "is_day": is_day, "is_golden": is_golden, "pop": pop
         })
         with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
     except Exception as e: 
