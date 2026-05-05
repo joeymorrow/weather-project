@@ -109,7 +109,7 @@ def sync_loop():
         time.sleep(180)
 
 @app.route('/')
-def index(): return render_template('index.html', **state)
+def index(): return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state)
 @app.route('/api/state')
 def get_state(): return jsonify(state)
 

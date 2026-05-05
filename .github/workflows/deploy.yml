@@ -60,6 +60,7 @@ jobs:
           if [ -n "${{ secrets.DASHBOARD_URL }}" ]; then
             echo "DASHBOARD_URL=${{ secrets.DASHBOARD_URL }}" >> .env
           fi
+          echo "BUILD_TIMESTAMP=$(TZ='America/Detroit' date +'%b %d, %Y %I:%M %p')" >> .env
 
       - name: Rebuild and Deploy
         run: |
