@@ -4,7 +4,7 @@
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="color-scheme" content="dark">
     <style>
-        :root { color-scheme: dark; --accent: #00ffff; --bg: #010103; --dim: rgba(0, 238, 255, 0.55); --buddy-blue: #ffffff; }
+        :root { color-scheme: dark; --accent: #00ffff; --bg: #010103; --dim: rgba(0, 238, 255, 0.55); --buddy-blue: #1a73e8; }
         body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100vh; width: 100vw; }
         #header { position: absolute; top: 4vh; width: 100%; text-align: center; font-size: 1.1rem; letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.8; text-transform: uppercase; }
         #location { position: absolute; top: 7vh; width: 100%; text-align: center; font-size: 0.8rem; opacity: 0.4; letter-spacing: 2px; }
@@ -26,8 +26,8 @@
         .pulse-line { font-size: 0.95rem; color: var(--accent); opacity: 0.75; margin: 15px auto 0; font-style: italic; font-weight: normal; border-top: 1px solid rgba(0,255,255,0.1); padding-top: 12px; width: 100%; max-width: 600px; line-height: 1.5; letter-spacing: 0.5px; }
         #build-stamp { position: fixed; bottom: 8px; right: 12px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: none; z-index: 2000; letter-spacing: 1px; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out; z-index: 1000; cursor: pointer; animation: float 6s ease-in-out infinite; }
-        .buddy-body { width: 50px; height: 75px; background: var(--buddy-blue); border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; position: absolute; left: 25px; top: 20px; box-shadow: inset -5px -10px 15px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.5); }
-        .visor { width: 44px; height: 22px; background: #000; border-radius: 12px; position: absolute; top: 14px; left: 3px; display: flex; align-items: center; justify-content: space-around; overflow: hidden; box-shadow: inset 0 3px 6px rgba(255,255,255,0.2); }
+        .buddy-body { width: 54px; height: 72px; background: var(--buddy-blue); border-radius: 45%; position: absolute; left: 23px; top: 22px; box-shadow: inset -5px -10px 15px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.5); }
+        .visor { width: 44px; height: 22px; background: #000; border-radius: 12px; position: absolute; top: 15px; left: 5px; display: flex; align-items: center; justify-content: space-around; overflow: hidden; box-shadow: inset 0 3px 6px rgba(255,255,255,0.2); }
         .eye { width: 8px; height: 5px; background: var(--accent); border-radius: 50%; animation: blink 6s infinite; box-shadow: 0 0 8px var(--accent); }
         .mouth { position: absolute; width: 8px; height: 2px; background: var(--accent); bottom: 3px; left: 50%; transform: translateX(-50%); border-radius: 2px; display: none; }
         .arm { width: 14px; height: 35px; background: var(--buddy-blue); border-radius: 50% 50% 50% 50% / 80% 80% 20% 20%; position: absolute; top: 38px; box-shadow: inset -3px -5px 10px rgba(0,0,0,0.15); }
