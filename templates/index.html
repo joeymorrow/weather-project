@@ -40,7 +40,7 @@
         #center-info { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 85vw; pointer-events: none; z-index: 10; }
         .date-line { font-size: 1.3rem; color: var(--accent); opacity: 0.6; margin-bottom: 5px; }
         .clock { font-size: 3.5rem; color: var(--accent); } .temp { font-size: 10rem; font-weight: 100; color: #fff; line-height: 0.8; letter-spacing: -5px; }
-        .suggestion { font-size: 1.35rem; color: #fff; font-style: italic; margin: 15px auto; line-height: 1.3; }
+        .suggestion { font-size: 1.4rem; color: var(--accent); font-weight: bold; margin: 15px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 8px 24px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); }
         .forecast-line { font-size: 1.1rem; color: #fff; opacity: 0.9; margin: 10px auto; max-width: 80%; line-height: 1.4; }
         .pulse-line { font-size: 0.95rem; color: var(--accent); opacity: 0.75; margin: 15px auto 0; font-style: italic; font-weight: normal; border-top: 1px solid rgba(0,255,255,0.1); padding-top: 12px; width: 100%; max-width: 600px; line-height: 1.5; letter-spacing: 0.5px; }
         #build-stamp { position: fixed; bottom: 8px; right: 12px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: none; z-index: 2000; letter-spacing: 1px; }
@@ -289,25 +289,39 @@
         async function fetchState(force = false) {
             if (window.onDate || window.isRaving || window.isKaiju) return; // Don't interrupt easter eggs!
             
-            // Pause updates if user interacted in the last 60 seconds (unless manually routing Buddy)
-            if (!force && (Date.now() - lastInteraction < 60000)) return;
-
             try {
                 const res = await fetch('/api/state?_=' + new Date().getTime());
                 const s = await res.json();
+
+                // Auto-refresh the page if a new deployment came through from the runner!
+                const currentBuild = "{{ build_timestamp }}";
+                if (s.build_timestamp && s.build_timestamp !== "Local Dev" && currentBuild !== "Local Dev" && s.build_timestamp !== currentBuild) {
+                    document.body.style.transition = 'opacity 1s ease';
+                    document.body.style.opacity = '0';
+                    setTimeout(() => location.reload(), 1000);
+                    return;
+                }
+
+                // Pause AI text updates if user interacted in the last 60 seconds (unless manually routing Buddy)
+                const isInteracting = !force && (Date.now() - lastInteraction < 60000);
+
                 softUpdate('ui-date', s.date);
                 softUpdate('ui-temp', s.temp);
                 softUpdate('ui-desc', `${s.desc} | H: ${s.high}° L: ${s.low}°`);
-                softUpdate('ui-forecast', s.forecast || '');
-                softUpdate('ui-sugg', s.suggestion);
-                softUpdate('ui-pulse', s.pulse);
+                if (s.icon) softUpdate('ui-icon', `https://openweathermap.org/img/wn/${s.icon}@4x.png`, true);
                 
-                const bbl = document.getElementById('ui-bbl');
-                if (bbl.innerText !== s.bubble) {
-                    bbl.classList.remove('bubble-update');
-                    void bbl.offsetWidth; // Trigger reflow to reset animation
-                    bbl.innerText = s.bubble;
-                    bbl.classList.add('bubble-update');
+                if (!isInteracting) {
+                    softUpdate('ui-forecast', s.forecast || '');
+                    softUpdate('ui-sugg', s.suggestion && s.suggestion.includes('Initializing') ? s.suggestion : `🧥 Suggested Attire: ${s.suggestion}`);
+                    softUpdate('ui-pulse', s.pulse);
+                    
+                    const bbl = document.getElementById('ui-bbl');
+                    if (bbl && s.bubble && bbl.innerText !== s.bubble) {
+                        bbl.classList.remove('bubble-update');
+                        void bbl.offsetWidth; // Trigger reflow to reset animation
+                        bbl.innerText = s.bubble;
+                        bbl.classList.add('bubble-update');
+                    }
                 }
                 
                 const container = document.getElementById('buddy-container');
@@ -319,7 +333,6 @@
                     document.getElementById('ui-zzz').style.animation = 'none';
                 }
                 
-                softUpdate('ui-icon', `https://openweathermap.org/img/wn/${s.icon}@4x.png`, true);
                 document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
                 const t = document.getElementById(`pos-${s.station}`); if(t) t.classList.add('active');
                 document.getElementById('pos-bed').style.display = s.show_bed ? 'flex' : 'none';

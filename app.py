@@ -72,6 +72,7 @@ def run_sync():
         Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
         Task 2 (Pulse): 1-sentence sleek, minimalist status update on the city's current rhythm. Use crisp, modern phrasing suited for a high-tech UI, focusing on objective urban activity. Reserve weather mentions strictly for severe events.
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
+        Task 4 (Attire): 2-4 word practical clothing or gear suggestion based on the forecast.
         Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary" }}
         """
         
@@ -101,7 +102,9 @@ def run_sync():
             "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6)
         })
         with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-    except Exception as e: print(f"[ERROR] {e}", flush=True)
+    except Exception as e: 
+        print(f"[ERROR] {e}", flush=True)
+        state["bubble"] = "Signal degraded. Retrying..."
 
 def sync_loop():
     while True:
@@ -111,7 +114,10 @@ def sync_loop():
 @app.route('/')
 def index(): return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state)
 @app.route('/api/state')
-def get_state(): return jsonify(state)
+def get_state(): 
+    out = state.copy()
+    out["build_timestamp"] = os.environ.get("BUILD_TIMESTAMP", "Local Dev")
+    return jsonify(out)
 
 @app.route('/api/move/<station>')
 def move_buddy(station):
