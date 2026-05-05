@@ -82,7 +82,9 @@ def run_sync():
         for m_id in get_best_models():
             try:
                 resp = client.models.generate_content(model=m_id, contents=prompt)
-                ai = json.loads(re.sub(r'```json|```', '', resp.text).strip())
+                text = resp.text
+                json_str = text[text.find('{'):text.rfind('}')+1]
+                ai = json.loads(json_str)
                 state.update({
                     "suggestion": ai.get("tip"), "bubble": ai.get("say"), 
                     "pulse": ai.get("pulse"), "acc_css": "zzz" if is_sleep else ai.get("acc", "none"),
