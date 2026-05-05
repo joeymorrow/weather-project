@@ -29,7 +29,7 @@
         #lore-trigger:hover + .lore-box { opacity: 1; pointer-events: all; }
         .pod { position: absolute; width: 80px; height: 80px; border-radius: 50%; border: 1px solid rgba(0,255,255,0.05); background: rgba(0,255,255,0.02); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; opacity: 0.15; transition: all 0.4s ease; cursor: pointer; z-index: 5; }
         .pod:hover { opacity: 0.6; transform: scale(1.1); border-color: var(--accent); box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); z-index: 100 !important; }
-        .pod.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 40px var(--accent), inset 0 0 20px var(--accent); background: rgba(0,255,255,0.15); z-index: 6; }
+        .pod.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 40px var(--accent), inset 0 0 20px var(--accent); background: rgba(0,255,255,0.15); z-index: 6; pointer-events: none; }
         .pod::before, .pod::after { content: ''; position: absolute; border-radius: 50%; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
         .pod.active::before { inset: -8px; border: 2px dashed var(--accent); animation: spin-elemental 6s linear infinite; opacity: 1; }
         .pod.active::after { inset: 0; border: 2px solid var(--accent); animation: ripple-elemental 2.5s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; opacity: 1; }
@@ -45,8 +45,8 @@
         .pulse-line { font-size: 0.95rem; color: var(--accent); opacity: 0.75; margin: 15px auto 0; font-style: italic; font-weight: normal; border-top: 1px solid rgba(0,255,255,0.1); padding-top: 12px; width: 100%; max-width: 600px; line-height: 1.5; letter-spacing: 0.5px; }
         #build-stamp { position: fixed; bottom: 8px; right: 12px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: none; z-index: 2000; letter-spacing: 1px; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; }
-        #buddy-container:hover { z-index: 2500 !important; }
-        #buddy-container::before { content: ''; position: absolute; inset: -35px; border-radius: 50%; }
+        #buddy-container:hover { z-index: 2500 !important; transform: scale(1) !important; filter: brightness(1) !important; transition: transform 0.3s ease, filter 0.3s ease, z-index 0s !important; }
+        #buddy-container::before { content: ''; position: absolute; inset: -45px; border-radius: 50%; }
         .bg-mode { transform: scale(0.75); z-index: 3 !important; filter: brightness(0.85); }
         .orbiting-front { animation: orbit-front 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
         .orbiting-back { animation: orbit-back 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
