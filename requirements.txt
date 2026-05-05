@@ -3,3 +3,4 @@ requests
 google-genai
 python-dotenv
 pytz
+gunicorn
