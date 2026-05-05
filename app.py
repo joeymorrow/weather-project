@@ -67,12 +67,13 @@ def run_sync():
         client = genai.Client(api_key=G_KEY)
         forecast_context = ", ".join([f"{i['dt_txt'].split(' ')[1][:5]} {i['weather'][0]['description']} {int(i['main']['temp'])}F" for i in f['list'][:8]])
         time_str = now.strftime('%I:%M %p')
+        date_str = now.strftime('%B %d')
         prompt = f"""
-        Sault MI. Time: {time_str}. Weather: {w['weather'][0]['description']}. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
+        Sault MI. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
         Task 2 (Pulse): 1-sentence sleek, minimalist status update on the city's current rhythm. Use crisp, modern phrasing suited for a high-tech UI, focusing on objective urban activity. Reserve weather mentions strictly for severe events.
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
-        Task 4 (Attire): 2-4 word practical clothing or gear suggestion based on the forecast.
+        Task 4 (Attire): 2-4 word practical clothing or gear suggestion based on the forecast. Factor in the current season ({now.strftime('%B')}) to match real-world wardrobe habits (e.g., favor layers or rain jackets over heavy winter boots in spring/summer).
         Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary" }}
         """
         
