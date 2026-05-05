@@ -126,8 +126,23 @@ def move_buddy(station):
     manual_override = station
     override_expiry = time.time() + 3600 # Manual override lasts 1 hour
     now = datetime.now(TZ)
-    state.update({"station": station, "is_sleeping": (station == "bed"), "bubble": "Rerouting...", "acc_css": "none" if station != "bed" else "zzz", "show_bed": (station == "bed" or now.hour >= 21 or now.hour < 6)})
-    threading.Thread(target=run_sync, daemon=True).start()
+    
+    # Local fallback responses so web interactions don't trigger expensive API calls
+    bubbles = {
+        "coffee": "Grabbing a brew...", "office": "Compiling data...", 
+        "gym": "Gaining processing power...", "store": "Running errands...", 
+        "library": "Parsing archives...", "garage": "Diagnostic mode...", 
+        "park": "Nature protocol engaged...", "kitchen": "Refueling...", 
+        "bed": "Powering down..."
+    }
+    
+    state.update({"station": station, "is_sleeping": (station == "bed"), "bubble": bubbles.get(station, "Rerouting..."), "acc_css": "none" if station != "bed" else "zzz", "show_bed": (station == "bed" or now.hour >= 21 or now.hour < 6)})
+    
+    # Save state locally so the web UI updates instantly across all connected TVs
+    try:
+        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+    except: pass
+    
     return jsonify(success=True)
 
 if __name__ == '__main__':
