@@ -15,6 +15,14 @@
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="color-scheme" content="dark">
     <title>Morrow Edge | BEACON</title>
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-R9N02W2P9M"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-R9N02W2P9M');
+    </script>
     <style>
         :root { color-scheme: dark; --accent: #00ffff; --bg: #010103; --dim: rgba(0, 238, 255, 0.55); --buddy-blue: #1a73e8; --text-main: #fff; --pod-border: rgba(0,255,255,0.15); --pod-bg: rgba(0,255,255,0.03); --pod-hover-glow: rgba(0, 255, 255, 0.3); --pod-active-bg: rgba(0,255,255,0.15); }
         body.day-mode { color-scheme: light; --bg: #eaf0f6; --accent: #006064; --dim: rgba(0, 96, 100, 0.7); --buddy-blue: #00838f; --text-main: #002b36; --pod-border: rgba(0,96,100,0.15); --pod-bg: rgba(0,96,100,0.05); --pod-hover-glow: rgba(0, 96, 100, 0.2); --pod-active-bg: rgba(0,96,100,0.1); }
@@ -324,6 +332,7 @@
         };
         window.triggerEgg = function(eggName) {
             document.getElementById('egg-modal').style.display = 'none';
+            if (typeof gtag === 'function') gtag('event', 'easter_egg_triggered', { 'egg_name': eggName });
             if(eggName === 'spin') activateSpinMode();
             if(eggName === 'matrix') activateMatrixMode();
             if(eggName === 'rave') activateRaveMode();
