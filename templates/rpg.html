@@ -94,7 +94,7 @@
         scene.add(dirLight);
         
         // Atmosphere: Sun & Clouds
-        const sun = new THREE.Mesh(new THREE.SphereGeometry(30, 32, 32), new THREE.MeshBasicMaterial({color: 0xffffff}));
+        const sun = new THREE.Mesh(new THREE.SphereGeometry(30, 16, 16), new THREE.MeshBasicMaterial({color: 0xffffff})); // Opt: Lower poly sphere
         if ('{{ season_name }}' !== 'Winter') sun.material.color.setHex(0xffddaa); 
         sun.position.set(200, 400, -600); scene.add(sun);
         
@@ -144,7 +144,7 @@
             mountInstanced.setMatrixAt(i, dummyMount.matrix);
         }
         horizonGroup.add(mountInstanced);
-        const skyRingGeo = new THREE.TorusGeometry(1200, 40, 6, 100);
+        const skyRingGeo = new THREE.TorusGeometry(1200, 40, 4, 24); // Opt: Reduced from 100 tubular segments to 24
         const skyRingMat = new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.1, fog: true, side: THREE.DoubleSide});
         const skyRing = new THREE.Mesh(skyRingGeo, skyRingMat);
         skyRing.rotation.x = Math.PI / 2.5;
@@ -157,7 +157,7 @@
         // Seasonal Trees Generator
         const leafColor = parseInt('{{ leaf_color }}');
         const treeGeo = new THREE.ConeGeometry(3, 10, 8);
-        const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 3);
+        const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 3, 5); // Opt: Reduced from 32 default radial segments to 5
         const treeMat = new THREE.MeshLambertMaterial({ color: leafColor });
         const trunkMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
         
@@ -218,7 +218,14 @@
         // Exhaust System
         const exhaustGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         const exhaustMat = new THREE.MeshBasicMaterial({color: 0xaaaaaa, transparent: true, opacity: 0.4});
-        const puffs = [];
+        
+        // GPU Optimization: Zero-Allocation Particle Pool
+        const puffPool = [];
+        for(let i=0; i<40; i++) {
+            const puff = new THREE.Mesh(exhaustGeo, exhaustMat.clone());
+            puff.visible = false; scene.add(puff);
+            puffPool.push({mesh: puff, life: 0, active: false});
+        }
 
         const carShadow = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 9.5), new THREE.MeshBasicMaterial({color: 0x000000, transparent: true, opacity: 0.4}));
         carShadow.rotation.x = -Math.PI / 2; carShadow.position.y = 0.05;
@@ -378,13 +385,13 @@
         
         const raveSign = new THREE.Mesh(new THREE.PlaneGeometry(16, 8), new THREE.MeshBasicMaterial({ map: raveTex }));
         raveSign.position.set(150, 7, 125); scene.add(raveSign);
-        const ravePole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 6), new THREE.MeshLambertMaterial({color:0x333})); ravePole.position.set(150, 3, 125); scene.add(ravePole);
+        const ravePole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 6, 5), new THREE.MeshLambertMaterial({color:0x333})); ravePole.position.set(150, 3, 125); scene.add(ravePole);
         locations.push({x: 150, z: 150, r: 40, name: "Secret Rave Zone"});
         
         // Rave Sky Lasers (Draws attention from across the map!)
         const raveLasers = new THREE.Group();
         for(let i=0; i<4; i++) {
-            const laser = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 200), new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending}));
+            const laser = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 200, 4), new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending}));
             laser.position.set((i%2===0?-15:15), 100, (i<2?-15:15));
             raveLasers.add(laser);
         }
@@ -507,7 +514,7 @@
                 } catch(e) {}
             }
             if(k === 'f') {
-                if(!inCar && playerGroup.position.distanceTo(carGroup.position) < 8) {
+                if(!inCar && playerGroup.position.distanceToSquared(carGroup.position) < 64) {
                     inCar = true;
                     buddyModel.visible = false;
                     carGroup.position.copy(playerGroup.position);
@@ -524,11 +531,11 @@
                 }
             }
             if(k === 'e') {
-                if(!inCar && playerGroup.position.distanceTo(kioskGroup.position) < 8) {
+                if(!inCar && playerGroup.position.distanceToSquared(kioskGroup.position) < 64) {
                     window.location.href = '/'; // Diegetic exit!
                     return;
                 }
-                if(!hasBot && playerGroup.position.distanceTo(botGroup.position) < 8) {
+                if(!hasBot && playerGroup.position.distanceToSquared(botGroup.position) < 64) {
                     hasBot = true;
                     botGroup.position.set(2, 1, 0); // Put bot on Buddy's shoulder
                     playerGroup.add(botGroup);
@@ -654,27 +661,32 @@
             
             // Passat Exhaust Particle Engine
             if (inCar && Math.abs(carV) > 0.5 && Math.random() > 0.6) {
-                const puff = new THREE.Mesh(exhaustGeo, exhaustMat.clone());
-                puff.position.copy(carGroup.position);
-                puff.position.x += Math.sin(carGroup.rotation.y) * 4; puff.position.z += Math.cos(carGroup.rotation.y) * 4; puff.position.y = 0.5;
-                scene.add(puff); puffs.push({mesh: puff, life: 1.0});
+                let p = puffPool.find(x => !x.active);
+                if (p) {
+                    p.mesh.position.copy(carGroup.position);
+                    p.mesh.position.x += Math.sin(carGroup.rotation.y) * 4; p.mesh.position.z += Math.cos(carGroup.rotation.y) * 4; p.mesh.position.y = 0.5;
+                    p.life = 1.0; p.active = true; p.mesh.visible = true;
+                }
             }
             
             // Buddy Sprint Dust Engine
             if (!inCar && keys.shift && (keys.w || keys.s || keys.a || keys.d) && playerGroup.position.y <= targetGround + 0.1) {
                 if (Math.random() > 0.5) {
-                    const puff = new THREE.Mesh(exhaustGeo, exhaustMat.clone());
-                    puff.position.copy(playerGroup.position);
-                    puff.position.y = targetGround + 0.2; puff.position.x += (Math.random() - 0.5); puff.position.z += (Math.random() - 0.5);
-                    scene.add(puff); puffs.push({mesh: puff, life: 1.0});
+                    let p = puffPool.find(x => !x.active);
+                    if (p) {
+                        p.mesh.position.copy(playerGroup.position);
+                        p.mesh.position.y = targetGround + 0.2; p.mesh.position.x += (Math.random() - 0.5); p.mesh.position.z += (Math.random() - 0.5);
+                        p.life = 1.0; p.active = true; p.mesh.visible = true;
+                    }
                 }
             }
-            for(let i = puffs.length - 1; i >= 0; i--) {
-                let p = puffs[i];
+            
+            for(let p of puffPool) {
+                if (!p.active) continue;
                 p.life -= 0.02; p.mesh.position.y += 0.05;
                 p.mesh.scale.setScalar(1 + (1 - p.life));
                 p.mesh.material.opacity = p.life * 0.5;
-                if (p.life <= 0) { scene.remove(p.mesh); p.mesh.material.dispose(); puffs.splice(i, 1); }
+                if (p.life <= 0) { p.active = false; p.mesh.visible = false; }
             }
             
             // Keep player inside the world bounds
@@ -684,7 +696,8 @@
             // Location Proximity
             let newLoc = "Sault Ste. Marie";
             locations.forEach(loc => {
-                if(Math.hypot(mover.position.x - loc.x, mover.position.z - loc.z) < loc.r) {
+                const dx = mover.position.x - loc.x; const dz = mover.position.z - loc.z;
+                if((dx*dx + dz*dz) < loc.r * loc.r) { // Opt: Fast squared distance check!
                     newLoc = loc.name;
                 }
             });
@@ -785,6 +798,18 @@
                 }
             }
 
+            // Byte-Shifting Demoscene Trick to color the Rave Background!
+            if (isDancing && currentLoc === "Secret Rave Zone") {
+                const t = Date.now();
+                // Scramble the timestamp bits using XOR and Bit Shifts into a perfect 24-bit RGB integer
+                const bitwiseColor = ((t >> 5) ^ ((t >> 3) << 8) ^ ((t >> 4) << 16)) & 0xFFFFFF;
+                scene.background = new THREE.Color(bitwiseColor);
+                scene.fog.color.setHex(bitwiseColor);
+            } else if (scene.background) {
+                scene.background = null; // Restore normal transparent sky
+                scene.fog.color.setHex(0x87CEEB); // Restore normal sky blue fog
+            }
+
             // Stop music if leaving the Rave or stop dancing
             if (isPlayingMusic && (currentLoc !== "Secret Rave Zone" || !isDancing)) { stopTrack(); isDancing = false; }
 
@@ -802,7 +827,7 @@
                 if (currentLoc === "Secret Rave Zone" && isDancing) {
                     botTarget.set(150 + (Math.random()-0.5)*10, botBaseY, 150 + (Math.random()-0.5)*10); // Race to dance floor!
                     botWait = 30; // Update path frequently
-                } else if (botWait <= 0 || botGroup.position.distanceTo(playerGroup.position) > 300) {
+                } else if (botWait <= 0 || botGroup.position.distanceToSquared(playerGroup.position) > 90000) {
                     botWait = 60 + Math.random() * 180; // Wait 1-3 seconds
                     let angle = Math.random() * Math.PI * 2;
                     let dist = 30 + Math.random() * 70; // Roam randomly around player
@@ -846,7 +871,7 @@
                 }
                 botModel.rotation.y = Math.cos(danceTime) * 0.5;
                 if (hasBot) { /* Riding along */ } 
-                else if (botGroup.position.distanceTo(playerGroup.position) < 80) {
+                else if (botGroup.position.distanceToSquared(playerGroup.position) < 6400) {
                     botGroup.position.y = botBaseY + Math.abs(Math.cos(danceTime * 2)) * 0.8;
                 }
             } else {
@@ -856,13 +881,13 @@
 
             // Tooltips
             let showTip = false;
-            if(!inCar && playerGroup.position.distanceTo(kioskGroup.position) < 8) {
+            if(!inCar && playerGroup.position.distanceToSquared(kioskGroup.position) < 64) {
                 tipUi.innerText = "Press E to Return to Dashboard";
                 showTip = true;
-            } else if(!inCar && playerGroup.position.distanceTo(carGroup.position) < 10) {
+            } else if(!inCar && playerGroup.position.distanceToSquared(carGroup.position) < 100) {
                 tipUi.innerText = "Press F to Enter Passat";
                 showTip = true;
-            } else if(!hasBot && playerGroup.position.distanceTo(botGroup.position) < 10) {
+            } else if(!hasBot && playerGroup.position.distanceToSquared(botGroup.position) < 100) {
                 tipUi.innerText = "Press E to Pick Up Companion";
                 showTip = true;
             } else if(currentLoc === "Secret Rave Zone" && !isDancing && !inCar) {
