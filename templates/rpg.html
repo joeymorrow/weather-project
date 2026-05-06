@@ -102,16 +102,24 @@
         if ('{{ season_name }}' !== 'Winter') sun.material.color.setHex(0xffddaa); 
         sun.position.set(200, 400, -600); scene.add(sun);
         
-        const clouds = new THREE.Group();
-        const cloudGeo = new THREE.BoxGeometry(20, 10, 20);
+        // GPU Optimization: Instanced Cloud Clusters with Overlapping Circles
+        const cloudGeo = new THREE.CylinderGeometry(15, 15, 4, 8); // Low-poly flat circle
         const cloudMat = new THREE.MeshLambertMaterial({color: 0xffffff, transparent: true, opacity: 0.8});
+        const cloudInstanced = new THREE.InstancedMesh(cloudGeo, cloudMat, 150);
+        cloudInstanced.frustumCulled = false;
+        const dummyCloud = new THREE.Object3D();
+        let cIdx = 0;
         for(let i=0; i<40; i++) {
-            const cloud = new THREE.Mesh(cloudGeo, cloudMat);
-            cloud.position.set((Math.random()-0.5)*1500, 100 + Math.random()*50, (Math.random()-0.5)*1500);
-            cloud.scale.set(1 + Math.random()*2, 1, 1 + Math.random()*2);
-            clouds.add(cloud);
+            const cx = (Math.random()-0.5)*1500; const cy = 120 + Math.random()*50; const cz = (Math.random()-0.5)*1500;
+            const numPuffs = 3 + Math.floor(Math.random() * 3); // Asymmetric 3-5 clouds per cluster
+            for (let j=0; j<numPuffs; j++) {
+                if (cIdx >= 150) break;
+                dummyCloud.position.set(cx + (Math.random()-0.5)*25, cy + (Math.random()-0.5)*5, cz + (Math.random()-0.5)*25);
+                dummyCloud.scale.setScalar(0.5 + Math.random()); // Different sizes
+                dummyCloud.updateMatrix(); cloudInstanced.setMatrixAt(cIdx, dummyCloud.matrix); cIdx++;
+            }
         }
-        scene.add(clouds);
+        cloudInstanced.count = cIdx; scene.add(cloudInstanced);
 
         // Christmas Snow & Live Weather Parity!
         const isChristmas = {{ 'true' if is_christmas else 'false' }};
@@ -498,12 +506,16 @@
         let camYaw = 0, camPitch = 0;
         let isDraggingCam = false;
         let prevCamX = 0, prevCamY = 0;
+        let lastInputTime = Date.now();
+        let lastRenderMs = 0;
+        const sharedRaveColor = new THREE.Color(); // Opt: Prevents GC Memory Leak!
 
         renderer.domElement.addEventListener('mousedown', (e) => {
             isDraggingCam = true; prevCamX = e.clientX; prevCamY = e.clientY;
         });
         window.addEventListener('mouseup', () => { isDraggingCam = false; });
         window.addEventListener('mousemove', (e) => {
+            lastInputTime = Date.now();
             if(!isDraggingCam) return;
             camYaw += (e.clientX - prevCamX) * 0.005;
             camPitch += (e.clientY - prevCamY) * 0.005;
@@ -512,12 +524,14 @@
         });
 
         renderer.domElement.addEventListener('touchstart', (e) => {
+            lastInputTime = Date.now();
             if(e.touches.length === 1) {
                 isDraggingCam = true; prevCamX = e.touches[0].clientX; prevCamY = e.touches[0].clientY;
             }
         });
         window.addEventListener('touchend', () => { isDraggingCam = false; });
         window.addEventListener('touchmove', (e) => {
+            lastInputTime = Date.now();
             if(!isDraggingCam || e.touches.length !== 1) return;
             camYaw += (e.touches[0].clientX - prevCamX) * 0.005;
             camPitch += (e.touches[0].clientY - prevCamY) * 0.005;
@@ -625,6 +639,7 @@
         }
         
         window.addEventListener('keydown', (e) => {
+            lastInputTime = Date.now();
             const k = e.key.toLowerCase();
             if(k === 'escape') window.location.href = '/';
             if(keys.hasOwnProperty(k) || ['arrowup','arrowdown','arrowleft','arrowright',' ','shift'].includes(k)) {
@@ -641,6 +656,7 @@
             if((k === 'f' || k === 'e' || k === 'r' || k === 'm' || k === 'h') && !e.repeat) triggerAction(k);
         });
         window.addEventListener('keyup', (e) => {
+            lastInputTime = Date.now();
             const k = e.key.toLowerCase();
             if(k === 'arrowup') keys.w = false;
             if(k === 'arrowdown') keys.s = false;
@@ -691,8 +707,17 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // Real-time, pause-resistant Kiosk Clock 
             const nowMs = Date.now();
+            
+            // Opt: Aggressive Idle Throttling (Give back CPU/Battery when AFK or Tab Hidden!)
+            const isHidden = document.visibilityState === 'hidden';
+            const isIdle = (nowMs - lastInputTime > 60000) && !inCar && !isDancing;
+            if ((isHidden || isIdle) && nowMs - lastRenderMs < 1000) {
+                return; // Drop WebGL down to 1 FPS!
+            }
+            lastRenderMs = nowMs;
+
+            // Real-time, pause-resistant Kiosk Clock 
             if (nowMs - lastClockUpdate > 1000) {
                 lastClockUpdate = nowMs;
                 const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -747,26 +772,6 @@
                     p.mesh.position.x += Math.sin(carGroup.rotation.y) * 4; p.mesh.position.z += Math.cos(carGroup.rotation.y) * 4; p.mesh.position.y = 0.5;
                     p.life = 1.0; p.active = true; p.mesh.visible = true;
                 }
-            }
-            
-            // Buddy Sprint Dust Engine
-            if (!inCar && keys.shift && (keys.w || keys.s || keys.a || keys.d) && playerGroup.position.y <= targetGround + 0.1) {
-                if (Math.random() > 0.5) {
-                    let p = puffPool.find(x => !x.active);
-                    if (p) {
-                        p.mesh.position.copy(playerGroup.position);
-                        p.mesh.position.y = targetGround + 0.2; p.mesh.position.x += (Math.random() - 0.5); p.mesh.position.z += (Math.random() - 0.5);
-                        p.life = 1.0; p.active = true; p.mesh.visible = true;
-                    }
-                }
-            }
-            
-            for(let p of puffPool) {
-                if (!p.active) continue;
-                p.life -= 0.02; p.mesh.position.y += 0.05;
-                p.mesh.scale.setScalar(1 + (1 - p.life));
-                p.mesh.material.opacity = p.life * 0.5;
-                if (p.life <= 0) { p.active = false; p.mesh.visible = false; }
             }
             
             // Passat Headlight Optimization
@@ -842,6 +847,26 @@
                 }
             } else { carGroup.position.y = 0; } // Keep car on the dirt
             
+            // Buddy Sprint Dust Engine (Moved below collision engine so 'targetGround' is defined!)
+            if (!inCar && keys.shift && (keys.w || keys.s || keys.a || keys.d) && playerGroup.position.y <= targetGround + 0.1) {
+                if (Math.random() > 0.5) {
+                    let p = puffPool.find(x => !x.active);
+                    if (p) {
+                        p.mesh.position.copy(playerGroup.position);
+                        p.mesh.position.y = targetGround + 0.2; p.mesh.position.x += (Math.random() - 0.5); p.mesh.position.z += (Math.random() - 0.5);
+                        p.life = 1.0; p.active = true; p.mesh.visible = true;
+                    }
+                }
+            }
+            
+            for(let p of puffPool) {
+                if (!p.active) continue;
+                p.life -= 0.02; p.mesh.position.y += 0.05;
+                p.mesh.scale.setScalar(1 + (1 - p.life));
+                p.mesh.material.opacity = p.life * 0.5;
+                if (p.life <= 0) { p.active = false; p.mesh.visible = false; }
+            }
+
             // Grounding "Juice": Drop Shadow scales to altitude!
             buddyShadow.position.set(playerGroup.position.x, targetGround + 0.05, playerGroup.position.z);
             const shadowScale = Math.max(0.2, 1 - (playerGroup.position.y - targetGround) * 0.15);
@@ -854,11 +879,15 @@
             buddyModel.scale.y += (1 - buddyModel.scale.y) * 0.15;
             buddyModel.scale.z += (1 - buddyModel.scale.z) * 0.15;
             
-            // Atmosphere Animations
-            clouds.children.forEach(c => {
-                c.position.x += 0.1;
-                if(c.position.x > 750) c.position.x = -750;
-            });
+            // Atmosphere Animations (GPU-Optimized raw memory array shifting!)
+            for(let i=0; i<cloudInstanced.count; i++) {
+                cloudInstanced.getMatrixAt(i, dummyCloud.matrix);
+                dummyCloud.matrix.elements[12] += 0.1; // Directly modify the X-coordinate memory address!
+                if(dummyCloud.matrix.elements[12] > 750) dummyCloud.matrix.elements[12] -= 1500;
+                cloudInstanced.setMatrixAt(i, dummyCloud.matrix);
+            }
+            cloudInstanced.instanceMatrix.needsUpdate = true;
+
             if (weatherParticles) {
                 const positions = weatherParticles.geometry.attributes.position.array;
                 for(let i=1; i<positions.length; i+=3) {
@@ -890,7 +919,8 @@
                 const t = Date.now();
                 // Scramble the timestamp bits using XOR and Bit Shifts into a perfect 24-bit RGB integer
                 const bitwiseColor = ((t >> 5) ^ ((t >> 3) << 8) ^ ((t >> 4) << 16)) & 0xFFFFFF;
-                scene.background = new THREE.Color(bitwiseColor);
+                sharedRaveColor.setHex(bitwiseColor);
+                scene.background = sharedRaveColor;
                 scene.fog.color.setHex(bitwiseColor);
                 
                 // Strobe EVERYTHING in the world!
@@ -907,6 +937,7 @@
                 speerCabin.material.color.setHex(bitwiseColor);
                 speerBridge.material.color.setHex(bitwiseColor);
                 speerStack.material.color.setHex(bitwiseColor);
+                cloudMat.color.setHex(bitwiseColor);
             } else if (scene.background) {
                 scene.background = null; // Restore normal transparent sky
                 scene.fog.color.setHex(0x87CEEB); // Restore normal sky blue fog
@@ -921,6 +952,7 @@
                 speerCabin.material.color.setHex(0xffffff);
                 speerBridge.material.color.setHex(0xeeeeee);
                 speerStack.material.color.setHex(0x111111);
+                cloudMat.color.setHex(0xffffff);
             }
 
             // Stop music if leaving the Rave or stop dancing

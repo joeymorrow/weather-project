@@ -19,7 +19,7 @@ if [ -z "$DASHBOARD_URL" ]; then
 fi
 
 # Ensure we are connected
-adb connect "$TV_IP"
+timeout 5 adb connect "$TV_IP" || true
 
 if [ "$1" == "on" ]; then
     # Wake up
