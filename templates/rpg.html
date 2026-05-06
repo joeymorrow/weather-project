@@ -17,6 +17,7 @@
         #controls { background: rgba(0,0,0,0.7); color: #fff; padding: 15px; border-radius: 10px; border: 1px solid #00ffff; display: inline-block; }
         #tip { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,255,255,0.2); border: 2px solid #00ffff; color: #fff; padding: 15px 30px; font-size: 1.5rem; font-weight: bold; border-radius: 30px; text-transform: uppercase; display: none; z-index: 10; text-shadow: 0 2px 5px #000; box-shadow: 0 0 20px rgba(0,255,255,0.5); transition: opacity 0.3s; }
         #location-tag { position: absolute; top: 20px; right: 20px; font-size: 2rem; color: #fff; font-weight: bold; text-shadow: 0 2px 10px #000; opacity: 0.5; transition: opacity 0.5s; text-transform: uppercase; }
+        #score-ui { position: absolute; top: 60px; right: 20px; font-size: 1.5rem; color: #ffd700; font-weight: bold; text-shadow: 0 2px 5px #000; opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 10; }
         .btn { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); border: 2px solid #ff4444; color: #ff4444; padding: 10px 20px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; text-decoration: none; pointer-events: auto; z-index: 20; transition: 0.3s; font-weight: bold; }
         .btn:hover { background: #ff4444; color: #fff; box-shadow: 0 0 15px #ff4444; }
         .t-btn { position: relative; width: clamp(78px, 18vw, 110px); height: clamp(78px, 18vw, 110px); background: rgba(0,0,0,0.5); border: clamp(1px, 0.5vw, 3px) solid #00ffff; color: #00ffff; border-radius: 50%; font-size: clamp(1.4rem, 5vw, 2.2rem); display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.1s; }
@@ -39,6 +40,7 @@
     </div>
     <div id="tip">Press F to Enter Passat</div>
     <div id="location-tag">Sault Ste. Marie</div>
+    <div id="score-ui">⭐ SCORE: 0</div>
     <a href="/" class="btn">Exit to Dashboard</a>
     
     <!-- Cinematic Dialog Box -->
@@ -347,12 +349,42 @@
         // Soo Locks (In River)
         addSolidBox(0x888888, 10, 10, 80, 170, -150); // Left Wall
         addSolidBox(0x888888, 10, 10, 80, 190, -150); // Right Wall
+        addSolidBox(0x666666, 10, 5, 10, 170, -105); // Step up to Lock wall
+        addSolidBox(0x666666, 10, 5, 10, 190, -105); // Step up to Lock wall
         addSolidBox(0x333333, 10, 10, 4, 180, -115); // Lock Gate
         const lockWater = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 70), new THREE.MeshLambertMaterial({color: 0x00aaff, transparent:true, opacity:0.8}));
         lockWater.position.set(180, 4, -152); scene.add(lockWater);
         createSign("SOO LOCKS", 155, -110);
         locations.push({x: 180, z: -150, r: 60, name: "Soo Locks"});
         
+        // Edgar B. Speer (Freighter in Soo Locks)
+        const speerHull = addSolidBox(0x8b0000, 9, 10, 68, 180, -152);
+        const speerDeck = addSolidBox(0x333333, 9, 11, 68, 180, -152);
+        const speerCabin = addSolidBox(0xffffff, 9, 18, 10, 180, -123);
+        const speerBridge = addSolidBox(0xeeeeee, 7, 22, 6, 180, -125);
+        const speerStack = addSolidBox(0x111111, 2, 28, 2, 180, -120);
+        
+        // Two Anchors (Port and Starboard)
+        const anchors = [];
+        for (let i of [-1, 1]) {
+            const mech = new THREE.Group();
+            mech.position.set(180 + i * 4.6, 11, -184); // Edge of the bow
+            scene.add(mech);
+            
+            const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1, 6), new THREE.MeshLambertMaterial({color: 0x444444}));
+            mech.add(chain);
+            
+            const hook = new THREE.Group();
+            const shank = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2, 6), new THREE.MeshLambertMaterial({color: 0x222222}));
+            const fluke = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.2, 4, 8, Math.PI), new THREE.MeshLambertMaterial({color: 0x222222}));
+            fluke.rotation.z = Math.PI; fluke.position.y = -1;
+            hook.add(shank); hook.add(fluke);
+            mech.add(hook);
+            
+            anchors.push({ mech, chain, hook, drop: 0 });
+        }
+        let anchorDown = false;
+
         // Sugar Island (Jumpable Base)
         addSolidBox(0x228B22, 150, 2, 150, 350, 200);
         createSign("SUGAR ISLAND", 270, 150);
@@ -367,6 +399,15 @@
         scene.add(leafInstanced); scene.add(trunkInstanced);
         locations.push({x: 350, z: 200, r: 80, name: "Sugar Island"});
         
+        // Collectible Coin (The "Game" Element!)
+        const coinGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.4, 16);
+        const coinMat = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+        const coin = new THREE.Mesh(coinGeo, coinMat);
+        coin.rotation.x = Math.PI / 2;
+        coin.position.set(350, 10, 200); // Floating on Sugar Island
+        scene.add(coin);
+        let score = 0; let coinActive = true;
+
         // Sault Schools
         addSolidBox(0xb22222, 40, 15, 20, -50, -50);
         addSolidBox(0xdddddd, 5, 20, 5, -50, -40); // Tower
@@ -535,6 +576,12 @@
                     window.location.href = '/'; // Diegetic exit!
                     return;
                 }
+                // Check Anchor Interaction at the Bow of the Speer
+                const dAx = playerGroup.position.x - 180; const dAz = playerGroup.position.z + 184;
+                if(!inCar && (dAx*dAx + dAz*dAz) < 100) {
+                    anchorDown = !anchorDown;
+                    return; // Prevent triggering other E events
+                }
                 if(!hasBot && playerGroup.position.distanceToSquared(botGroup.position) < 64) {
                     hasBot = true;
                     botGroup.position.set(2, 1, 0); // Put bot on Buddy's shoulder
@@ -689,6 +736,13 @@
                 if (p.life <= 0) { p.active = false; p.mesh.visible = false; }
             }
             
+            // Edgar B. Speer Anchor Drop Animation
+            const targetDrop = anchorDown ? 9 : 0;
+            anchors[1].drop += (targetDrop - anchors[1].drop) * 0.05; // Only drop the starboard anchor
+            anchors[1].hook.position.y = -anchors[1].drop;
+            anchors[1].chain.scale.y = anchors[1].drop > 0.1 ? anchors[1].drop : 0.1;
+            anchors[1].chain.position.y = -anchors[1].drop / 2;
+
             // Keep player inside the world bounds
             mover.position.x = Math.max(-980, Math.min(980, mover.position.x));
             mover.position.z = Math.max(-980, Math.min(980, mover.position.z));
@@ -805,9 +859,35 @@
                 const bitwiseColor = ((t >> 5) ^ ((t >> 3) << 8) ^ ((t >> 4) << 16)) & 0xFFFFFF;
                 scene.background = new THREE.Color(bitwiseColor);
                 scene.fog.color.setHex(bitwiseColor);
+                
+                // Strobe EVERYTHING in the world!
+                bodyMat.color.setHex(bitwiseColor);
+                botBodyMat.color.setHex(bitwiseColor);
+                carMat.color.setHex(bitwiseColor);
+                groundMat.color.setHex(bitwiseColor);
+                treeMat.color.setHex(bitwiseColor);
+                trunkMat.color.setHex(bitwiseColor);
+                mountMat.color.setHex(bitwiseColor);
+                riverMat.color.setHex(bitwiseColor);
+                speerHull.material.color.setHex(bitwiseColor);
+                speerDeck.material.color.setHex(bitwiseColor);
+                speerCabin.material.color.setHex(bitwiseColor);
+                speerBridge.material.color.setHex(bitwiseColor);
+                speerStack.material.color.setHex(bitwiseColor);
             } else if (scene.background) {
                 scene.background = null; // Restore normal transparent sky
                 scene.fog.color.setHex(0x87CEEB); // Restore normal sky blue fog
+                
+                // Restore original materials
+                bodyMat.color.setHex(0x1a73e8); botBodyMat.color.setHex(0x00ff00);
+                carMat.color.setHex(0x000080); groundMat.color.setHex(parseInt('{{ terrain_color }}'));
+                treeMat.color.setHex(parseInt('{{ leaf_color }}')); trunkMat.color.setHex(0x8b4513);
+                mountMat.color.setHex(0x334455); riverMat.color.setHex(0x0000ff);
+                speerHull.material.color.setHex(0x8b0000);
+                speerDeck.material.color.setHex(0x333333);
+                speerCabin.material.color.setHex(0xffffff);
+                speerBridge.material.color.setHex(0xeeeeee);
+                speerStack.material.color.setHex(0x111111);
             }
 
             // Stop music if leaving the Rave or stop dancing
@@ -819,6 +899,20 @@
             auraMesh.scale.setScalar(1 + Math.sin(tAnim) * 0.1);
             botModel.position.y = 0.75 + Math.cos(tAnim * 1.2) * 0.15;
             botAura.scale.setScalar(1 + Math.cos(tAnim * 1.2) * 0.1);
+
+            // Coin Animation & Collection
+            if (coinActive) {
+                coin.rotation.z += 0.05;
+                coin.position.y = 10 + Math.sin(tAnim * 2) * 1.5;
+                if (playerGroup.position.distanceToSquared(coin.position) < 60) {
+                    coinActive = false; coin.visible = false;
+                    score += 100;
+                    const sUi = document.getElementById('score-ui');
+                    sUi.innerText = "⭐ SCORE: " + score;
+                    sUi.style.opacity = 1; sUi.style.transform = "scale(1.2)";
+                    setTimeout(() => sUi.style.transform = "scale(1)", 300);
+                }
+            }
 
             // Companion Bot Roaming & Following Logic
             botGroup.position.y += (botBaseY - botGroup.position.y) * 0.2; // Climb stairs smoothly
@@ -881,8 +975,12 @@
 
             // Tooltips
             let showTip = false;
+            const dAx = playerGroup.position.x - 180; const dAz = playerGroup.position.z + 184;
             if(!inCar && playerGroup.position.distanceToSquared(kioskGroup.position) < 64) {
                 tipUi.innerText = "Press E to Return to Dashboard";
+                showTip = true;
+            } else if(!inCar && (dAx*dAx + dAz*dAz) < 100) {
+                tipUi.innerText = anchorDown ? "Press E to Raise Anchor" : "Press E to Drop Anchor";
                 showTip = true;
             } else if(!inCar && playerGroup.position.distanceToSquared(carGroup.position) < 100) {
                 tipUi.innerText = "Press F to Enter Passat";
