@@ -61,7 +61,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x87CEEB, 0.005);
+        scene.fog = new THREE.FogExp2(0x87CEEB, 0.0012); // Pushed back to reveal the horizon!
         
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -112,12 +112,32 @@
         }
 
         // Terrain (Seasonal Color passed from Flask)
-        const groundGeo = new THREE.PlaneGeometry(2050, 2050);
+        const groundGeo = new THREE.PlaneGeometry(4000, 4000); // Expanded world!
         const groundMat = new THREE.MeshLambertMaterial({ color: parseInt('{{ terrain_color }}') });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         scene.add(ground);
+        
+        // The Distant Horizon (Unreachable majestic landmarks)
+        const horizonGroup = new THREE.Group();
+        const mountGeo = new THREE.ConeGeometry(300, 700, 5);
+        const mountMat = new THREE.MeshLambertMaterial({color: 0x334455});
+        for(let i=0; i<20; i++) {
+            const angle = (i / 20) * Math.PI * 2;
+            const dist = 1400 + Math.random() * 200;
+            const mount = new THREE.Mesh(mountGeo, mountMat);
+            mount.position.set(Math.cos(angle)*dist, 200, Math.sin(angle)*dist);
+            mount.rotation.y = Math.random() * Math.PI;
+            horizonGroup.add(mount);
+        }
+        const skyRingGeo = new THREE.TorusGeometry(1200, 40, 6, 100);
+        const skyRingMat = new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.1, fog: true, side: THREE.DoubleSide});
+        const skyRing = new THREE.Mesh(skyRingGeo, skyRingMat);
+        skyRing.rotation.x = Math.PI / 2.5;
+        skyRing.position.set(0, 600, -1000);
+        horizonGroup.add(skyRing);
+        scene.add(horizonGroup);
         
         const platforms = []; // Array to track physical boundaries
 
@@ -383,6 +403,37 @@
         let activeTarget = playerGroup; // Camera follows this
         let currentLoc = "Sault Ste. Marie";
         const keys = { w:false, a:false, s:false, d:false, space:false, shift:false, m:false, h:false };
+        
+        // Camera Orbit Controls (Free-Look System)
+        let camYaw = 0, camPitch = 0;
+        let isDraggingCam = false;
+        let prevCamX = 0, prevCamY = 0;
+
+        renderer.domElement.addEventListener('mousedown', (e) => {
+            isDraggingCam = true; prevCamX = e.clientX; prevCamY = e.clientY;
+        });
+        window.addEventListener('mouseup', () => { isDraggingCam = false; });
+        window.addEventListener('mousemove', (e) => {
+            if(!isDraggingCam) return;
+            camYaw += (e.clientX - prevCamX) * 0.005;
+            camPitch += (e.clientY - prevCamY) * 0.005;
+            camPitch = Math.max(-Math.PI/8, Math.min(Math.PI/3, camPitch)); // Clamp pitch
+            prevCamX = e.clientX; prevCamY = e.clientY;
+        });
+
+        renderer.domElement.addEventListener('touchstart', (e) => {
+            if(e.touches.length === 1) {
+                isDraggingCam = true; prevCamX = e.touches[0].clientX; prevCamY = e.touches[0].clientY;
+            }
+        });
+        window.addEventListener('touchend', () => { isDraggingCam = false; });
+        window.addEventListener('touchmove', (e) => {
+            if(!isDraggingCam || e.touches.length !== 1) return;
+            camYaw += (e.touches[0].clientX - prevCamX) * 0.005;
+            camPitch += (e.touches[0].clientY - prevCamY) * 0.005;
+            camPitch = Math.max(-Math.PI/8, Math.min(Math.PI/3, camPitch));
+            prevCamX = e.touches[0].clientX; prevCamY = e.touches[0].clientY;
+        });
         
         // Music Synthesizer Engine
         let audioCtx = null, osc = null, lfo = null, gainNode = null, lfoGain = null;
@@ -828,11 +879,26 @@
                 dialogBox.style.display = 'none';
             }
 
-            // 3rd Person Camera & FOV "Speed Juice"
-            relativeCameraOffset.set(0, inCar ? 10 : 8, inCar ? 20 : 15);
-            relativeCameraOffset.applyMatrix4(mover.matrixWorld);
+            // Auto-center camera behind player when moving and not dragging
+            if (!isDraggingCam && (keys.w || keys.s || keys.a || keys.d)) {
+                camYaw += (0 - camYaw) * 0.05;
+                camPitch += (0 - camPitch) * 0.05;
+            }
+            
+            // 3rd Person Camera Orbit Math & FOV "Speed Juice"
+            const dist = inCar ? 22 : 16;
+            const heightOffset = inCar ? 8 : 5;
+            const baseYaw = mover.rotation.y + camYaw;
+            
+            relativeCameraOffset.set(
+                Math.sin(baseYaw) * dist * Math.cos(camPitch),
+                heightOffset + dist * Math.sin(camPitch),
+                Math.cos(baseYaw) * dist * Math.cos(camPitch)
+            );
+            relativeCameraOffset.add(mover.position);
+            
             camera.position.lerp(relativeCameraOffset, 0.1);
-            camera.lookAt(mover.position);
+            camera.lookAt(mover.position.x, mover.position.y + (inCar ? 2 : 3), mover.position.z);
             
             const targetFov = inCar ? 75 + Math.abs(carV) * 8 : 75;
             if (Math.abs(camera.fov - targetFov) > 0.1) {
