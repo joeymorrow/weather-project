@@ -72,7 +72,8 @@
         scene.fog = new THREE.FogExp2(0x87CEEB, 0.0012); // Pushed back to reveal the horizon!
         
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Drastic quality/sharpness boost for high-DPI screens!
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
@@ -131,14 +132,17 @@
         const horizonGroup = new THREE.Group();
         const mountGeo = new THREE.ConeGeometry(300, 700, 5);
         const mountMat = new THREE.MeshLambertMaterial({color: 0x334455});
+        const mountInstanced = new THREE.InstancedMesh(mountGeo, mountMat, 20);
+        const dummyMount = new THREE.Object3D();
         for(let i=0; i<20; i++) {
             const angle = (i / 20) * Math.PI * 2;
             const dist = 1400 + Math.random() * 200;
-            const mount = new THREE.Mesh(mountGeo, mountMat);
-            mount.position.set(Math.cos(angle)*dist, 200, Math.sin(angle)*dist);
-            mount.rotation.y = Math.random() * Math.PI;
-            horizonGroup.add(mount);
+            dummyMount.position.set(Math.cos(angle)*dist, 200, Math.sin(angle)*dist);
+            dummyMount.rotation.y = Math.random() * Math.PI;
+            dummyMount.updateMatrix();
+            mountInstanced.setMatrixAt(i, dummyMount.matrix);
         }
+        horizonGroup.add(mountInstanced);
         const skyRingGeo = new THREE.TorusGeometry(1200, 40, 6, 100);
         const skyRingMat = new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.1, fog: true, side: THREE.DoubleSide});
         const skyRing = new THREE.Mesh(skyRingGeo, skyRingMat);
@@ -155,19 +159,22 @@
         const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 3);
         const treeMat = new THREE.MeshLambertMaterial({ color: leafColor });
         const trunkMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+        
+        // GPU Optimization: InstancedMesh drastically reduces draw calls!
+        const leafInstanced = new THREE.InstancedMesh(treeGeo, treeMat, 315);
+        const trunkInstanced = new THREE.InstancedMesh(trunkGeo, trunkMat, 315);
+        leafInstanced.castShadow = true; trunkInstanced.castShadow = true;
+        const dummyTree = new THREE.Object3D();
+        let tIdx = 0;
+        
         for(let i=0; i<300; i++) {
             const x = (Math.random() - 0.5) * 1000;
             const z = (Math.random() - 0.5) * 1000;
             if(Math.abs(x) < 50 && Math.abs(z) < 50) continue; // Keep center clear
-            const tree = new THREE.Group();
-            const leaves = new THREE.Mesh(treeGeo, treeMat);
-            leaves.position.y = 6; leaves.castShadow = true;
-            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-            trunk.position.y = 1.5; trunk.castShadow = true;
-            tree.add(leaves); tree.add(trunk);
-            tree.position.set(x, 0, z);
-            scene.add(tree);
+            dummyTree.position.set(x, 6, z); dummyTree.updateMatrix(); leafInstanced.setMatrixAt(tIdx, dummyTree.matrix);
+            dummyTree.position.set(x, 1.5, z); dummyTree.updateMatrix(); trunkInstanced.setMatrixAt(tIdx, dummyTree.matrix);
             platforms.push({ x: x, z: z, w: 1.5, h: 10, d: 1.5 }); // Solid tree trunks!
+            tIdx++;
         }
 
         // Player (Buddy)
@@ -343,12 +350,13 @@
         createSign("SUGAR ISLAND", 270, 150);
         for(let i=0; i<15; i++) {
             const tx = 350 + (Math.random()-0.5)*100; const tz = 200 + (Math.random()-0.5)*100;
-            const t = new THREE.Group();
-            const l = new THREE.Mesh(treeGeo, treeMat); l.position.y = 8; l.castShadow = true;
-            const tr = new THREE.Mesh(trunkGeo, trunkMat); tr.position.y = 3.5; tr.castShadow = true;
-            t.add(l); t.add(tr); t.position.set(tx, 0, tz); scene.add(t);
+            dummyTree.position.set(tx, 8, tz); dummyTree.updateMatrix(); leafInstanced.setMatrixAt(tIdx, dummyTree.matrix);
+            dummyTree.position.set(tx, 3.5, tz); dummyTree.updateMatrix(); trunkInstanced.setMatrixAt(tIdx, dummyTree.matrix);
             platforms.push({ x: tx, z: tz, w: 1.5, h: 10, d: 1.5 });
+            tIdx++;
         }
+        leafInstanced.count = tIdx; trunkInstanced.count = tIdx;
+        scene.add(leafInstanced); scene.add(trunkInstanced);
         locations.push({x: 350, z: 200, r: 80, name: "Sugar Island"});
         
         // Sault Schools
