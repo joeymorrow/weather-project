@@ -65,6 +65,18 @@ jobs:
           if [ -n "${{ secrets.DASHBOARD_URL }}" ]; then
             echo "DASHBOARD_URL=${{ secrets.DASHBOARD_URL }}" >> .env
           fi
+          if [ -n "${{ secrets.SMTP_SERVER }}" ]; then
+            echo "SMTP_SERVER=${{ secrets.SMTP_SERVER }}" >> .env
+          fi
+          if [ -n "${{ secrets.SMTP_PORT }}" ]; then
+            echo "SMTP_PORT=${{ secrets.SMTP_PORT }}" >> .env
+          fi
+          if [ -n "${{ secrets.SMTP_USER }}" ]; then
+            echo "SMTP_USER=${{ secrets.SMTP_USER }}" >> .env
+          fi
+          if [ -n "${{ secrets.SMTP_PASS }}" ]; then
+            echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> .env
+          fi
           echo "BUILD_TIMESTAMP=$(TZ='America/Detroit' date +'%b %d, %Y %I:%M %p')" >> .env
 
       - name: Rebuild and Deploy
@@ -104,4 +116,8 @@ jobs:
 
       - name: Cleanup Dangling Docker Images
         run: |
+          # Aggressive Docker artifact cleanup to prevent disk space leaks
           docker image prune -f
+          docker container prune -f
+          docker network prune -f
+          docker builder prune -f

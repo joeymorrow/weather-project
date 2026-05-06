@@ -1,8 +1,13 @@
 from dotenv import load_dotenv
 load_dotenv()
 import os, requests, threading, time, json, re, sqlite3
+import tracemalloc
+import fcntl
+from contextlib import closing
 from flask import Flask, render_template, jsonify
 from datetime import datetime
+import smtplib
+from email.mime.text import MIMEText
 import google.genai as genai
 from google.genai import types
 import pytz
@@ -15,27 +20,47 @@ DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 STATE_FILE = os.path.join(DATA_DIR, "buddy_state.json")
 DB_FILE = os.path.join(DATA_DIR, "pulse_history.db")
+LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 manual_override = None
 override_expiry = 0
 state_lock = threading.Lock()
 
 def init_db():
-    with sqlite3.connect(DB_FILE, timeout=10) as conn:
-        conn.execute('''CREATE TABLE IF NOT EXISTS pulses (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        date TEXT,
-                        text TEXT UNIQUE
-                     )''')
+    with closing(sqlite3.connect(DB_FILE, timeout=10)) as pulse_conn:
+        with pulse_conn:
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS pulses (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                date TEXT,
+                                text TEXT UNIQUE
+                             )''')
+    with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as log_conn:
+        with log_conn:
+            log_conn.execute('''CREATE TABLE IF NOT EXISTS logs (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                log_type TEXT,
+                                message TEXT,
+                                details TEXT
+                             )''')
 init_db()
 
 def load_history():
     try:
-        with sqlite3.connect(DB_FILE, timeout=10) as conn:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
             c.execute("SELECT date, text FROM pulses ORDER BY id DESC LIMIT 21")
             return [{"date": r[0], "text": r[1]} for r in c.fetchall()]
     except:
         return []
+
+def log_system_event(log_type, message, details=""):
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            with conn:
+                conn.execute("INSERT INTO logs (log_type, message, details) VALUES (?, ?, ?)",
+                             (log_type, message, json.dumps(details) if isinstance(details, dict) else str(details)))
+    except Exception as e:
+        print(f"[ERROR] Failed to write to system log: {e}", flush=True)
 
 state = {
     "temp": 0, "suggestion": "Initializing...", "station": "office", 
@@ -52,11 +77,14 @@ if os.path.exists(STATE_FILE):
                 state.update(json.load(f))
     except: pass
 
+gemini_client = None
+
 def get_best_models():
     """Augmented discovery prioritizing high-RPD models (Flash/Lite)."""
+    global gemini_client
     try:
-        client = genai.Client(api_key=G_KEY)
-        all_m = list(client.models.list())
+        if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+        all_m = list(gemini_client.models.list())
         ranked = []
         for m in all_m:
             n = m.name.lower()
@@ -97,7 +125,8 @@ def run_sync():
         else:
             manual_override = None
 
-        client = genai.Client(api_key=G_KEY)
+        global gemini_client
+        if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
         forecast_context = ", ".join([f"{i['dt_txt'].split(' ')[1][:5]} {i['weather'][0]['description']} {int(i['main']['temp'])}F" for i in f['list'][:8]])
         time_str = now.strftime('%I:%M %p')
         date_str = now.strftime('%B %d')
@@ -117,7 +146,7 @@ def run_sync():
         success = False
         for m_id in get_best_models():
             try:
-                resp = client.models.generate_content(
+                resp = gemini_client.models.generate_content(
                     model=m_id, 
                     contents=prompt,
                     config=types.GenerateContentConfig(tools=[{"google_search": {}}])
@@ -131,8 +160,9 @@ def run_sync():
                 
                 if is_news:
                     try:
-                        with sqlite3.connect(DB_FILE, timeout=10) as conn:
-                            conn.execute("INSERT INTO pulses (date, text) VALUES (?, ?)", (date_str, new_pulse))
+                        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                            with conn:
+                                conn.execute("INSERT INTO pulses (date, text) VALUES (?, ?)", (date_str, new_pulse))
                     except sqlite3.IntegrityError:
                         pass # Ignore exact duplicate pulses
                 
@@ -168,9 +198,99 @@ def run_sync():
         with state_lock: state["bubble"] = "Signal degraded. Retrying..."
 
 def sync_loop():
+    # Prevent multiple Gunicorn workers from spawning redundant background threads!
+    lock_file = open(os.path.join(DATA_DIR, "sync_loop.lock"), "w")
+    try:
+        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        return # Another worker is already running the sync loop. Exit quietly.
+
     while True:
         run_sync()
         time.sleep(600)
+
+def monitor_loop():
+    # Prevent multiple Gunicorn workers from spawning redundant monitor threads
+    lock_file = open(os.path.join(DATA_DIR, "monitor_loop.lock"), "w")
+    try:
+        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        return # Another worker is already running the monitor loop.
+
+    tracemalloc.start()
+    last_snapshot = tracemalloc.take_snapshot()
+    initial_threads = threading.enumerate()
+    log_system_event("MONITOR_START", f"Monitoring started with {len(initial_threads)} threads.", {"threads": [t.name for t in initial_threads]})
+
+    last_leak_email_time = 0
+    last_leak_signature = ""
+
+    while True:
+        time.sleep(1800) # Run every 30 minutes
+
+        # 1. Thread Count Check
+        current_threads = threading.enumerate()
+        log_system_event("THREAD_COUNT", f"Active threads: {len(current_threads)}", {"threads": [t.name for t in current_threads]})
+
+        # 2. File Descriptor Check
+        try:
+            fd_count = len(os.listdir('/proc/self/fd'))
+            log_system_event("FD_COUNT", f"Open file descriptors: {fd_count}")
+        except FileNotFoundError:
+            pass # Not on Linux, skip
+
+        # 3. Memory Growth Check
+        current_snapshot = tracemalloc.take_snapshot()
+        top_stats = current_snapshot.compare_to(last_snapshot, 'lineno')
+        total_growth = sum(stat.size_diff for stat in top_stats)
+        if total_growth > 1024 * 1024: # Log if memory grew by more than 1MB
+            leak_details = [str(stat) for stat in top_stats[:5]]
+            log_system_event("MEMORY_GROWTH", f"Memory grew by {total_growth / 1024:.1f} KiB in last 30 mins.", {"top_5_leaks": leak_details})
+            
+            # Heuristic 1: Deduplication (Ignore if it's the exact same leak signature)
+            current_sig = "".join([str(stat.traceback) for stat in top_stats[:3]])
+            if current_sig == last_leak_signature:
+                last_snapshot = current_snapshot
+                continue
+
+            # Heuristic 2: Backoff (Max 1 alert every 12 hours)
+            current_time = time.time()
+            if current_time - last_leak_email_time < 43200:
+                last_snapshot = current_snapshot
+                continue
+
+            # Heuristic 3: AI Criticality Check & Triage
+            try:
+                global gemini_client
+                if not gemini_client: gemini_client = genai.Client(api_key=G_KEY) # AI client initialized
+                prompt = f"A Python memory leak was detected. Top 5 allocations: {leak_details}. Evaluate if this is a severe, compounding leak or normal background caching. Return JSON only: {{\"critical\": true, \"reason\": \"<why>\", \"prompt_suggestion\": \"<how I should prompt you to fix it>\"}} Or if safe: {{\"critical\": false}}"
+                for m_id in get_best_models():
+                    try:
+                        resp = gemini_client.models.generate_content(model=m_id, contents=prompt)
+                        ai_eval = json.loads(resp.text[resp.text.find('{'):resp.text.rfind('}')+1])
+                    
+                        if ai_eval.get("critical"):
+                            msg = MIMEText(f"Reason: {ai_eval.get('reason')}\n\nPaste this into gemini to find the solution: \n{leak_details}\n\nPrompt Suggestion: \n{ai_eval.get('prompt_suggestion')} \n\n(Geared for your specific chat history context!)")
+                            msg['Subject'] = "[CRITICAL - BEACON BUDDY] - Memory Leak"
+                            msg['From'] = os.environ.get("SMTP_USER", "buddy-alerts@morrowedge.com")
+                            msg['To'] = "joseph@morrowedge.com"
+                            
+                            smtp_server = os.environ.get("SMTP_SERVER", "localhost")
+                            smtp_port = int(os.environ.get("SMTP_PORT", 587))
+                            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                                if os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASS"):
+                                    server.starttls()
+                                    server.login(os.environ.get("SMTP_USER"), os.environ.get("SMTP_PASS"))
+                                server.send_message(msg)
+                            log_system_event("EMAIL_SENT", "Sent critical memory leak email to joseph@morrowedge.com")
+                            last_leak_email_time = current_time
+                            last_leak_signature = current_sig
+                        break # AI evaluated successfully, break fallback loop
+                    except: continue
+            except Exception as e:
+                print(f"[ERROR] AI Leak eval/email failed: {e}", flush=True)
+                
+        last_snapshot = current_snapshot
 
 @app.route('/')
 def index():
@@ -181,6 +301,17 @@ def get_state():
         out = state.copy()
         out["build_timestamp"] = os.environ.get("BUILD_TIMESTAMP", "Local Dev")
         return jsonify(out)
+
+@app.route('/api/system/logs')
+def get_system_logs():
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT timestamp, log_type, message, details FROM logs ORDER BY id DESC LIMIT 100")
+            logs = [{"timestamp": r[0], "type": r[1], "message": r[2], "details": r[3]} for r in c.fetchall()]
+            return jsonify(logs)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/rpg')
 def rpg():
@@ -231,7 +362,9 @@ def move_buddy(station):
 # When run with Gunicorn, this starts the sync loop without blocking the workers
 if __name__ != '__main__':
     threading.Thread(target=sync_loop, daemon=True).start()
+    threading.Thread(target=monitor_loop, daemon=True).start()
 
 if __name__ == '__main__':
     threading.Thread(target=sync_loop, daemon=True).start()
+    threading.Thread(target=monitor_loop, daemon=True).start()
     app.run(host='0.0.0.0', port=5000, debug=False)

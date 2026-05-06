@@ -555,7 +555,10 @@
         let stateTimer;
         async function fetchState(force = false) {
             clearTimeout(stateTimer);
-            if (window.onDate || window.isRaving || window.isKaiju) return; // Don't interrupt easter eggs!
+            if (window.onDate || window.isRaving || window.isKaiju) {
+                stateTimer = setTimeout(() => fetchState(), 30000); // Reschedule before bailing!
+                return; 
+            }
             
             try {
                 const res = await fetch('/api/state?_=' + new Date().getTime());

@@ -11,8 +11,10 @@
         #location-tag { position: absolute; top: 20px; right: 20px; font-size: 2rem; color: #fff; font-weight: bold; text-shadow: 0 2px 10px #000; opacity: 0.5; transition: opacity 0.5s; text-transform: uppercase; }
         .btn { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); border: 2px solid #ff4444; color: #ff4444; padding: 10px 20px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; text-decoration: none; pointer-events: auto; z-index: 20; transition: 0.3s; font-weight: bold; }
         .btn:hover { background: #ff4444; color: #fff; box-shadow: 0 0 15px #ff4444; }
-        .t-btn { width: 50px; height: 50px; background: rgba(0,0,0,0.5); border: 2px solid #00ffff; color: #00ffff; border-radius: 50%; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer; font-weight: bold; }
-        .t-btn:active { background: #00ffff; color: #000; box-shadow: 0 0 15px #00ffff; }
+        .t-btn { width: clamp(65px, 12vmin, 110px); height: clamp(65px, 12vmin, 110px); background: rgba(0,0,0,0.5); border: clamp(2px, 0.5vmin, 4px) solid #00ffff; color: #00ffff; border-radius: 50%; font-size: clamp(1.2rem, 3.5vmin, 2rem); display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.1s; }
+        .t-btn:active { background: #00ffff; color: #000; box-shadow: 0 0 20px #00ffff; transform: scale(0.9); }
+        #touch-dpad { position: absolute; bottom: max(30px, 5vmin); left: max(20px, 5vmin); z-index: 30; grid-template-columns: repeat(3, clamp(65px, 12vmin, 110px)); gap: clamp(10px, 2vmin, 25px); pointer-events: auto; }
+        #touch-actions { position: absolute; bottom: max(30px, 5vmin); right: max(20px, 5vmin); z-index: 30; gap: clamp(10px, 2vmin, 25px); pointer-events: auto; flex-wrap: wrap-reverse; justify-content: flex-end; max-width: 60vw; }
     </style>
 </head>
 <body>
@@ -33,14 +35,14 @@
     <div id="dialog-box" style="display: none; position: absolute; top: 20%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); border: 2px solid #00ffff; color: #fff; padding: 20px 40px; font-size: 2rem; border-radius: 15px; z-index: 10; text-align: center; font-style: italic; box-shadow: 0 0 20px rgba(0,255,255,0.3); pointer-events: none;">...I cannot eat.</div>
 
     <!-- Mobile Touch Controls -->
-    <div id="touch-dpad" style="display: none; position: absolute; bottom: 20px; left: 20px; z-index: 30; grid-template-columns: 50px 50px 50px; gap: 10px; pointer-events: auto;">
+    <div id="touch-dpad" style="display: none;">
         <div style="grid-column: 2"><div class="t-btn" id="t-up">W</div></div>
         <div style="grid-column: 1"><div class="t-btn" id="t-left">A</div></div>
         <div style="grid-column: 2"><div class="t-btn" id="t-down">S</div></div>
         <div style="grid-column: 3"><div class="t-btn" id="t-right">D</div></div>
     </div>
-    <div id="touch-actions" style="display: none; position: absolute; bottom: 20px; right: 20px; z-index: 30; gap: 10px; pointer-events: auto;">
-        <div class="t-btn" id="t-shift" style="font-size: 1rem;">RUN</div>
+    <div id="touch-actions" style="display: none;">
+        <div class="t-btn" id="t-shift" style="font-size: clamp(0.9rem, 2.5vmin, 1.4rem);">RUN</div>
         <div class="t-btn" id="t-m">🎵</div>
         <div class="t-btn" id="t-jump">^</div>
         <div class="t-btn" id="t-h" style="display: none;">📯</div>
@@ -201,16 +203,41 @@
         kioskGroup.add(kioskStand);
 
         // Kiosk Screen Canvas (Draws the real dashboard state!)
+        let kioskTime = '{{ time }}';
+        let kioskTemp = '{{ temp }}';
         const canvas = document.createElement('canvas');
         canvas.width = 512; canvas.height = 256; const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#010103'; ctx.fillRect(0, 0, 512, 256);
-        ctx.fillStyle = '#00ffff'; ctx.font = 'bold 24px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('MORROW EDGE | BEACON', 256, 40);
-        ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '14px "Segoe UI", sans-serif'; ctx.fillText('SAULT STE. MARIE, MICHIGAN', 256, 65);
-        ctx.fillStyle = '#00ffff'; ctx.font = 'bold 50px "Segoe UI", sans-serif'; ctx.fillText('{{ time }}', 256, 125);
-        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 70px "Segoe UI", sans-serif'; ctx.fillText('{{ temp }}°', 256, 200);
-        ctx.strokeStyle = 'rgba(0,255,255,0.3)'; ctx.lineWidth = 3; for(let i=0; i<8; i++) { ctx.beginPath(); ctx.arc(80 + i*50, 230, 12, 0, Math.PI*2); ctx.stroke(); }
-        const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 2.8), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas) }));
+        const kioskTex = new THREE.CanvasTexture(canvas);
+        
+        function updateKioskCanvas() {
+            ctx.fillStyle = '#010103'; ctx.fillRect(0, 0, 512, 256);
+            ctx.fillStyle = '#00ffff'; ctx.font = 'bold 24px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('MORROW EDGE | BEACON', 256, 40);
+            ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '14px "Segoe UI", sans-serif'; ctx.fillText('SAULT STE. MARIE, MICHIGAN', 256, 65);
+            ctx.fillStyle = '#00ffff'; ctx.font = 'bold 50px "Segoe UI", sans-serif'; ctx.fillText(kioskTime, 256, 125);
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 70px "Segoe UI", sans-serif'; ctx.fillText(kioskTemp + '°', 256, 200);
+            ctx.strokeStyle = 'rgba(0,255,255,0.3)'; ctx.lineWidth = 3; for(let i=0; i<8; i++) { ctx.beginPath(); ctx.arc(80 + i*50, 230, 12, 0, Math.PI*2); ctx.stroke(); }
+            kioskTex.needsUpdate = true;
+        }
+        updateKioskCanvas();
+
+        const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 2.8), new THREE.MeshBasicMaterial({ map: kioskTex }));
         screenMesh.position.set(0, 4, 1.01); kioskGroup.add(screenMesh);
+        
+        // Live Clock & Weather Polling for Kiosk
+        let lastTempSync = Date.now();
+        async function syncKioskTemp() {
+            try {
+                const res = await fetch('/api/state?_=' + new Date().getTime());
+                const s = await res.json();
+                if (s.temp && s.temp != kioskTemp) { kioskTemp = s.temp; updateKioskCanvas(); }
+            } catch(e) {}
+            lastTempSync = Date.now();
+            setTimeout(syncKioskTemp, 300000);
+        }
+        setTimeout(syncKioskTemp, 300000);
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === 'visible' && Date.now() - lastTempSync > 300000) syncKioskTemp();
+        });
 
         // Locations / Landmarks (Stylized Placeholders)
         const locations = [];
@@ -343,7 +370,7 @@
         const keys = { w:false, a:false, s:false, d:false, space:false, shift:false, m:false, h:false };
         
         // Music Synthesizer Engine
-        let audioCtx = null, osc = null, lfo = null, gainNode = null;
+        let audioCtx = null, osc = null, lfo = null, gainNode = null, lfoGain = null;
         let currentTrack = 0; let isPlayingMusic = false;
         function playTrack(tIdx) {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -359,12 +386,12 @@
                 osc.type = 'triangle'; osc.frequency.value = 35; lfo.type = 'sawtooth'; lfo.frequency.value = 4;
             }
             
-            const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 1;
+            lfoGain = audioCtx.createGain(); lfoGain.gain.value = 1;
             lfo.connect(lfoGain); lfoGain.connect(gainNode.gain);
             osc.connect(gainNode); gainNode.connect(audioCtx.destination);
             osc.start(); lfo.start(); isPlayingMusic = true;
         }
-        function stopTrack() { if (osc) { osc.stop(); lfo.stop(); osc = null; } isPlayingMusic = false; }
+        function stopTrack() { if (osc) { osc.stop(); lfo.stop(); osc.disconnect(); gainNode.disconnect(); lfo.disconnect(); if(lfoGain) lfoGain.disconnect(); osc = null; } isPlayingMusic = false; }
         
         const honkUi = document.createElement('div');
         honkUi.style.cssText = 'position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0.5); color: #ffff00; font-size: 5rem; font-weight: bold; font-style: italic; opacity: 0; transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s; text-shadow: 4px 4px 0 #ff0000; z-index: 50; pointer-events: none;';
@@ -392,6 +419,7 @@
                     hGain.gain.setValueAtTime(0.5, audioCtx.currentTime); hGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
                     hOsc.connect(hGain); hGain.connect(audioCtx.destination);
                     hOsc.start(); hOsc.stop(audioCtx.currentTime + 0.3);
+                    hOsc.onended = () => { hOsc.disconnect(); hGain.disconnect(); };
                 } catch(e) {}
             }
             if(k === 'f') {
@@ -490,13 +518,26 @@
         });
         
         let lastRStep = -1; // Optimizer for GPU texture updates
+        let lastClockUpdate = 0; // Throttler for UI Canvas
+        
+        // Pre-allocate vectors to prevent 60fps GC Memory Leaks!
+        const oldPos = new THREE.Vector3();
+        const relativeCameraOffset = new THREE.Vector3();
 
         function animate() {
             requestAnimationFrame(animate);
+            
+            // Real-time, pause-resistant Kiosk Clock 
+            const nowMs = Date.now();
+            if (nowMs - lastClockUpdate > 1000) {
+                lastClockUpdate = nowMs;
+                const timeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                if (timeStr !== kioskTime) { kioskTime = timeStr; updateKioskCanvas(); }
+            }
 
             // Movement Math
             const mover = inCar ? carGroup : playerGroup;
-            let oldPos = mover.position.clone();
+            oldPos.copy(mover.position);
             let targetRoll = 0;
             
             if (inCar) {
@@ -762,9 +803,9 @@
             }
 
             // 3rd Person Camera & FOV "Speed Juice"
-            const relativeCameraOffset = new THREE.Vector3(0, inCar ? 10 : 8, inCar ? 20 : 15);
-            const cameraOffset = relativeCameraOffset.applyMatrix4(mover.matrixWorld);
-            camera.position.lerp(cameraOffset, 0.1);
+            relativeCameraOffset.set(0, inCar ? 10 : 8, inCar ? 20 : 15);
+            relativeCameraOffset.applyMatrix4(mover.matrixWorld);
+            camera.position.lerp(relativeCameraOffset, 0.1);
             camera.lookAt(mover.position);
             
             const targetFov = inCar ? 75 + Math.abs(carV) * 8 : 75;
