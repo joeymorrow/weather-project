@@ -4,6 +4,7 @@ import os, requests, threading, time, json, re
 from flask import Flask, render_template, jsonify
 from datetime import datetime
 import google.genai as genai
+from google.genai import types
 import pytz
 
 app = Flask(__name__)
@@ -19,7 +20,7 @@ state = {
     "desc": "Syncing...", "high": 0, "low": 0, "date": "", "time": "--", "icon": "01d",
     "bubble": "...", "pulse": "Anchoring Sault Pulse...",
     "forecast": "Loading forecast...", "acc_css": "none", "is_sleeping": False, "show_bed": False,
-    "is_day": False, "is_golden": False, "pop": 0
+    "is_day": False, "is_golden": False, "pop": 0, "pulse_history": []
 }
 
 if os.path.exists(STATE_FILE):
@@ -80,23 +81,37 @@ def run_sync():
         prompt = f"""
         Sault MI. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
-        Task 2 (Pulse): 1-sentence sleek, minimalist status update on the city's current rhythm. Use crisp, modern phrasing suited for a high-tech UI, but keep the tone chill, warm, and subtly optimistic (avoid sounding clinical or depressing). Colloquially refer to the city as "the Sault" or "the Soo" when applicable. Reserve weather mentions strictly for severe events.
+        Task 2 (Pulse): 1-sentence sleek, minimalist status update on the city's current rhythm. Sometimes search for and fold in real, ultra-recent local news, events, or business openings in Sault Ste. Marie, MI or Sugar Island (e.g., new spots like Del Mar, Hill Top bar reopening). If no recent news stands out, default to the general vibe. Use crisp, modern phrasing suited for a high-tech UI. Keep it chill, warm, and subtly optimistic. Refer to the city as "the Sault" or "the Soo". If you successfully folded in real local news/events, set the JSON boolean "is_news" to true. Otherwise, false.
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
         Task 4 (Attire): 2-4 word practical clothing or gear suggestion based on the forecast. Factor in the current season ({now.strftime('%B')}) to match real-world wardrobe habits (e.g., favor layers or rain jackets over heavy winter boots in spring/summer).
-        Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary" }}
+        Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "is_news": true }}
         """
         
         success = False
         for m_id in get_best_models():
             try:
-                resp = client.models.generate_content(model=m_id, contents=prompt)
+                resp = client.models.generate_content(
+                    model=m_id, 
+                    contents=prompt,
+                    config=types.GenerateContentConfig(tools=[{"google_search": {}}])
+                )
                 text = resp.text
                 json_str = text[text.find('{'):text.rfind('}')+1]
                 ai = json.loads(json_str)
+                
+                new_pulse = ai.get("pulse", "Anchoring Sault Pulse...")
+                is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
+                hist = state.get("pulse_history", [])
+                
+                if is_news and (not hist or hist[0].get("text") != new_pulse):
+                    hist.insert(0, {"date": date_str, "text": new_pulse})
+                    hist = hist[:21] # Retain exactly the last 21 grounded pulses
+                
                 state.update({
                     "suggestion": ai.get("tip"), "bubble": ai.get("say"), 
-                    "pulse": ai.get("pulse"), "acc_css": "zzz" if is_sleep else ai.get("acc", "none"),
-                    "forecast": ai.get("forecast", "Weather data processing...")
+                    "pulse": new_pulse, "acc_css": "zzz" if is_sleep else ai.get("acc", "none"),
+                    "forecast": ai.get("forecast", "Weather data processing..."),
+                    "pulse_history": hist
                 })
                 print(f"[API] Success via {m_id}", flush=True)
                 success = True; break

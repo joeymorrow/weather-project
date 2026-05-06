@@ -6,8 +6,8 @@
   - "matrix", "spin", "rave", "kaiju", "date"
   
   MOBILE / TV USERS:
-  Press and hold Buddy for 1 second to
-  open the secret menu!
+  Tap the "MORROW EDGE | BEACON Buddy" header
+  5 times quickly to open the secret menu!
   =========================================
 -->
 <html lang="en">
@@ -46,10 +46,11 @@
         .clock { font-size: clamp(3rem, 6vw, 5rem); color: var(--accent); } .temp { font-size: clamp(6rem, 14vw, 14rem); font-weight: 100; color: var(--text-main); line-height: 0.8; letter-spacing: -5px; }
         .suggestion { font-size: clamp(1rem, 2vw, 1.8rem); color: var(--accent); font-weight: bold; margin: 15px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 8px 24px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); }
         .forecast-line { font-size: clamp(0.9rem, 1.5vw, 1.4rem); color: var(--text-main); opacity: 0.9; margin: 10px auto; max-width: 80%; line-height: 1.4; }
-        .pulse-line { font-size: clamp(0.85rem, 1.2vw, 1.2rem); color: var(--accent); opacity: 0.75; margin: 15px auto 0; font-style: italic; font-weight: normal; border-top: 1px solid rgba(0,255,255,0.1); padding-top: 12px; width: 100%; max-width: 600px; line-height: 1.5; letter-spacing: 0.5px; }
+        .pulse-line { font-size: clamp(0.85rem, 1.2vw, 1.2rem); color: var(--accent); opacity: 0.75; margin: 15px auto 0; font-style: italic; font-weight: normal; border-top: 1px solid rgba(0,255,255,0.1); padding-top: 12px; width: 100%; max-width: 600px; line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; border-radius: 8px; transition: all 0.3s ease; }
+        .pulse-line:hover, .pulse-line:focus { opacity: 1; outline: none; background: var(--pod-bg); text-shadow: 0 0 10px var(--accent); box-shadow: 0 -10px 10px var(--pod-bg); }
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: pointer; }
         #build-stamp:hover, #build-stamp:focus { opacity: 0.8; outline: none; }
-        #egg-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; }
+        #egg-modal, #pulse-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; }
         .egg-btn { background: rgba(0,255,255,0.1); border: 2px solid var(--accent); color: var(--accent); padding: 15px 30px; font-size: 1.2rem; border-radius: 10px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: 200px; text-align: center; }
         .egg-btn:hover, .egg-btn:focus { background: var(--accent); color: #000; outline: none; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; }
@@ -98,6 +99,8 @@
         @keyframes rave-colors { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
         .rave-bg { animation: rave-colors 0.5s infinite alternate !important; }
         .bubble-update { animation: fadeBubble 0.8s ease-out; }
+        #pulse-list::-webkit-scrollbar { width: 8px; }
+        #pulse-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
         @media (max-width: 600px) {
             /* 1. Force the body into a safe vertical flex stack */
             body {
@@ -171,7 +174,7 @@
 </head>
 <body class="{% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
     <div id="header-container">
-        <div id="header">MORROW EDGE | BEACON Buddy</div>
+        <div id="header" onclick="handleSecretTap()" style="pointer-events: auto; cursor: pointer;" title="Tap 5 times for Secret Menu">MORROW EDGE | BEACON Buddy</div>
         <div class="date-line" id="ui-date">{{ date }}</div>
         <div id="location">SAULT STE. MARIE, MICHIGAN</div>
     </div>
@@ -189,14 +192,19 @@
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('date')" onkeydown="if(event.key==='Enter')triggerEgg('date')">Date</div>
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('close')" onkeydown="if(event.key==='Enter')triggerEgg('close')" style="margin-top:20px; border-color:gray; color:gray;">Close</div>
     </div>
+    <div id="pulse-modal" style="padding: 5vh 5vw; box-sizing: border-box;">
+        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 20px; font-size: clamp(1.5rem, 3vw, 2.5rem); text-transform: uppercase; text-align: center;">Sault Pulse Archives</h2>
+        <div id="pulse-list" tabindex="0" style="overflow-y: auto; flex-grow: 1; width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 15px; padding-right: 10px;"></div>
+        <div class="egg-btn" tabindex="0" onclick="closePulseHistory()" onkeydown="if(event.key==='Enter')closePulseHistory()" style="margin-top:20px; flex-shrink: 0; border-color:gray; color:gray;">Close</div>
+    </div>
         <div class="clock" id="ui-clock">--:-- --</div>
         <div class="temp-row" style="display:flex; justify-content:center; align-items:center;"><img id="ui-icon" src="https://openweathermap.org/img/wn/{{ icon }}@4x.png" style="width: clamp(80px, 10vw, 150px);"><div class="temp"><span id="ui-temp">{{ temp }}</span>°</div></div>
         <div id="ui-desc" style="font-size: clamp(1.1rem, 2vw, 1.5rem); opacity: 0.7;">{{ desc }} | H: {{ high }}° L: {{ low }}° | 💧 {{ pop }}%</div>
         <div class="forecast-line" id="ui-forecast">{{ forecast }}</div>
         <div style="font-size: clamp(0.7rem, 1vw, 1rem); color: var(--text-main); opacity: 0.5; margin-bottom: 15px;">Forecast generated by Gemini API using OpenWeather data</div>
-        <div class="suggestion" id="ui-sugg">{% if 'Initializing' in suggestion %}{{ suggestion }}{% else %}🧥 Suggested Attire: {{ suggestion }}{% endif %}</div><div class="pulse-line" id="ui-pulse">{{ pulse }}</div>
+        <div class="suggestion" id="ui-sugg">{% if 'Initializing' in suggestion %}{{ suggestion }}{% else %}🧥 Suggested Attire: {{ suggestion }}{% endif %}</div><div class="pulse-line" id="ui-pulse" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse }}</div>
     </div>
-    <div id="buddy-container" onclick="leaveForMorrowEdge(event)" onmousedown="startBuddyPress(event)" onmouseup="cancelBuddyPress()" onmouseleave="cancelBuddyPress()" ontouchstart="startBuddyPress(event)" ontouchend="cancelBuddyPress()" ontouchmove="cancelBuddyPress()" class="{% if is_sleeping %}sleeping{% endif %}">
+    <div id="buddy-container" onclick="leaveForMorrowEdge()" class="{% if is_sleeping %}sleeping{% endif %}">
         <div id="buddy-swing" style="width: 100%; height: 100%;">
             <div id="buddy-float">
                 <div class="buddy-aura"></div>
@@ -211,6 +219,7 @@
         let lastPulse = {{ pulse | tojson | safe }};
         let lastInteraction = 0;
         let keyBuffer = "";
+        let pulseHistory = {{ pulse_history | default([]) | tojson | safe }};
         const podOrder = ['coffee', 'office', 'gym', 'store', 'library', 'garage', 'park', 'kitchen'];
 
         function layoutPods() {
@@ -272,11 +281,7 @@
         // Track user interaction (mouse/touch) to prevent UI shifting
         ['mousemove', 'mousedown', 'touchstart'].forEach(evt => window.addEventListener(evt, () => lastInteraction = Date.now()));
 
-        function leaveForMorrowEdge(e) {
-            if (isLongPress) {
-                if (e) e.preventDefault();
-                return;
-            }
+        function leaveForMorrowEdge() {
             if (window.onDate) return; // Don't leave if he's eating pasta!
             document.documentElement.style.background = '#010103';
             document.body.style.transition = 'opacity 1s ease';
@@ -293,20 +298,6 @@
                 setTimeout(() => { if (isImg) el.src = val; else el.innerText = val; el.classList.remove('fade-out'); }, 800);
             }
         }
-
-        let buddyPressTimer = null;
-        let isLongPress = false;
-        window.startBuddyPress = function(e) {
-            isLongPress = false;
-            buddyPressTimer = setTimeout(() => {
-                isLongPress = true;
-                document.getElementById('egg-modal').style.display = 'flex';
-                if (navigator.vibrate) navigator.vibrate(50); // Haptic feedback if available!
-            }, 1000);
-        };
-        window.cancelBuddyPress = function() {
-            clearTimeout(buddyPressTimer);
-        };
 
         let buildTapCount = 0; let buildTapTimer = null;
         window.handleSecretTap = function() {
@@ -325,6 +316,16 @@
             if(eggName === 'rave') activateRaveMode();
             if(eggName === 'kaiju') unleashKaijuBuddy();
             if(eggName === 'date') takeBuddyOnDate();
+        };
+
+        window.openPulseHistory = function() {
+            const list = document.getElementById('pulse-list');
+            list.innerHTML = pulseHistory.length ? pulseHistory.map(p => `<div style="background: var(--pod-bg); border: 1px solid var(--pod-border); padding: 15px 20px; border-radius: 12px; color: var(--text-main); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.4; text-align: left;"><div style="color: var(--accent); font-size: 0.8rem; margin-bottom: 5px; opacity: 0.8; text-transform: uppercase;">${p.date}</div>${p.text}</div>`).join('') : '<div style="color: var(--accent); text-align:center; opacity: 0.6; margin-top: 20px;">No grounded archives yet. Check back later!</div>';
+            document.getElementById('pulse-modal').style.display = 'flex';
+            list.focus();
+        };
+        window.closePulseHistory = function() {
+            document.getElementById('pulse-modal').style.display = 'none';
         };
 
         window.activateSpinMode = function() {
@@ -523,6 +524,8 @@
                 
                 if (!isInteracting) {
                     softUpdate('ui-forecast', s.forecast || '');
+                    pulseHistory = s.pulse_history || [];
+                    
                     softUpdate('ui-sugg', s.suggestion && s.suggestion.includes('Initializing') ? s.suggestion : `🧥 Suggested Attire: ${s.suggestion}`);
                     softUpdate('ui-pulse', s.pulse);
                     
