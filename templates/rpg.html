@@ -86,14 +86,16 @@
         hemiLight.position.set(0, 200, 0);
         scene.add(hemiLight);
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(100, 200, 50);
         dirLight.castShadow = true;
-        dirLight.shadow.camera.top = 200; dirLight.shadow.camera.bottom = -200;
-        dirLight.shadow.camera.left = -200; dirLight.shadow.camera.right = 200;
-        dirLight.shadow.mapSize.width = 2048;
-        dirLight.shadow.mapSize.height = 2048;
+        // GPU Optimization: Tight Shadow Frustum that only renders what's near the screen view
+        dirLight.shadow.camera.top = 100; dirLight.shadow.camera.bottom = -100;
+        dirLight.shadow.camera.left = -100; dirLight.shadow.camera.right = 100;
+        dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 400;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
         dirLight.shadow.bias = -0.001; // Prevents "Shadow Acne" flickering!
         scene.add(dirLight);
+        scene.add(dirLight.target);
         
         // Atmosphere: Sun & Clouds
         const sun = new THREE.Mesh(new THREE.SphereGeometry(30, 16, 16), new THREE.MeshBasicMaterial({color: 0xffffff})); // Opt: Lower poly sphere
@@ -117,7 +119,7 @@
         let weatherParticles = null;
         if (isChristmas || isRaining) {
             const wGeo = new THREE.BufferGeometry(); const wPos = [];
-            for(let i=0; i<2000; i++) wPos.push((Math.random()-0.5)*1500, Math.random()*300, (Math.random()-0.5)*1500);
+            for(let i=0; i<800; i++) wPos.push((Math.random()-0.5)*200, Math.random()*100, (Math.random()-0.5)*200);
             wGeo.setAttribute('position', new THREE.Float32BufferAttribute(wPos, 3));
             weatherParticles = new THREE.Points(wGeo, new THREE.PointsMaterial({color: isRaining ? 0x00aaff : 0xffffff, size: isRaining ? 1.5 : 2, transparent: true, opacity: 0.8}));
             scene.add(weatherParticles);
@@ -146,6 +148,7 @@
             mountInstanced.setMatrixAt(i, dummyMount.matrix);
         }
         horizonGroup.add(mountInstanced);
+        mountInstanced.frustumCulled = false; // Fixes Three.js "teleporting" mesh bug!
         const skyRingGeo = new THREE.TorusGeometry(1200, 40, 4, 24); // Opt: Reduced from 100 tubular segments to 24
         const skyRingMat = new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.1, fog: true, side: THREE.DoubleSide});
         const skyRing = new THREE.Mesh(skyRingGeo, skyRingMat);
@@ -166,6 +169,7 @@
         // GPU Optimization: InstancedMesh drastically reduces draw calls!
         const leafInstanced = new THREE.InstancedMesh(treeGeo, treeMat, 315);
         const trunkInstanced = new THREE.InstancedMesh(trunkGeo, trunkMat, 315);
+        leafInstanced.frustumCulled = false; trunkInstanced.frustumCulled = false; // Prevents forests from popping out of existence!
         leafInstanced.castShadow = true; trunkInstanced.castShadow = true;
         const dummyTree = new THREE.Object3D();
         let tIdx = 0;
@@ -236,6 +240,7 @@
         // The "Juice": Passat Headlights!
         const headlight = new THREE.SpotLight(0xffffff, 2, 100, Math.PI/4, 0.5, 1);
         headlight.position.set(0, 1, -4); headlight.target.position.set(0, 0, -20);
+        headlight.visible = false; // Opt: Only turn on when driving!
         carGroup.add(headlight); carGroup.add(headlight.target);
         
         carGroup.position.set(-10, 0, 10);
@@ -408,12 +413,32 @@
         scene.add(coin);
         let score = 0; let coinActive = true;
 
-        // Sault Schools
+        // LSSU Campus
         addSolidBox(0xb22222, 40, 15, 20, -50, -50);
         addSolidBox(0xdddddd, 5, 20, 5, -50, -40); // Tower
-        createSign("SAULT SCHOOLS", -30, -35);
-        locations.push({x: -50, z: -50, r: 40, name: "Sault Schools"});
+        createSign("LSSU CAMPUS", -25, -25);
+        locations.push({x: -50, z: -50, r: 50, name: "LSSU Campus"});
         
+        // Tower of History
+        const tohBase = addSolidBox(0x777777, 10, 80, 10, -120, -60);
+        const tohTop = addSolidBox(0x555555, 14, 15, 14, -120, -60);
+        tohTop.position.y = 80 + 7.5; // Sit on top
+        platforms.push({ x: -120, z: -60, w: 14, h: 95, d: 14 }); // Master collision
+        createSign("TOWER OF HISTORY", -95, -50);
+        locations.push({x: -120, z: -60, r: 50, name: "Tower of History"});
+        
+        // Clyde's Drive-In
+        addSolidBox(0xeeeeee, 20, 8, 15, 280, 150); // main building
+        const clydeCanopy = addSolidBox(0xff0000, 25, 2, 20, 280, 155); clydeCanopy.position.y = 9; // canopy
+        createSign("CLYDE'S DRIVE-IN", 280, 170);
+        locations.push({x: 280, z: 150, r: 40, name: "Clyde's Drive-In"});
+
+        // West Pier Drive-In
+        addSolidBox(0xdddddd, 15, 8, 15, 120, -150); // Near locks
+        const wpCanopy = addSolidBox(0xcc0000, 16, 2, 16, 120, -150); wpCanopy.position.y = 9;
+        createSign("WEST PIER BURGERS", 120, -130);
+        locations.push({x: 120, z: -150, r: 40, name: "West Pier Drive-In"});
+
         // The Matrix
         addSolidBox(0x000000, 40, 40, 40, -200, -200, mxTex);
         createSign("THE MATRIX", -170, -170);
@@ -440,14 +465,14 @@
         
         // The Office
         addSolidBox(0x888888, 20, 25, 20, 0, -40, winTex);
-        createSign("THE OFFICE", 15, -25);
+        createSign("THE OFFICE", 20, -20);
         locations.push({x: 0, z: -40, r: 30, name: "The Office"});
         
         // Luigi's Fine Pasta
         addSolidBox(0xff6347, 30, 12, 30, -100, 100);
         const awning = new THREE.Mesh(new THREE.PlaneGeometry(14, 6), new THREE.MeshLambertMaterial({color: 0xffffff}));
         awning.rotation.x = -Math.PI / 3; awning.position.set(-100, 8, 117); scene.add(awning);
-        createSign("LUIGI'S PASTA", -80, 110);
+        createSign("LUIGI'S PASTA", -75, 125);
         locations.push({x: -100, z: 100, r: 40, name: "Luigi's Fine Pasta"});
         
         // Buddy's Jump Puzzle
@@ -566,7 +591,8 @@
                     inCar = false;
                     buddyModel.visible = true;
                     playerGroup.position.copy(carGroup.position);
-                    playerGroup.position.x -= 5; // Step out to the side
+                    playerGroup.position.x -= Math.cos(carGroup.rotation.y) * 4; // Safely eject to the left side!
+                    playerGroup.position.z += Math.sin(carGroup.rotation.y) * 4;
                     activeTarget = playerGroup;
                     if (hasBot) { botGroup.position.set(2, 1, 0); botModel.scale.y = 1.0; playerGroup.add(botGroup); }
                 }
@@ -673,9 +699,16 @@
                 if (timeStr !== kioskTime) { kioskTime = timeStr; updateKioskCanvas(); }
             }
 
-            // Movement Math
             const mover = inCar ? carGroup : playerGroup;
+            
+            // Frustum Culling Lock: Only render shadows strictly near the player's view!
+            dirLight.position.set(mover.position.x + 100, mover.position.y + 200, mover.position.z + 50);
+            dirLight.target.position.copy(mover.position);
+
+            // Movement Math
             oldPos.copy(mover.position);
+            const oldBotPos = botGroup.position.clone(); // Track bot position for collisions!
+            const pX = mover.position.x; const pZ = mover.position.z;
             let targetRoll = 0;
             
             if (inCar) {
@@ -736,12 +769,17 @@
                 if (p.life <= 0) { p.active = false; p.mesh.visible = false; }
             }
             
-            // Edgar B. Speer Anchor Drop Animation
-            const targetDrop = anchorDown ? 9 : 0;
-            anchors[1].drop += (targetDrop - anchors[1].drop) * 0.05; // Only drop the starboard anchor
-            anchors[1].hook.position.y = -anchors[1].drop;
-            anchors[1].chain.scale.y = anchors[1].drop > 0.1 ? anchors[1].drop : 0.1;
-            anchors[1].chain.position.y = -anchors[1].drop / 2;
+            // Passat Headlight Optimization
+            headlight.visible = inCar;
+            
+            // Edgar B. Speer Anchor Drop Animation (Opt: Cull math if far away!)
+            if ((pX - 180)**2 + (pZ + 184)**2 < 40000) {
+                const targetDrop = anchorDown ? 9 : 0;
+                anchors[1].drop += (targetDrop - anchors[1].drop) * 0.05;
+                anchors[1].hook.position.y = -anchors[1].drop;
+                anchors[1].chain.scale.y = anchors[1].drop > 0.1 ? anchors[1].drop : 0.1;
+                anchors[1].chain.position.y = -anchors[1].drop / 2;
+            }
 
             // Keep player inside the world bounds
             mover.position.x = Math.max(-980, Math.min(980, mover.position.x));
@@ -763,6 +801,7 @@
 
             // AABB Collision Engine
             let hitWall = false;
+            let botHitWall = false;
             let targetGround = 0;
             let radius = inCar ? 4 : 1.5;
             let botBaseY = 0;
@@ -775,12 +814,17 @@
                         hitWall = true; // We crashed into the side of it!
                     }
                 }
-                if(Math.abs(botGroup.position.x - p.x) < (p.w/2 + 1) && Math.abs(botGroup.position.z - p.z) < (p.d/2 + 1)) {
-                    botBaseY = Math.max(botBaseY, p.h); // Companion steps up!
+                if(!hasBot && Math.abs(botGroup.position.x - p.x) < (p.w/2 + 1.2) && Math.abs(botGroup.position.z - p.z) < (p.d/2 + 1.2)) {
+                    if (oldBotPos.y >= p.h - 0.2) {
+                        botBaseY = Math.max(botBaseY, p.h); // Companion steps up!
+                    } else {
+                        botHitWall = true; // Companion hit a wall!
+                    }
                 }
             }
             
             if (hitWall) { mover.position.x = oldPos.x; mover.position.z = oldPos.z; if(inCar) carV = 0; }
+            if (botHitWall) { botGroup.position.x = oldBotPos.x; botGroup.position.z = oldBotPos.z; botWait = 0; }
             
             // Jump & Gravity for Player
             if (!inCar) {
@@ -819,36 +863,25 @@
                 const positions = weatherParticles.geometry.attributes.position.array;
                 for(let i=1; i<positions.length; i+=3) {
                     positions[i] -= isRaining ? 2.5 : 0.4; // Rain falls much faster!
-                    if(positions[i] < 0) positions[i] = 300;
+                if(positions[i] < 0) positions[i] = 100;
                 }
                 weatherParticles.geometry.attributes.position.needsUpdate = true;
+            // Make weather strictly follow the screen view!
+            weatherParticles.position.x = mover.position.x; weatherParticles.position.z = mover.position.z;
             }
             
-            // Rave Flashing Effects & Lasers
-            const rTime = Date.now() * 0.005;
-            raveLasers.rotation.y = rTime * 0.2;
-            raveLasers.children.forEach((l, i) => {
-                l.rotation.x = Math.sin(rTime * 0.5 + i) * 0.2;
-                l.rotation.z = Math.cos(rTime * 0.5 + i) * 0.2;
-                l.material.color.setHSL((rTime * 0.1 + i*0.25) % 1, 1, 0.5);
-            });
-            
-            if (mover.position.distanceTo(raveLasers.position) < 400) { // Optimize!
+            // Rave Flashing Effects & Lasers (Opt: Aggressively Cull if far away!)
+            if ((pX - 150)**2 + (pZ - 150)**2 < 160000) {
+                const rTime = Date.now() * 0.005;
+                raveLasers.rotation.y = rTime * 0.2;
+                raveLasers.children.forEach((l, i) => { l.rotation.x = Math.sin(rTime * 0.5 + i) * 0.2; l.rotation.z = Math.cos(rTime * 0.5 + i) * 0.2; l.material.color.setHSL((rTime * 0.1 + i*0.25) % 1, 1, 0.5); });
+                
                 const rStep = Math.floor(rTime * 1.5);
-                if (rStep !== lastRStep) { // GPU Optimization: Only draw when color shifts!
-                    lastRStep = rStep;
-                    const rCols = ['#ff00ff', '#00ffff', '#ffff00', '#00ff00'];
-                    for(let i=0; i<4; i++) {
-                        for(let j=0; j<4; j++) {
-                            dCtx.fillStyle = rCols[Math.floor(i + j + rTime) % rCols.length];
-                            dCtx.fillRect(i*32, j*32, 32, 32);
-                        }
-                    }
-                    dTex.needsUpdate = true;
-                    rCtx.fillStyle = '#111'; rCtx.fillRect(0, 0, 256, 128); 
-                    rCtx.lineWidth = 8; rCtx.strokeStyle = rCols[Math.floor(rTime) % rCols.length]; rCtx.strokeRect(4, 4, 248, 120);
-                    rCtx.fillStyle = rCols[rStep % rCols.length]; rCtx.font = 'bold 50px sans-serif'; rCtx.textAlign = 'center'; rCtx.fillText('R A V E', 128, 80);
-                    raveTex.needsUpdate = true;
+                if (rStep !== lastRStep) { 
+                    lastRStep = rStep; const rCols = ['#ff00ff', '#00ffff', '#ffff00', '#00ff00'];
+                    for(let i=0; i<4; i++) { for(let j=0; j<4; j++) { dCtx.fillStyle = rCols[Math.floor(i + j + rTime) % rCols.length]; dCtx.fillRect(i*32, j*32, 32, 32); } }
+                    dTex.needsUpdate = true; rCtx.fillStyle = '#111'; rCtx.fillRect(0, 0, 256, 128); rCtx.lineWidth = 8; rCtx.strokeStyle = rCols[Math.floor(rTime) % rCols.length]; rCtx.strokeRect(4, 4, 248, 120);
+                    rCtx.fillStyle = rCols[rStep % rCols.length]; rCtx.font = 'bold 50px sans-serif'; rCtx.textAlign = 'center'; rCtx.fillText('R A V E', 128, 80); raveTex.needsUpdate = true;
                 }
             }
 
@@ -900,8 +933,8 @@
             botModel.position.y = 0.75 + Math.cos(tAnim * 1.2) * 0.15;
             botAura.scale.setScalar(1 + Math.cos(tAnim * 1.2) * 0.1);
 
-            // Coin Animation & Collection
-            if (coinActive) {
+            // Coin Animation & Collection (Opt: Cull math if far away!)
+            if (coinActive && (pX - 350)**2 + (pZ - 200)**2 < 40000) {
                 coin.rotation.z += 0.05;
                 coin.position.y = 10 + Math.sin(tAnim * 2) * 1.5;
                 if (playerGroup.position.distanceToSquared(coin.position) < 60) {
@@ -916,7 +949,11 @@
 
             // Companion Bot Roaming & Following Logic
             botGroup.position.y += (botBaseY - botGroup.position.y) * 0.2; // Climb stairs smoothly
-            if (!hasBot) {
+            const pBotDistSq = (pX - botGroup.position.x)**2 + (pZ - botGroup.position.z)**2;
+            
+            if (!hasBot && pBotDistSq > 90000) {
+                // Opt: Cull logic when out of frame.
+            } else if (!hasBot) {
                 botWait--;
                 if (currentLoc === "Secret Rave Zone" && isDancing) {
                     botTarget.set(150 + (Math.random()-0.5)*10, botBaseY, 150 + (Math.random()-0.5)*10); // Race to dance floor!
