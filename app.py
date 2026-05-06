@@ -140,7 +140,7 @@ def sync_loop():
         time.sleep(600)
 
 @app.route('/')
-def index(): return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state)
+def index(): return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state.copy())
 @app.route('/api/state')
 def get_state(): 
     out = state.copy()
@@ -160,7 +160,8 @@ def rpg():
     return render_template('rpg.html', 
                            terrain_color=season_data["terrain"], 
                            leaf_color=season_data["leaves"],
-                           season_name=season_data["season"])
+                           season_name=season_data["season"],
+                           **state.copy())
 
 @app.route('/api/move/<station>')
 def move_buddy(station):

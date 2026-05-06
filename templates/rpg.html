@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Buddy's World - {{ season_name }}</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none; }
+        #controls { background: rgba(0,0,0,0.7); color: #fff; padding: 15px; border-radius: 10px; border: 1px solid #00ffff; display: inline-block; }
+        #tip { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,255,255,0.2); border: 2px solid #00ffff; color: #fff; padding: 15px 30px; font-size: 1.5rem; font-weight: bold; border-radius: 30px; text-transform: uppercase; display: none; z-index: 10; text-shadow: 0 2px 5px #000; box-shadow: 0 0 20px rgba(0,255,255,0.5); transition: opacity 0.3s; }
+        #location-tag { position: absolute; top: 20px; right: 20px; font-size: 2rem; color: #fff; font-weight: bold; text-shadow: 0 2px 10px #000; opacity: 0.5; transition: opacity 0.5s; text-transform: uppercase; }
+        .btn { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); border: 2px solid #ff4444; color: #ff4444; padding: 10px 20px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; text-decoration: none; pointer-events: auto; z-index: 20; transition: 0.3s; font-weight: bold; }
+        .btn:hover { background: #ff4444; color: #fff; box-shadow: 0 0 15px #ff4444; }
+        .t-btn { width: 50px; height: 50px; background: rgba(0,0,0,0.5); border: 2px solid #00ffff; color: #00ffff; border-radius: 50%; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer; font-weight: bold; }
+        .t-btn:active { background: #00ffff; color: #000; box-shadow: 0 0 15px #00ffff; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div id="controls">
+            <h3 style="margin: 0 0 10px 0; color: #00ffff;">Buddy's World</h3>
+            WASD / Arrows to Move<br>
+            SHIFT to Sprint &nbsp;|&nbsp; SPACE to Jump<br>
+            F to Enter/Exit Vehicle<br>
+            E to Interact &nbsp;|&nbsp; R to Dance
+        </div>
+    </div>
+    <div id="tip">Press F to Enter Passat</div>
+    <div id="location-tag">Sault Ste. Marie</div>
+    <a href="/" class="btn">Exit to Dashboard</a>
+    
+    <!-- Cinematic Dialog Box -->
+    <div id="dialog-box" style="display: none; position: absolute; top: 20%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); border: 2px solid #00ffff; color: #fff; padding: 20px 40px; font-size: 2rem; border-radius: 15px; z-index: 10; text-align: center; font-style: italic; box-shadow: 0 0 20px rgba(0,255,255,0.3); pointer-events: none;">...I cannot eat.</div>
+
+    <!-- Mobile Touch Controls -->
+    <div id="touch-dpad" style="display: none; position: absolute; bottom: 20px; left: 20px; z-index: 30; grid-template-columns: 50px 50px 50px; gap: 10px; pointer-events: auto;">
+        <div style="grid-column: 2"><div class="t-btn" id="t-up">W</div></div>
+        <div style="grid-column: 1"><div class="t-btn" id="t-left">A</div></div>
+        <div style="grid-column: 2"><div class="t-btn" id="t-down">S</div></div>
+        <div style="grid-column: 3"><div class="t-btn" id="t-right">D</div></div>
+    </div>
+    <div id="touch-actions" style="display: none; position: absolute; bottom: 20px; right: 20px; z-index: 30; gap: 10px; pointer-events: auto;">
+        <div class="t-btn" id="t-shift" style="font-size: 1rem;">RUN</div>
+        <div class="t-btn" id="t-jump">^</div>
+        <div class="t-btn" id="t-r">🕺</div>
+        <div class="t-btn" id="t-e">E</div><div class="t-btn" id="t-f">F</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x87CEEB, 0.005);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        hemiLight.position.set(0, 200, 0);
+        scene.add(hemiLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(100, 200, 50);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 200; dirLight.shadow.camera.bottom = -200;
+        dirLight.shadow.camera.left = -200; dirLight.shadow.camera.right = 200;
+        scene.add(dirLight);
+
+        // Terrain (Seasonal Color passed from Flask)
+        const groundGeo = new THREE.PlaneGeometry(2050, 2050);
+        const groundMat = new THREE.MeshLambertMaterial({ color: parseInt('{{ terrain_color }}') });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+        
+        const platforms = []; // Array to track physical boundaries
+
+        // Seasonal Trees Generator
+        const leafColor = parseInt('{{ leaf_color }}');
+        const treeGeo = new THREE.ConeGeometry(3, 10, 8);
+        const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 3);
+        const treeMat = new THREE.MeshLambertMaterial({ color: leafColor });
+        const trunkMat = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+        for(let i=0; i<300; i++) {
+            const x = (Math.random() - 0.5) * 1000;
+            const z = (Math.random() - 0.5) * 1000;
+            if(Math.abs(x) < 50 && Math.abs(z) < 50) continue; // Keep center clear
+            const tree = new THREE.Group();
+            const leaves = new THREE.Mesh(treeGeo, treeMat);
+            leaves.position.y = 6; leaves.castShadow = true;
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1.5; trunk.castShadow = true;
+            tree.add(leaves); tree.add(trunk);
+            tree.position.set(x, 0, z);
+            scene.add(tree);
+            platforms.push({ x: x, z: z, w: 1.5, h: 10, d: 1.5 }); // Solid tree trunks!
+        }
+
+        // Player (Buddy)
+        const playerGroup = new THREE.Group();
+        const bodyGeo = new THREE.BoxGeometry(2, 3, 2);
+        const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1a73e8 }); // Buddy Blue
+        const playerMesh = new THREE.Mesh(bodyGeo, bodyMat);
+        playerMesh.position.y = 1.5;
+        playerMesh.castShadow = true;
+        playerGroup.add(playerMesh);
+        scene.add(playerGroup);
+
+        // Companion Bot
+        const botGeo = new THREE.BoxGeometry(1, 1.5, 1);
+        const botMat = new THREE.MeshLambertMaterial({ color: 0x00ff00 }); // Green Bot
+        const botMesh = new THREE.Mesh(botGeo, botMat);
+        botMesh.position.set(10, 0.75, -5);
+        botMesh.castShadow = true;
+        scene.add(botMesh);
+
+        // Blue Passat
+        const carGroup = new THREE.Group();
+        const carGeo = new THREE.BoxGeometry(4, 2, 9);
+        const carMat = new THREE.MeshLambertMaterial({ color: 0x000080 }); // Dark Blue
+        const carMesh = new THREE.Mesh(carGeo, carMat);
+        carMesh.position.y = 1; carMesh.castShadow = true;
+        carGroup.add(carMesh);
+        carGroup.position.set(-10, 0, 10);
+        scene.add(carGroup);
+
+        // Dashboard Kiosk (Exit Portal)
+        const kioskGroup = new THREE.Group();
+        kioskGroup.position.set(0, 0, -15);
+        scene.add(kioskGroup);
+        platforms.push({ x: 0, z: -15, w: 6, h: 6, d: 2 });
+
+        const kioskStandGeo = new THREE.BoxGeometry(6, 6, 2);
+        const kioskStandMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+        const kioskStand = new THREE.Mesh(kioskStandGeo, kioskStandMat);
+        kioskStand.position.y = 3;
+        kioskStand.castShadow = true; kioskStand.receiveShadow = true;
+        kioskGroup.add(kioskStand);
+
+        // Kiosk Screen Canvas (Draws the real dashboard state!)
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 256; const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#010103'; ctx.fillRect(0, 0, 512, 256);
+        ctx.fillStyle = '#00ffff'; ctx.font = 'bold 24px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('MORROW EDGE | BEACON', 256, 40);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '14px "Segoe UI", sans-serif'; ctx.fillText('SAULT STE. MARIE, MICHIGAN', 256, 65);
+        ctx.fillStyle = '#00ffff'; ctx.font = 'bold 50px "Segoe UI", sans-serif'; ctx.fillText('{{ time }}', 256, 125);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 70px "Segoe UI", sans-serif'; ctx.fillText('{{ temp }}°', 256, 200);
+        ctx.strokeStyle = 'rgba(0,255,255,0.3)'; ctx.lineWidth = 3; for(let i=0; i<8; i++) { ctx.beginPath(); ctx.arc(80 + i*50, 230, 12, 0, Math.PI*2); ctx.stroke(); }
+        const screenMesh = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 2.8), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas) }));
+        screenMesh.position.set(0, 4, 1.01); kioskGroup.add(screenMesh);
+
+        // Locations / Landmarks (Stylized Placeholders)
+        const locations = [];
+        function addZone(color, w, h, d, x, z, name) {
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const mat = new THREE.MeshLambertMaterial({ color: color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, h/2, z);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            scene.add(mesh);
+            platforms.push({ x: x, z: z, w: w, h: h, d: d });
+            locations.push({ mesh: mesh, name: name });
+        }
+        
+        // Parkour Platforms (Jumpable, but no name tag)
+        function addPlatform(color, w, h, d, x, z) {
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const mat = new THREE.MeshLambertMaterial({ color: color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, h/2, z);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            scene.add(mesh);
+            platforms.push({ x: x, z: z, w: w, h: h, d: d });
+        }
+        
+        // Bridge over River
+        const riverGeo = new THREE.PlaneGeometry(200, 2000);
+        const riverMat = new THREE.MeshLambertMaterial({ color: 0x0000ff });
+        const river = new THREE.Mesh(riverGeo, riverMat);
+        river.rotation.x = -Math.PI / 2; river.position.set(200, 0.1, 0);
+        scene.add(river);
+        addZone(0x888888, 250, 15, 20, 200, 50, "Mackinac Bridge");
+        
+        addZone(0xaaaaaa, 40, 10, 80, 180, -150, "Soo Locks");
+        addZone(0xffd700, 80, 2, 80, 400, 200, "Sugar Island (Afar)");
+        addZone(0x00ffff, 20, 10, 20, -50, -50, "Sault Schools");
+        addZone(0x000000, 30, 20, 30, -150, -150, "The Matrix");
+        addZone(0xff00ff, 30, 10, 30, 150, 150, "Secret Rave Zone");
+        addZone(0xdddddd, 10, 10, 10, 0, -30, "The Office");
+        addZone(0xff6347, 40, 15, 40, -100, 100, "Luigi's Fine Pasta");
+        
+        // Buddy's Jump Puzzle
+        addPlatform(0xffa500, 10, 3, 10, 15, -15);
+        addPlatform(0xff8c00, 10, 6, 10, 15, -30);
+        addPlatform(0xff4500, 10, 9, 10, 15, -45);
+        addPlatform(0xff0000, 10, 12, 10, 15, -60);
+
+        // State & Controls
+        let inCar = false;
+        let hasBot = false;
+        let isDancing = false;
+        let playerVy = 0;
+        let carV = 0;
+        let botTarget = new THREE.Vector3(10, 0.75, -5);
+        let botWait = 0;
+        let activeTarget = playerGroup; // Camera follows this
+        const keys = { w:false, a:false, s:false, d:false, space:false, shift:false };
+        
+        // Encapsulate interaction logic for both keyboard and touch
+        function triggerAction(k) {
+            if(k === 'r') isDancing = !isDancing;
+            if(k === 'f') {
+                if(!inCar && playerGroup.position.distanceTo(carGroup.position) < 8) {
+                    inCar = true;
+                    playerMesh.visible = false;
+                    carGroup.position.copy(playerGroup.position);
+                    carGroup.rotation.y = playerGroup.rotation.y;
+                    activeTarget = carGroup;
+                } else if(inCar) {
+                    inCar = false;
+                    playerMesh.visible = true;
+                    playerGroup.position.copy(carGroup.position);
+                    playerGroup.position.x -= 5; // Step out to the side
+                    activeTarget = playerGroup;
+                }
+            }
+            if(k === 'e') {
+                if(!inCar && playerGroup.position.distanceTo(kioskGroup.position) < 8) {
+                    window.location.href = '/'; // Diegetic exit!
+                    return;
+                }
+                if(!hasBot && playerGroup.position.distanceTo(botMesh.position) < 8) {
+                    hasBot = true;
+                    botMesh.position.set(2, 1, 0); // Put bot on Buddy's shoulder
+                    playerGroup.add(botMesh);
+                } else if(hasBot && inCar) {
+                     // Easter egg: bot rides shotgun
+                     botMesh.position.set(1.5, 1.5, -1);
+                     carGroup.add(botMesh);
+                } else if(hasBot && !inCar) {
+                    // Drop companion
+                    hasBot = false;
+                    scene.add(botMesh);
+                    botMesh.position.copy(playerGroup.position);
+                    botMesh.position.x += 3;
+                    botMesh.position.y = 0.75;
+                }
+            }
+        }
+        
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if(keys.hasOwnProperty(k) || k === 'arrowup' || k === 'arrowdown' || k === 'arrowleft' || k === 'arrowright') {
+                if(k === 'arrowup') keys.w = true;
+                if(k === 'arrowdown') keys.s = true;
+                if(k === 'arrowleft') keys.a = true;
+                if(k === 'arrowright') keys.d = true;
+                if(k === ' ') { e.preventDefault(); keys.space = true; }
+                if(k === 'shift') keys.shift = true;
+                if(keys.hasOwnProperty(k)) keys[k] = true;
+            }
+            if((k === 'f' || k === 'e' || k === 'r') && !e.repeat) triggerAction(k);
+        });
+        window.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            if(k === 'arrowup') keys.w = false;
+            if(k === 'arrowdown') keys.s = false;
+            if(k === 'arrowleft') keys.a = false;
+            if(k === 'arrowright') keys.d = false;
+            if(k === ' ') keys.space = false;
+            if(k === 'shift') keys.shift = false;
+            if(keys.hasOwnProperty(k)) keys[k] = false;
+        });
+
+        const tipUi = document.getElementById('tip');
+        const locUi = document.getElementById('location-tag');
+
+        // Touch Controller Bootstrapper
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            document.getElementById('touch-dpad').style.display = 'grid';
+            document.getElementById('touch-actions').style.display = 'flex';
+            document.getElementById('controls').style.display = 'none'; // Hide KB text
+            document.querySelector('.btn').style.top = '20px'; // Shift exit btn up
+            document.querySelector('.btn').style.bottom = 'auto'; 
+            
+            const bindTouch = (id, key) => {
+                const el = document.getElementById(id);
+                el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; if(key==='f' || key==='e') triggerAction(key); });
+                el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+            };
+            bindTouch('t-up', 'w'); bindTouch('t-down', 's'); bindTouch('t-left', 'a'); bindTouch('t-right', 'd');
+            bindTouch('t-jump', 'space'); bindTouch('t-shift', 'shift');
+            bindTouch('t-r', 'r');
+            bindTouch('t-f', 'f'); bindTouch('t-e', 'e');
+        }
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Movement Math
+            const mover = inCar ? carGroup : playerGroup;
+            let oldPos = mover.position.clone();
+            
+            if (inCar) {
+                if(keys.w) carV += 0.02; // Accelerate
+                if(keys.s) carV -= 0.02; // Reverse/Brake
+                carV *= 0.96; // Coasting Friction
+                carV = Math.max(-0.8, Math.min(2.8, carV)); // Top Speed limits
+                mover.translateZ(-carV);
+                
+                // Only allow steering when the car is physically moving!
+                if(Math.abs(carV) > 0.05) {
+                    if(keys.a) mover.rotation.y += 0.03 * Math.sign(carV);
+                    if(keys.d) mover.rotation.y -= 0.03 * Math.sign(carV);
+                }
+            } else {
+                const speed = keys.shift ? 0.7 : 0.25; // Sprinting vs Walking
+                if(keys.w) mover.translateZ(-speed);
+                if(keys.s) mover.translateZ(speed);
+                if(keys.a) mover.rotation.y += 0.05;
+                if(keys.d) mover.rotation.y -= 0.05;
+            }
+            
+            // Keep player inside the world bounds
+            mover.position.x = Math.max(-980, Math.min(980, mover.position.x));
+            mover.position.z = Math.max(-980, Math.min(980, mover.position.z));
+
+            // AABB Collision Engine
+            let hitWall = false;
+            let targetGround = 0;
+            let radius = inCar ? 4 : 1.5;
+            
+            for(let p of platforms) {
+                if(Math.abs(mover.position.x - p.x) < (p.w/2 + radius) && Math.abs(mover.position.z - p.z) < (p.d/2 + radius)) {
+                    if (!inCar && oldPos.y >= p.h - 0.2) {
+                        targetGround = Math.max(targetGround, p.h); // We are jumping/falling onto it!
+                    } else {
+                        hitWall = true; // We crashed into the side of it!
+                    }
+                }
+            }
+            
+            if (hitWall) { mover.position.x = oldPos.x; mover.position.z = oldPos.z; if(inCar) carV = 0; }
+            
+            // Jump & Gravity for Player
+            if (!inCar) {
+                if (keys.space && playerGroup.position.y <= targetGround + 0.05) playerVy = 0.7; // Jump power!
+                playerVy -= 0.04; // Gravity
+                playerGroup.position.y += playerVy;
+                
+                if (playerGroup.position.y <= targetGround) {
+                    playerGroup.position.y = targetGround; // Snap feet to floor
+                    playerVy = 0;
+                }
+            } else { carGroup.position.y = 0; } // Keep car on the dirt
+
+            // Companion Bot Roaming & Following Logic
+            if (!hasBot) {
+                botWait--;
+                // Re-target if timer expires OR if bot is left too far behind (300 units = approx 3 zones away)
+                if (botWait <= 0 || botMesh.position.distanceTo(playerGroup.position) > 300) {
+                    botWait = 60 + Math.random() * 180; // Wait 1-3 seconds
+                    let angle = Math.random() * Math.PI * 2;
+                    let dist = 30 + Math.random() * 70; // Roam randomly around player
+                    botTarget.set(playerGroup.position.x + Math.cos(angle) * dist, 0.75, playerGroup.position.z + Math.sin(angle) * dist);
+                    botTarget.x = Math.max(-980, Math.min(980, botTarget.x));
+                    botTarget.z = Math.max(-980, Math.min(980, botTarget.z));
+                }
+                
+                let dx = botTarget.x - botMesh.position.x;
+                let dz = botTarget.z - botMesh.position.z;
+                let d = Math.sqrt(dx*dx + dz*dz);
+                if (d > 1 && !isDancing) {
+                    botMesh.position.x += (dx/d) * 0.2; // Bot walking speed
+                    botMesh.position.z += (dz/d) * 0.2;
+                    botMesh.rotation.y = Math.atan2(dx, dz);
+                    botMesh.position.y = 0.75 + Math.abs(Math.sin(Date.now() * 0.01)) * 0.5; // Walking bob
+                } else if (!isDancing) {
+                    botMesh.position.y = 0.75;
+                }
+            } else { botMesh.rotation.y = 0; } // Reset rotation if attached
+
+            // Dancing Modality
+            if (isDancing) {
+                if (!inCar) {
+                    playerGroup.rotation.y += 0.15;
+                    playerGroup.position.y = targetGround + Math.abs(Math.sin(Date.now() * 0.015)) * 1.2; // Dance jump
+                }
+                if (hasBot) { botMesh.rotation.y += 0.2; } 
+                else if (botMesh.position.distanceTo(playerGroup.position) < 80) {
+                    // Companion joins the dance if nearby!
+                    botMesh.rotation.y -= 0.2;
+                    botMesh.position.y = 0.75 + Math.abs(Math.sin(Date.now() * 0.015)) * 1.0;
+                }
+            }
+
+            // Location Proximity
+            let currentLoc = "Sault Ste. Marie";
+            locations.forEach(loc => {
+                if(mover.position.distanceTo(loc.mesh.position) < Math.max(loc.mesh.geometry.parameters.width, loc.mesh.geometry.parameters.depth)) {
+                    currentLoc = loc.name;
+                }
+            });
+            if(locUi.innerText !== currentLoc) {
+                locUi.style.opacity = 0;
+                setTimeout(() => { locUi.innerText = currentLoc; locUi.style.opacity = 1; }, 300);
+            }
+
+            // Tooltips
+            let showTip = false;
+            if(!inCar && playerGroup.position.distanceTo(kioskGroup.position) < 8) {
+                tipUi.innerText = "Press E to Return to Dashboard";
+                showTip = true;
+            } else if(!inCar && playerGroup.position.distanceTo(carGroup.position) < 10) {
+                tipUi.innerText = "Press F to Enter Passat";
+                showTip = true;
+            } else if(!hasBot && playerGroup.position.distanceTo(botMesh.position) < 10) {
+                tipUi.innerText = "Press E to Pick Up Companion";
+                showTip = true;
+            } else if(currentLoc === "Secret Rave Zone" && !isDancing && !inCar) {
+                tipUi.innerText = "Press R to Dance";
+                showTip = true;
+            } else if(hasBot && !inCar) {
+                tipUi.innerText = "Press E to Drop Companion";
+                showTip = true;
+            } else if(inCar) {
+                tipUi.innerText = "Press F to Exit Vehicle";
+                showTip = true;
+            }
+            tipUi.style.display = showTip ? 'block' : 'none';
+            
+            // Luigi's Fine Pasta Cinematic Interactions
+            const dialogBox = document.getElementById('dialog-box');
+            if (currentLoc === "Luigi's Fine Pasta") {
+                let msg = "...I cannot eat.";
+                if (hasBot || botMesh.position.distanceTo(playerGroup.position) < 30) {
+                    msg = "...We cannot eat.";
+                }
+                dialogBox.innerText = msg;
+                dialogBox.style.display = 'block';
+            } else {
+                dialogBox.style.display = 'none';
+            }
+
+            // 3rd Person Camera Follow
+            const relativeCameraOffset = new THREE.Vector3(0, inCar ? 10 : 8, inCar ? 20 : 15);
+            const cameraOffset = relativeCameraOffset.applyMatrix4(mover.matrixWorld);
+            camera.position.lerp(cameraOffset, 0.1);
+            camera.lookAt(mover.position);
+
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
