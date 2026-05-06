@@ -341,17 +341,32 @@
         };
 
         window.activateMatrixMode = function() {
-            document.body.classList.remove('day-mode', 'golden-mode');
-            document.body.style.background = '#000000';
-            document.documentElement.style.setProperty('--bg', '#000000');
-            document.documentElement.style.setProperty('--accent', '#00ff00');
-            document.documentElement.style.setProperty('--dim', '#00aa00');
-            document.documentElement.style.setProperty('--buddy-blue', '#003300');
-            document.body.style.fontFamily = 'monospace';
+            window.isMatrix = !window.isMatrix;
             const bbl = document.getElementById('ui-bbl');
-            bbl.innerText = "Wake up..."; bbl.classList.remove('bubble-update');
-            void bbl.offsetWidth; bbl.classList.add('bubble-update');
-            return "Entering the matrix...";
+            
+            if (window.isMatrix) {
+                document.body.classList.remove('day-mode', 'golden-mode');
+                document.body.style.background = '#000000';
+                document.documentElement.style.setProperty('--bg', '#000000');
+                document.documentElement.style.setProperty('--accent', '#00ff00');
+                document.documentElement.style.setProperty('--dim', '#00aa00');
+                document.documentElement.style.setProperty('--buddy-blue', '#003300');
+                document.body.style.fontFamily = 'monospace';
+                bbl.innerText = "Wake up..."; bbl.classList.remove('bubble-update');
+                void bbl.offsetWidth; bbl.classList.add('bubble-update');
+                return "Entering the matrix...";
+            } else {
+                document.body.style.background = '';
+                document.documentElement.style.removeProperty('--bg');
+                document.documentElement.style.removeProperty('--accent');
+                document.documentElement.style.removeProperty('--dim');
+                document.documentElement.style.removeProperty('--buddy-blue');
+                document.body.style.fontFamily = '';
+                bbl.innerText = "Ignorance is bliss."; bbl.classList.remove('bubble-update');
+                void bbl.offsetWidth; bbl.classList.add('bubble-update');
+                fetchState(true);
+                return "Leaving the matrix...";
+            }
         };
 
         // 🍝 EASTER EGG: Spaghetti Date
