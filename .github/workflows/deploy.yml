@@ -49,11 +49,14 @@ jobs:
     steps:
       - name: Clean up workspace permissions
         run: |
-          sudo chown -R $(whoami):$(whoami) $GITHUB_WORKSPACE || true
-          sudo rm -rf $GITHUB_WORKSPACE/__pycache__ || true
+          # Use Docker to regain ownership of root-created files without a sudo password
+          docker run --rm -v ${{ github.workspace }}:/workspace alpine chown -R $(id -u):$(id -g) /workspace || true
+          rm -rf $GITHUB_WORKSPACE/__pycache__ || true
 
       - name: Checkout Code
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Create .env from Secrets
         run: |
