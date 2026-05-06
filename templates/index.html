@@ -29,7 +29,7 @@
         #location { font-size: clamp(1rem, 1.5vw, 1.8rem); opacity: 0.4; letter-spacing: 2px; margin-bottom: 2vh; text-align: center; }
         #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
         .lore-box { position: absolute; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
-        #lore-trigger:hover + .lore-box { opacity: 1; pointer-events: all; }
+        #lore-trigger:hover + .lore-box, #lore-trigger:focus + .lore-box { opacity: 1; pointer-events: all; }
         .pod { position: absolute; width: clamp(60px, 8vmin, 100px); height: clamp(60px, 8vmin, 100px); border-radius: 50%; border: 1px solid var(--pod-border); background: var(--pod-bg); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 2.5rem); filter: grayscale(80%) opacity(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
         .pod:hover { filter: grayscale(0%) opacity(1); transform: scale(1.1); border-color: var(--accent); box-shadow: 0 0 20px var(--pod-hover-glow); z-index: 100 !important; }
         .pod.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); z-index: 6; pointer-events: none; }
@@ -50,7 +50,7 @@
         .pulse-line:hover, .pulse-line:focus { opacity: 1; outline: none; background: var(--pod-bg); text-shadow: 0 0 10px var(--accent); box-shadow: 0 -10px 10px var(--pod-bg); }
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: pointer; }
         #build-stamp:hover, #build-stamp:focus { opacity: 0.8; outline: none; }
-        #egg-modal, #pulse-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; }
+        #egg-modal, #pulse-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; pointer-events: auto; }
         .egg-btn { background: rgba(0,255,255,0.1); border: 2px solid var(--accent); color: var(--accent); padding: 15px 30px; font-size: 1.2rem; border-radius: 10px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: 200px; text-align: center; }
         .egg-btn:hover, .egg-btn:focus { background: var(--accent); color: #000; outline: none; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; }
@@ -74,7 +74,7 @@
         #buddy-container:hover:not(.sleeping) .eye { animation: none; height: 2px; border-radius: 50px 50px 0 0; transform: translateY(2px); box-shadow: 0 -1px 8px var(--accent); }
         #buddy-container:active:not(.sleeping) .eye { animation: none; height: 1px; transform: translateY(3px) scaleX(1.4); box-shadow: 0 -2px 12px var(--accent); background: #fff; transition-duration: 0.1s; }
         .mouth { position: absolute; width: 8px; height: 2px; background: var(--accent); bottom: 3px; left: 50%; transform: translateX(-50%); border-radius: 2px; display: none; }
-        .arm { width: 14px; height: 35px; background: var(--buddy-blue); border-radius: 50% 50% 50% 50% / 80% 80% 20% 20%; position: absolute; top: 38px; box-shadow: inset -3px -5px 10px rgba(0,0,0,0.15); }
+        .arm { width: 14px; height: 35px; background: var(--buddy-blue); border-radius: 50% 50% 50% 50% / 80% 80% 20% 20%; position: absolute; top: 38px; box-shadow: inset -3px -5px 10px rgba(0,0,0,0.15); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .arm.left { left: 6px; transform: rotate(15deg); } .arm.right { right: 6px; transform: rotate(-15deg); display: flex; justify-content: center; align-items: flex-end; }
         .zzz-socket { position: absolute; top: -35px; left: 30px; font-size: 2.5rem; opacity: 0; pointer-events: none; }
         .bubble { position: absolute; background: rgba(0,0,0,0.95); border: 2px solid var(--accent); padding: 8px 12px; border-radius: 12px; color: var(--accent); font-size: 0.85rem; bottom: 130%; left: 50%; transform: translateX(-50%); white-space: normal; width: max-content; max-width: 220px; text-align: center; font-weight: bold; z-index: 10; }
@@ -99,6 +99,11 @@
         @keyframes rave-colors { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
         .rave-bg { animation: rave-colors 0.5s infinite alternate !important; }
         .bubble-update { animation: fadeBubble 0.8s ease-out; }
+        @keyframes wiggle-awake { 0%, 100% { transform: scale(1) rotate(0deg); } 25% { transform: scale(1.05, 0.95) rotate(-15deg); } 50% { transform: scale(0.95, 1.05) rotate(15deg); } 75% { transform: scale(1.02, 0.98) rotate(-10deg); } }
+        .waking-up .buddy-body { animation: wiggle-awake 1.2s ease-in-out; }
+        .waking-up .arm.left { transform: rotate(160deg); top: 15px; }
+        .waking-up .arm.right { transform: rotate(-160deg); top: 15px; }
+        .waking-up .eye { animation: none !important; height: 8px !important; margin-top: -2px; }
         #pulse-list::-webkit-scrollbar { width: 8px; }
         #pulse-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
         @media (max-width: 600px) {
@@ -178,12 +183,11 @@
         <div class="date-line" id="ui-date">{{ date }}</div>
         <div id="location">SAULT STE. MARIE, MICHIGAN</div>
     </div>
-    <div id="lore-trigger">i</div>
+    <div id="lore-trigger" tabindex="0">i</div>
     <div class="lore-box">Hi I'm Buddy! Integrated Model Discovery 6.0 Active. Click my body to meet my creators!</div>
     <div id="build-stamp" tabindex="0" onclick="handleSecretTap()" onkeydown="if(event.key==='Enter')handleSecretTap()">BUILD: {{ build_timestamp }}</div>
     <div class="pods"><div class="pod" id="pos-coffee" onclick="moveBuddy('coffee')">☕</div><div class="pod" id="pos-office" onclick="moveBuddy('office')">💻</div><div class="pod" id="pos-gym" onclick="moveBuddy('gym')">💪</div><div class="pod" id="pos-store" onclick="moveBuddy('store')">🛍️</div><div class="pod" id="pos-library" onclick="moveBuddy('library')">📖</div><div class="pod" id="pos-garage" onclick="moveBuddy('garage')">🔧</div><div class="pod" id="pos-park" onclick="moveBuddy('park')">🚲</div><div class="pod" id="pos-kitchen" onclick="moveBuddy('kitchen')">🍳</div><div id="pos-bed" onclick="moveBuddy('bed')">🛏️</div></div>
-    <div id="center-info">
-    <div id="egg-modal">
+    <div id="egg-modal" onclick="if(event.target === this) triggerEgg('close')">
         <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 10px;">SECRET MENU</h2>
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('spin')" onkeydown="if(event.key==='Enter')triggerEgg('spin')">Spin</div>
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('matrix')" onkeydown="if(event.key==='Enter')triggerEgg('matrix')">Matrix</div>
@@ -192,11 +196,12 @@
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('date')" onkeydown="if(event.key==='Enter')triggerEgg('date')">Date</div>
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('close')" onkeydown="if(event.key==='Enter')triggerEgg('close')" style="margin-top:20px; border-color:gray; color:gray;">Close</div>
     </div>
-    <div id="pulse-modal" style="padding: 5vh 5vw; box-sizing: border-box;">
+    <div id="pulse-modal" style="padding: 5vh 5vw; box-sizing: border-box;" onclick="if(event.target === this) closePulseHistory()">
         <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 20px; font-size: clamp(1.5rem, 3vw, 2.5rem); text-transform: uppercase; text-align: center;">Sault Pulse Archives</h2>
         <div id="pulse-list" tabindex="0" style="overflow-y: auto; flex-grow: 1; width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 15px; padding-right: 10px;"></div>
         <div class="egg-btn" tabindex="0" onclick="closePulseHistory()" onkeydown="if(event.key==='Enter')closePulseHistory()" style="margin-top:20px; flex-shrink: 0; border-color:gray; color:gray;">Close</div>
     </div>
+    <div id="center-info">
         <div class="clock" id="ui-clock">--:-- --</div>
         <div class="temp-row" style="display:flex; justify-content:center; align-items:center;"><img id="ui-icon" src="https://openweathermap.org/img/wn/{{ icon }}@4x.png" style="width: clamp(80px, 10vw, 150px);"><div class="temp"><span id="ui-temp">{{ temp }}</span>°</div></div>
         <div id="ui-desc" style="font-size: clamp(1.1rem, 2vw, 1.5rem); opacity: 0.7;">{{ desc }} | H: {{ high }}° L: {{ low }}° | 💧 {{ pop }}%</div>
@@ -282,7 +287,7 @@
         ['mousemove', 'mousedown', 'touchstart'].forEach(evt => window.addEventListener(evt, () => lastInteraction = Date.now()));
 
         function leaveForMorrowEdge() {
-            if (window.onDate) return; // Don't leave if he's eating pasta!
+            if (window.onDate || window.isRaving || window.isKaiju) return; // Don't leave if he's busy!
             document.documentElement.style.background = '#010103';
             document.body.style.transition = 'opacity 1s ease';
             document.body.style.opacity = '0';
@@ -473,13 +478,45 @@
         };
 
         async function moveBuddy(station) {
+            if (station === currentStation) {
+                const bbl = document.getElementById('ui-bbl');
+                bbl.innerText = station === 'bed' ? "I'm already sleeping!" : "I'm already here!";
+                bbl.classList.remove('bubble-update');
+                void bbl.offsetWidth;
+                bbl.classList.add('bubble-update');
+                return;
+            }
+            const wasSleeping = currentStation === 'bed';
             currentStation = station;
             document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
             const t = document.getElementById(`pos-${station}`); if(t) t.classList.add('active');
-            syncBuddy();
             const bbl = document.getElementById('ui-bbl');
-            bbl.innerText = "Rerouting...";
-            bbl.classList.add('bubble-update');
+            
+            const b = document.getElementById('buddy-container');
+            if (wasSleeping && station !== 'bed') {
+                bbl.innerText = "*Stretches*";
+                bbl.classList.remove('bubble-update');
+                void bbl.offsetWidth;
+                bbl.classList.add('bubble-update');
+                b.classList.remove('sleeping');
+                document.getElementById('ui-zzz').style.animation = 'none';
+                b.classList.add('waking-up');
+                setTimeout(() => {
+                    b.classList.remove('waking-up');
+                    bbl.innerText = "Rerouting...";
+                    bbl.classList.remove('bubble-update');
+                    void bbl.offsetWidth;
+                    bbl.classList.add('bubble-update');
+                    syncBuddy();
+                }, 1200);
+            } else {
+                bbl.innerText = "Rerouting...";
+                bbl.classList.remove('bubble-update');
+                void bbl.offsetWidth;
+                bbl.classList.add('bubble-update');
+                syncBuddy();
+            }
+            
             await fetch('/api/move/' + station);
             setTimeout(() => fetchState(true), 1500); // Force update to show reroute response
         }
@@ -539,10 +576,21 @@
                 }
                 
                 const container = document.getElementById('buddy-container');
+                const wasSleeping = container.classList.contains('sleeping');
+                let wakingUp = false;
+                
                 if (s.is_sleeping) {
-                    container.classList.add('sleeping');
-                    document.getElementById('ui-zzz').style.animation = 'drift-zzz 4s infinite';
+                    if (!wasSleeping) {
+                        setTimeout(() => {
+                            container.classList.add('sleeping');
+                            document.getElementById('ui-zzz').style.animation = 'drift-zzz 4s infinite';
+                        }, 1500); // Let him finish his flight to bed before hiding bubble
+                    } else {
+                        container.classList.add('sleeping');
+                        document.getElementById('ui-zzz').style.animation = 'drift-zzz 4s infinite';
+                    }
                 } else {
+                    if (wasSleeping) wakingUp = true;
                     container.classList.remove('sleeping');
                     document.getElementById('ui-zzz').style.animation = 'none';
                 }
@@ -553,7 +601,26 @@
                 
                 const hands = {'mug':'☕','wrench':'🛠️','obd2':'🔌','laptop':'💻','book':'📖','zzz':'😴'};
                 document.getElementById('ui-hand').innerText = hands[s.acc_css] || '';
-                currentStation = s.station; syncBuddy();
+                
+                if (wakingUp && s.station !== 'bed') {
+                    const bbl = document.getElementById('ui-bbl');
+                    const nextTask = s.bubble || '';
+                    bbl.innerText = "*Stretches*";
+                    bbl.classList.remove('bubble-update');
+                    void bbl.offsetWidth;
+                    bbl.classList.add('bubble-update');
+                    container.classList.add('waking-up');
+                    setTimeout(() => {
+                        container.classList.remove('waking-up');
+                        currentStation = s.station; syncBuddy();
+                        bbl.innerText = nextTask;
+                        bbl.classList.remove('bubble-update');
+                        void bbl.offsetWidth;
+                        bbl.classList.add('bubble-update');
+                    }, 1200);
+                } else {
+                    currentStation = s.station; syncBuddy();
+                }
                 
                 // Check if the pulse is uninspired ("lame")
                 if (s.pulse !== lastPulse && lastPulse !== "") {
