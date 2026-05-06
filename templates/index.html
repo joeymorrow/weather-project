@@ -194,6 +194,7 @@
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('rave')" onkeydown="if(event.key==='Enter')triggerEgg('rave')">Rave</div>
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('kaiju')" onkeydown="if(event.key==='Enter')triggerEgg('kaiju')">Kaiju</div>
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('date')" onkeydown="if(event.key==='Enter')triggerEgg('date')">Date</div>
+        <div class="egg-btn" tabindex="0" onclick="triggerEgg('rpg')" onkeydown="if(event.key==='Enter')triggerEgg('rpg')">Explore 3D</div>
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('close')" onkeydown="if(event.key==='Enter')triggerEgg('close')" style="margin-top:20px; border-color:gray; color:gray;">Close</div>
     </div>
     <div id="pulse-modal" style="padding: 5vh 5vw; box-sizing: border-box;" onclick="if(event.target === this) closePulseHistory()">
@@ -321,6 +322,7 @@
             if(eggName === 'rave') activateRaveMode();
             if(eggName === 'kaiju') unleashKaijuBuddy();
             if(eggName === 'date') takeBuddyOnDate();
+            if(eggName === 'rpg') window.location.href = '/rpg';
         };
 
         window.openPulseHistory = function() {

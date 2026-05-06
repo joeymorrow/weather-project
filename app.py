@@ -147,6 +147,21 @@ def get_state():
     out["build_timestamp"] = os.environ.get("BUILD_TIMESTAMP", "Local Dev")
     return jsonify(out)
 
+@app.route('/rpg')
+def rpg():
+    now = datetime.now(TZ)
+    month = now.month
+    # Determine season colors (Hex)
+    if month in [12, 1, 2]: season_data = {"terrain": "0xfffafa", "leaves": "0xeeeeee", "season": "Winter"} # Snow
+    elif month in [3, 4, 5]: season_data = {"terrain": "0x7cfc00", "leaves": "0xff69b4", "season": "Spring"} # Light green, pink buds
+    elif month in [9, 10, 11]: season_data = {"terrain": "0x8b4513", "leaves": "0xd2691e", "season": "Autumn"} # Brown grass, orange leaves
+    else: season_data = {"terrain": "0x228b22", "leaves": "0x006400", "season": "Summer"} # Deep green
+    
+    return render_template('rpg.html', 
+                           terrain_color=season_data["terrain"], 
+                           leaf_color=season_data["leaves"],
+                           season_name=season_data["season"])
+
 @app.route('/api/move/<station>')
 def move_buddy(station):
     global state, manual_override, override_expiry
