@@ -21,8 +21,8 @@
             <h3 style="margin: 0 0 10px 0; color: #00ffff;">Buddy's World</h3>
             WASD / Arrows to Move<br>
             SHIFT to Sprint &nbsp;|&nbsp; SPACE to Jump<br>
-            F to Enter/Exit Vehicle<br>
-            E to Interact &nbsp;|&nbsp; R to Dance
+            F to Enter/Exit Vehicle &nbsp;|&nbsp; H to Honk<br>
+            E to Interact &nbsp;|&nbsp; R to Dance &nbsp;|&nbsp; M for Music
         </div>
     </div>
     <div id="tip">Press F to Enter Passat</div>
@@ -41,7 +41,9 @@
     </div>
     <div id="touch-actions" style="display: none; position: absolute; bottom: 20px; right: 20px; z-index: 30; gap: 10px; pointer-events: auto;">
         <div class="t-btn" id="t-shift" style="font-size: 1rem;">RUN</div>
+        <div class="t-btn" id="t-m">🎵</div>
         <div class="t-btn" id="t-jump">^</div>
+        <div class="t-btn" id="t-h" style="display: none;">📯</div>
         <div class="t-btn" id="t-r">🕺</div>
         <div class="t-btn" id="t-e">E</div><div class="t-btn" id="t-f">F</div>
     </div>
@@ -67,6 +69,33 @@
         dirLight.shadow.camera.top = 200; dirLight.shadow.camera.bottom = -200;
         dirLight.shadow.camera.left = -200; dirLight.shadow.camera.right = 200;
         scene.add(dirLight);
+        
+        // Atmosphere: Sun & Clouds
+        const sun = new THREE.Mesh(new THREE.SphereGeometry(30, 32, 32), new THREE.MeshBasicMaterial({color: 0xffffff}));
+        if ('{{ season_name }}' !== 'Winter') sun.material.color.setHex(0xffddaa); 
+        sun.position.set(200, 400, -600); scene.add(sun);
+        
+        const clouds = new THREE.Group();
+        const cloudGeo = new THREE.BoxGeometry(20, 10, 20);
+        const cloudMat = new THREE.MeshLambertMaterial({color: 0xffffff, transparent: true, opacity: 0.8});
+        for(let i=0; i<40; i++) {
+            const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+            cloud.position.set((Math.random()-0.5)*1500, 100 + Math.random()*50, (Math.random()-0.5)*1500);
+            cloud.scale.set(1 + Math.random()*2, 1, 1 + Math.random()*2);
+            clouds.add(cloud);
+        }
+        scene.add(clouds);
+
+        // Christmas Snow Easter Egg!
+        const isChristmas = {{ 'true' if is_christmas else 'false' }};
+        let snowParticles = null;
+        if (isChristmas) {
+            const snowGeo = new THREE.BufferGeometry(); const snowPos = [];
+            for(let i=0; i<2000; i++) snowPos.push((Math.random()-0.5)*1500, Math.random()*300, (Math.random()-0.5)*1500);
+            snowGeo.setAttribute('position', new THREE.Float32BufferAttribute(snowPos, 3));
+            snowParticles = new THREE.Points(snowGeo, new THREE.PointsMaterial({color: 0xffffff, size: 2, transparent: true, opacity: 0.8}));
+            scene.add(snowParticles);
+        }
 
         // Terrain (Seasonal Color passed from Flask)
         const groundGeo = new THREE.PlaneGeometry(2050, 2050);
@@ -101,21 +130,32 @@
 
         // Player (Buddy)
         const playerGroup = new THREE.Group();
-        const bodyGeo = new THREE.BoxGeometry(2, 3, 2);
+        const buddyModel = new THREE.Group(); // Inner model for floating
         const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1a73e8 }); // Buddy Blue
-        const playerMesh = new THREE.Mesh(bodyGeo, bodyMat);
-        playerMesh.position.y = 1.5;
-        playerMesh.castShadow = true;
-        playerGroup.add(playerMesh);
+        const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 2), bodyMat); bodyMesh.castShadow = true; buddyModel.add(bodyMesh);
+        const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 0.2), new THREE.MeshLambertMaterial({ color: 0x000000 })); visorMesh.position.set(0, 0.5, 1.05); buddyModel.add(visorMesh);
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.1), eyeMat); eyeL.position.set(-0.4, 0.5, 1.15); buddyModel.add(eyeL);
+        const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.1), eyeMat); eyeR.position.set(0.4, 0.5, 1.15); buddyModel.add(eyeR);
+        const armL = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.5, 0.6), bodyMat); armL.position.set(-1.3, 0, 0); armL.rotation.z = -0.2; buddyModel.add(armL);
+        const armR = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.5, 0.6), bodyMat); armR.position.set(1.3, 0, 0); armR.rotation.z = 0.2; buddyModel.add(armR);
+        const auraMesh = new THREE.Mesh(new THREE.CircleGeometry(1.5, 32), new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide })); auraMesh.rotation.x = -Math.PI / 2; auraMesh.position.y = -1.4; buddyModel.add(auraMesh);
+        buddyModel.position.y = 1.5; playerGroup.add(buddyModel);
         scene.add(playerGroup);
 
         // Companion Bot
-        const botGeo = new THREE.BoxGeometry(1, 1.5, 1);
-        const botMat = new THREE.MeshLambertMaterial({ color: 0x00ff00 }); // Green Bot
-        const botMesh = new THREE.Mesh(botGeo, botMat);
-        botMesh.position.set(10, 0.75, -5);
-        botMesh.castShadow = true;
-        scene.add(botMesh);
+        const botGroup = new THREE.Group();
+        const botModel = new THREE.Group();
+        const botBodyMat = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
+        const botBodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 1), botBodyMat); botBodyMesh.castShadow = true; botModel.add(botBodyMesh);
+        const botVisor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.1), new THREE.MeshLambertMaterial({ color: 0x000000 })); botVisor.position.set(0, 0.25, 0.55); botModel.add(botVisor);
+        const botEyeMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const bEyeL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.05), botEyeMat); bEyeL.position.set(-0.2, 0.25, 0.6); botModel.add(bEyeL);
+        const bEyeR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.05), botEyeMat); bEyeR.position.set(0.2, 0.25, 0.6); botModel.add(bEyeR);
+        const botAura = new THREE.Mesh(new THREE.CircleGeometry(0.8, 32), new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.3, side: THREE.DoubleSide })); botAura.rotation.x = -Math.PI / 2; botAura.position.y = -0.7; botModel.add(botAura);
+        botModel.position.y = 0.75; botGroup.add(botModel);
+        botGroup.position.set(10, 0, -5);
+        scene.add(botGroup);
 
         // Blue Passat
         const carGroup = new THREE.Group();
@@ -124,6 +164,11 @@
         const carMesh = new THREE.Mesh(carGeo, carMat);
         carMesh.position.y = 1; carMesh.castShadow = true;
         carGroup.add(carMesh);
+        
+        const carShadow = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 9.5), new THREE.MeshBasicMaterial({color: 0x000000, transparent: true, opacity: 0.4}));
+        carShadow.rotation.x = -Math.PI / 2; carShadow.position.y = 0.05;
+        carGroup.add(carShadow);
+        
         carGroup.position.set(-10, 0, 10);
         scene.add(carGroup);
 
@@ -154,74 +199,185 @@
 
         // Locations / Landmarks (Stylized Placeholders)
         const locations = [];
-        function addZone(color, w, h, d, x, z, name) {
-            const geo = new THREE.BoxGeometry(w, h, d);
-            const mat = new THREE.MeshLambertMaterial({ color: color });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(x, h/2, z);
-            mesh.castShadow = true; mesh.receiveShadow = true;
-            scene.add(mesh);
-            platforms.push({ x: x, z: z, w: w, h: h, d: d });
-            locations.push({ mesh: mesh, name: name });
-        }
         
-        // Parkour Platforms (Jumpable, but no name tag)
-        function addPlatform(color, w, h, d, x, z) {
-            const geo = new THREE.BoxGeometry(w, h, d);
-            const mat = new THREE.MeshLambertMaterial({ color: color });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(x, h/2, z);
-            mesh.castShadow = true; mesh.receiveShadow = true;
-            scene.add(mesh);
-            platforms.push({ x: x, z: z, w: w, h: h, d: d });
+        // Helper Textures (Procedurally Generated for zero-bandwidth cost!)
+        const winCv = document.createElement('canvas'); winCv.width = 128; winCv.height = 128;
+        const wCtx = winCv.getContext('2d'); wCtx.fillStyle = '#333'; wCtx.fillRect(0,0,128,128); wCtx.fillStyle = '#add8e6'; for(let i=10; i<128; i+=30) for(let j=10; j<128; j+=40) wCtx.fillRect(i, j, 20, 30);
+        const winTex = new THREE.CanvasTexture(winCv); winTex.wrapS = THREE.RepeatWrapping; winTex.wrapT = THREE.RepeatWrapping; winTex.repeat.set(2, 2);
+        
+        const mxCv = document.createElement('canvas'); mxCv.width = 256; mxCv.height = 256;
+        const mCtx = mxCv.getContext('2d'); mCtx.fillStyle = '#000'; mCtx.fillRect(0,0,256,256); mCtx.fillStyle = '#0f0'; mCtx.font = '15px monospace'; for(let i=0; i<40; i++) { mCtx.fillText(Math.random().toString(36).substr(2, 10), Math.random()*256, Math.random()*256); }
+        const mxTex = new THREE.CanvasTexture(mxCv);
+        
+        const dCv = document.createElement('canvas'); dCv.width = 128; dCv.height = 128;
+        const dCtx = dCv.getContext('2d'); const cols = ['#ff00ff', '#00ffff', '#ffff00', '#00ff00']; for(let i=0; i<4; i++) for(let j=0; j<4; j++) { dCtx.fillStyle = cols[(i+j)%cols.length]; dCtx.fillRect(i*32, j*32, 32, 32); }
+        const dTex = new THREE.CanvasTexture(dCv); dTex.wrapS = THREE.RepeatWrapping; dTex.wrapT = THREE.RepeatWrapping; dTex.repeat.set(4, 4);
+
+        const raveCanvas = document.createElement('canvas'); raveCanvas.width = 256; raveCanvas.height = 128; 
+        const rCtx = raveCanvas.getContext('2d');
+        const raveTex = new THREE.CanvasTexture(raveCanvas);
+
+        function createSign(text, x, z) {
+            const c = document.createElement('canvas'); c.width = 256; c.height = 128; const xCtx = c.getContext('2d');
+            xCtx.fillStyle = '#222'; xCtx.fillRect(0,0,256,128); xCtx.strokeStyle = '#00ffff'; xCtx.lineWidth=8; xCtx.strokeRect(0,0,256,128);
+            xCtx.fillStyle = '#fff'; xCtx.font = 'bold 28px sans-serif'; xCtx.textAlign = 'center'; xCtx.fillText(text, 128, 70);
+            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(c)}));
+            mesh.position.set(x, 4, z); mesh.lookAt(0, 4, 0); scene.add(mesh);
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 4), new THREE.MeshLambertMaterial({color:0x333})); pole.position.set(x, 2, z); scene.add(pole);
+        }
+
+        function addSolidBox(color, w, h, d, x, z, tex=null) {
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), tex ? new THREE.MeshLambertMaterial({map: tex}) : new THREE.MeshLambertMaterial({color: color}));
+            mesh.position.set(x, h/2, z); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+            platforms.push({ x: x, z: z, w: w, h: h, d: d }); return mesh;
         }
         
         // Bridge over River
         const riverGeo = new THREE.PlaneGeometry(200, 2000);
         const riverMat = new THREE.MeshLambertMaterial({ color: 0x0000ff });
         const river = new THREE.Mesh(riverGeo, riverMat);
-        river.rotation.x = -Math.PI / 2; river.position.set(200, 0.1, 0);
-        scene.add(river);
-        addZone(0x888888, 250, 15, 20, 200, 50, "Mackinac Bridge");
+        river.rotation.x = -Math.PI / 2; river.position.set(200, 0.1, 0); scene.add(river);
         
-        addZone(0xaaaaaa, 40, 10, 80, 180, -150, "Soo Locks");
-        addZone(0xffd700, 80, 2, 80, 400, 200, "Sugar Island (Afar)");
-        addZone(0x00ffff, 20, 10, 20, -50, -50, "Sault Schools");
-        addZone(0x000000, 30, 20, 30, -150, -150, "The Matrix");
-        addZone(0xff00ff, 30, 10, 30, 150, 150, "Secret Rave Zone");
-        addZone(0xdddddd, 10, 10, 10, 0, -30, "The Office");
-        addZone(0xff6347, 40, 15, 40, -100, 100, "Luigi's Fine Pasta");
+        const bridgeDeck = new THREE.Mesh(new THREE.BoxGeometry(250, 0.5, 20), new THREE.MeshLambertMaterial({color: 0x444444}));
+        bridgeDeck.position.set(200, 0.25, 50); bridgeDeck.receiveShadow = true; scene.add(bridgeDeck); // Deck is not in 'platforms' so cars can drive over it smoothly!
+        addSolidBox(0xaaaaaa, 8, 60, 22, 120, 50); // Bridge Tower 1
+        addSolidBox(0xaaaaaa, 8, 60, 22, 280, 50); // Bridge Tower 2
+        locations.push({x: 200, z: 50, r: 130, name: "Mackinac Bridge"});
+        
+        // Soo Locks (In River)
+        addSolidBox(0x888888, 10, 10, 80, 170, -150); // Left Wall
+        addSolidBox(0x888888, 10, 10, 80, 190, -150); // Right Wall
+        addSolidBox(0x333333, 10, 10, 4, 180, -115); // Lock Gate
+        const lockWater = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 70), new THREE.MeshLambertMaterial({color: 0x00aaff, transparent:true, opacity:0.8}));
+        lockWater.position.set(180, 4, -152); scene.add(lockWater);
+        createSign("SOO LOCKS", 155, -110);
+        locations.push({x: 180, z: -150, r: 60, name: "Soo Locks"});
+        
+        // Sugar Island (Jumpable Base)
+        addSolidBox(0x228B22, 150, 2, 150, 350, 200);
+        createSign("SUGAR ISLAND", 270, 150);
+        for(let i=0; i<15; i++) {
+            const tx = 350 + (Math.random()-0.5)*100; const tz = 200 + (Math.random()-0.5)*100;
+            const t = new THREE.Group();
+            const l = new THREE.Mesh(treeGeo, treeMat); l.position.y = 8; l.castShadow = true;
+            const tr = new THREE.Mesh(trunkGeo, trunkMat); tr.position.y = 3.5; tr.castShadow = true;
+            t.add(l); t.add(tr); t.position.set(tx, 0, tz); scene.add(t);
+            platforms.push({ x: tx, z: tz, w: 1.5, h: 10, d: 1.5 });
+        }
+        locations.push({x: 350, z: 200, r: 80, name: "Sugar Island"});
+        
+        // Sault Schools
+        addSolidBox(0xb22222, 40, 15, 20, -50, -50);
+        addSolidBox(0xdddddd, 5, 20, 5, -50, -40); // Tower
+        createSign("SAULT SCHOOLS", -30, -35);
+        locations.push({x: -50, z: -50, r: 40, name: "Sault Schools"});
+        
+        // The Matrix
+        addSolidBox(0x000000, 40, 40, 40, -200, -200, mxTex);
+        createSign("THE MATRIX", -170, -170);
+        locations.push({x: -200, z: -200, r: 50, name: "The Matrix"});
+        
+        // Secret Rave Zone
+        addSolidBox(0x111111, 60, 2, 60, 150, 150);
+        const raveFloor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBasicMaterial({map: dTex}));
+        raveFloor.rotation.x = -Math.PI / 2; raveFloor.position.set(150, 2.01, 150); scene.add(raveFloor);
+        
+        const raveSign = new THREE.Mesh(new THREE.PlaneGeometry(16, 8), new THREE.MeshBasicMaterial({ map: raveTex }));
+        raveSign.position.set(150, 7, 125); scene.add(raveSign);
+        const ravePole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 6), new THREE.MeshLambertMaterial({color:0x333})); ravePole.position.set(150, 3, 125); scene.add(ravePole);
+        locations.push({x: 150, z: 150, r: 40, name: "Secret Rave Zone"});
+        
+        // Rave Sky Lasers (Draws attention from across the map!)
+        const raveLasers = new THREE.Group();
+        for(let i=0; i<4; i++) {
+            const laser = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 200), new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending}));
+            laser.position.set((i%2===0?-15:15), 100, (i<2?-15:15));
+            raveLasers.add(laser);
+        }
+        raveLasers.position.set(150, 0, 150); scene.add(raveLasers);
+        
+        // The Office
+        addSolidBox(0x888888, 20, 25, 20, 0, -40, winTex);
+        createSign("THE OFFICE", 15, -25);
+        locations.push({x: 0, z: -40, r: 30, name: "The Office"});
+        
+        // Luigi's Fine Pasta
+        addSolidBox(0xff6347, 30, 12, 30, -100, 100);
+        const awning = new THREE.Mesh(new THREE.PlaneGeometry(14, 6), new THREE.MeshLambertMaterial({color: 0xffffff}));
+        awning.rotation.x = -Math.PI / 3; awning.position.set(-100, 8, 117); scene.add(awning);
+        createSign("LUIGI'S PASTA", -80, 110);
+        locations.push({x: -100, z: 100, r: 40, name: "Luigi's Fine Pasta"});
         
         // Buddy's Jump Puzzle
-        addPlatform(0xffa500, 10, 3, 10, 15, -15);
-        addPlatform(0xff8c00, 10, 6, 10, 15, -30);
-        addPlatform(0xff4500, 10, 9, 10, 15, -45);
-        addPlatform(0xff0000, 10, 12, 10, 15, -60);
+        addSolidBox(0xffa500, 10, 3, 10, 15, -15);
+        addSolidBox(0xff8c00, 10, 6, 10, 15, -30);
+        addSolidBox(0xff4500, 10, 9, 10, 15, -45);
+        addSolidBox(0xff0000, 10, 12, 10, 15, -60);
 
         // State & Controls
         let inCar = false;
         let hasBot = false;
         let isDancing = false;
+        let danceMove = 0;
         let playerVy = 0;
         let carV = 0;
         let botTarget = new THREE.Vector3(10, 0.75, -5);
         let botWait = 0;
         let activeTarget = playerGroup; // Camera follows this
-        const keys = { w:false, a:false, s:false, d:false, space:false, shift:false };
+        let currentLoc = "Sault Ste. Marie";
+        const keys = { w:false, a:false, s:false, d:false, space:false, shift:false, m:false, h:false };
         
+        // Music Synthesizer Engine
+        let audioCtx = null, osc = null, lfo = null, gainNode = null;
+        let currentTrack = 0; let isPlayingMusic = false;
+        function playTrack(tIdx) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (osc) { osc.stop(); lfo.stop(); osc = null; }
+            
+            osc = audioCtx.createOscillator(); gainNode = audioCtx.createGain(); lfo = audioCtx.createOscillator();
+            if (tIdx === 0) { // Wub Wub
+                osc.type = 'sawtooth'; osc.frequency.value = 45; lfo.type = 'sine'; lfo.frequency.value = 7;
+            } else if (tIdx === 1) { // Upbeat Techno
+                osc.type = 'square'; osc.frequency.value = 60; lfo.type = 'square'; lfo.frequency.value = 14;
+            } else { // Dubstep Grime
+                osc.type = 'triangle'; osc.frequency.value = 35; lfo.type = 'sawtooth'; lfo.frequency.value = 4;
+            }
+            
+            const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 1;
+            lfo.connect(lfoGain); lfoGain.connect(gainNode.gain);
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+            osc.start(); lfo.start(); isPlayingMusic = true;
+        }
+        function stopTrack() { if (osc) { osc.stop(); lfo.stop(); osc = null; } isPlayingMusic = false; }
+        
+        const honkUi = document.createElement('div');
+        honkUi.style.cssText = 'position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); color: #ffff00; font-size: 5rem; font-weight: bold; font-style: italic; display: none; text-shadow: 4px 4px 0 #ff0000; z-index: 50; pointer-events: none;';
+        honkUi.innerText = "HONK!";
+        document.body.appendChild(honkUi);
+
         // Encapsulate interaction logic for both keyboard and touch
         function triggerAction(k) {
-            if(k === 'r') isDancing = !isDancing;
+            if(k === 'r') { 
+                if (isDancing) { danceMove = (danceMove + 1) % 3; } else { isDancing = true; if (currentLoc === "Secret Rave Zone") playTrack(currentTrack); } 
+            }
+            if(k === 'm' && isDancing && currentLoc === "Secret Rave Zone") {
+                currentTrack = (currentTrack + 1) % 3; playTrack(currentTrack);
+            }
+            if(k === 'h' && inCar) {
+                honkUi.style.display = 'block';
+                setTimeout(() => honkUi.style.display = 'none', 400);
+            }
             if(k === 'f') {
                 if(!inCar && playerGroup.position.distanceTo(carGroup.position) < 8) {
                     inCar = true;
-                    playerMesh.visible = false;
+                    buddyModel.visible = false;
                     carGroup.position.copy(playerGroup.position);
                     carGroup.rotation.y = playerGroup.rotation.y;
                     activeTarget = carGroup;
                 } else if(inCar) {
                     inCar = false;
-                    playerMesh.visible = true;
+                    buddyModel.visible = true;
                     playerGroup.position.copy(carGroup.position);
                     playerGroup.position.x -= 5; // Step out to the side
                     activeTarget = playerGroup;
@@ -232,37 +388,41 @@
                     window.location.href = '/'; // Diegetic exit!
                     return;
                 }
-                if(!hasBot && playerGroup.position.distanceTo(botMesh.position) < 8) {
+                if(!hasBot && playerGroup.position.distanceTo(botGroup.position) < 8) {
                     hasBot = true;
-                    botMesh.position.set(2, 1, 0); // Put bot on Buddy's shoulder
-                    playerGroup.add(botMesh);
+                    botGroup.position.set(2, 1, 0); // Put bot on Buddy's shoulder
+                    playerGroup.add(botGroup);
                 } else if(hasBot && inCar) {
                      // Easter egg: bot rides shotgun
-                     botMesh.position.set(1.5, 1.5, -1);
-                     carGroup.add(botMesh);
+                     botGroup.position.set(1.5, 1.5, -1);
+                     botModel.scale.y = 0.6; // Sit down!
+                     carGroup.add(botGroup);
                 } else if(hasBot && !inCar) {
                     // Drop companion
                     hasBot = false;
-                    scene.add(botMesh);
-                    botMesh.position.copy(playerGroup.position);
-                    botMesh.position.x += 3;
-                    botMesh.position.y = 0.75;
+                    scene.add(botGroup);
+                    botGroup.position.copy(playerGroup.position);
+                    botGroup.position.x += 3;
+                    botGroup.position.y = 0;
+                    botModel.scale.y = 1.0; // Stand up
                 }
             }
         }
         
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
-            if(keys.hasOwnProperty(k) || k === 'arrowup' || k === 'arrowdown' || k === 'arrowleft' || k === 'arrowright') {
+            if(keys.hasOwnProperty(k) || ['arrowup','arrowdown','arrowleft','arrowright',' ','shift'].includes(k)) {
                 if(k === 'arrowup') keys.w = true;
                 if(k === 'arrowdown') keys.s = true;
                 if(k === 'arrowleft') keys.a = true;
                 if(k === 'arrowright') keys.d = true;
                 if(k === ' ') { e.preventDefault(); keys.space = true; }
                 if(k === 'shift') keys.shift = true;
+                if(k === 'm') keys.m = true;
+                if(k === 'h') keys.h = true;
                 if(keys.hasOwnProperty(k)) keys[k] = true;
             }
-            if((k === 'f' || k === 'e' || k === 'r') && !e.repeat) triggerAction(k);
+            if((k === 'f' || k === 'e' || k === 'r' || k === 'm' || k === 'h') && !e.repeat) trigger onAction(k);
         });
         window.addEventListener('keyup', (e) => {
             const k = e.key.toLowerCase();
@@ -272,6 +432,8 @@
             if(k === 'arrowright') keys.d = false;
             if(k === ' ') keys.space = false;
             if(k === 'shift') keys.shift = false;
+            if(k === 'm') keys.m = false;
+            if(k === 'h') keys.h = false;
             if(keys.hasOwnProperty(k)) keys[k] = false;
         });
 
@@ -293,7 +455,7 @@
             };
             bindTouch('t-up', 'w'); bindTouch('t-down', 's'); bindTouch('t-left', 'a'); bindTouch('t-right', 'd');
             bindTouch('t-jump', 'space'); bindTouch('t-shift', 'shift');
-            bindTouch('t-r', 'r');
+            bindTouch('t-r', 'r'); bindTouch('t-m', 'm'); bindTouch('t-h', 'h');
             bindTouch('t-f', 'f'); bindTouch('t-e', 'e');
         }
         
@@ -309,6 +471,7 @@
             // Movement Math
             const mover = inCar ? carGroup : playerGroup;
             let oldPos = mover.position.clone();
+            let targetRoll = 0;
             
             if (inCar) {
                 if(keys.w) carV += 0.02; // Accelerate
@@ -319,8 +482,8 @@
                 
                 // Only allow steering when the car is physically moving!
                 if(Math.abs(carV) > 0.05) {
-                    if(keys.a) mover.rotation.y += 0.03 * Math.sign(carV);
-                    if(keys.d) mover.rotation.y -= 0.03 * Math.sign(carV);
+                    if(keys.a) { mover.rotation.y += 0.03 * Math.sign(carV); targetRoll = 0.1 * Math.sign(carV); }
+                    if(keys.d) { mover.rotation.y -= 0.03 * Math.sign(carV); targetRoll = -0.1 * Math.sign(carV); }
                 }
             } else {
                 const speed = keys.shift ? 0.7 : 0.25; // Sprinting vs Walking
@@ -330,14 +493,36 @@
                 if(keys.d) mover.rotation.y -= 0.05;
             }
             
+            // Movement cancels dancing!
+            if (isDancing && (keys.w || keys.s || keys.a || keys.d || keys.space)) {
+                isDancing = false; if (isPlayingMusic) stopTrack();
+            }
+            
+            // Dynamic Vehicle Body Roll
+            carMesh.rotation.z += (targetRoll - carMesh.rotation.z) * 0.15;
+            
             // Keep player inside the world bounds
             mover.position.x = Math.max(-980, Math.min(980, mover.position.x));
             mover.position.z = Math.max(-980, Math.min(980, mover.position.z));
+            
+            // Location Proximity
+            let newLoc = "Sault Ste. Marie";
+            locations.forEach(loc => {
+                if(Math.hypot(mover.position.x - loc.x, mover.position.z - loc.z) < loc.r) {
+                    newLoc = loc.name;
+                }
+            });
+            if (currentLoc !== newLoc) {
+                currentLoc = newLoc;
+                locUi.style.opacity = 0;
+                setTimeout(() => { locUi.innerText = currentLoc; locUi.style.opacity = 1; }, 300);
+            }
 
             // AABB Collision Engine
             let hitWall = false;
             let targetGround = 0;
             let radius = inCar ? 4 : 1.5;
+            let botBaseY = 0;
             
             for(let p of platforms) {
                 if(Math.abs(mover.position.x - p.x) < (p.w/2 + radius) && Math.abs(mover.position.z - p.z) < (p.d/2 + radius)) {
@@ -347,27 +532,90 @@
                         hitWall = true; // We crashed into the side of it!
                     }
                 }
+                if(Math.abs(botGroup.position.x - p.x) < (p.w/2 + 1) && Math.abs(botGroup.position.z - p.z) < (p.d/2 + 1)) {
+                    botBaseY = Math.max(botBaseY, p.h); // Companion steps up!
+                }
             }
             
             if (hitWall) { mover.position.x = oldPos.x; mover.position.z = oldPos.z; if(inCar) carV = 0; }
             
             // Jump & Gravity for Player
             if (!inCar) {
-                if (keys.space && playerGroup.position.y <= targetGround + 0.05) playerVy = 0.7; // Jump power!
+                if (keys.space && playerGroup.position.y <= targetGround + 0.05) {
+                    playerVy = 0.7; // Jump power!
+                    buddyModel.scale.set(0.7, 1.3, 0.7); // Stretch up!
+                }
                 playerVy -= 0.04; // Gravity
                 playerGroup.position.y += playerVy;
                 
                 if (playerGroup.position.y <= targetGround) {
+                    if (playerVy < -0.3) buddyModel.scale.set(1.4, 0.6, 1.4); // Squash on hard landing!
                     playerGroup.position.y = targetGround; // Snap feet to floor
                     playerVy = 0;
                 }
             } else { carGroup.position.y = 0; } // Keep car on the dirt
+            
+            // Smoothly recover Squash & Stretch
+            buddyModel.scale.x += (1 - buddyModel.scale.x) * 0.15;
+            buddyModel.scale.y += (1 - buddyModel.scale.y) * 0.15;
+            buddyModel.scale.z += (1 - buddyModel.scale.z) * 0.15;
+            
+            // Atmosphere Animations
+            clouds.children.forEach(c => {
+                c.position.x += 0.1;
+                if(c.position.x > 750) c.position.x = -750;
+            });
+            if (snowParticles) {
+                const positions = snowParticles.geometry.attributes.position.array;
+                for(let i=1; i<positions.length; i+=3) {
+                    positions[i] -= 0.4;
+                    if(positions[i] < 0) positions[i] = 300;
+                }
+                snowParticles.geometry.attributes.position.needsUpdate = true;
+            }
+            
+            // Rave Flashing Effects & Lasers
+            const rTime = Date.now() * 0.005;
+            raveLasers.rotation.y = rTime * 0.2;
+            raveLasers.children.forEach((l, i) => {
+                l.rotation.x = Math.sin(rTime * 0.5 + i) * 0.2;
+                l.rotation.z = Math.cos(rTime * 0.5 + i) * 0.2;
+                l.material.color.setHSL((rTime * 0.1 + i*0.25) % 1, 1, 0.5);
+            });
+            
+            if (mover.position.distanceTo(raveLasers.position) < 400) { // Optimize!
+                const rCols = ['#ff00ff', '#00ffff', '#ffff00', '#00ff00'];
+                for(let i=0; i<4; i++) {
+                    for(let j=0; j<4; j++) {
+                        dCtx.fillStyle = rCols[Math.floor(i + j + rTime) % rCols.length];
+                        dCtx.fillRect(i*32, j*32, 32, 32);
+                    }
+                }
+                dTex.needsUpdate = true;
+                rCtx.fillStyle = '#111'; rCtx.fillRect(0, 0, 256, 128); 
+                rCtx.lineWidth = 8; rCtx.strokeStyle = rCols[Math.floor(rTime) % rCols.length]; rCtx.strokeRect(4, 4, 248, 120);
+                rCtx.fillStyle = rCols[Math.floor(rTime * 1.5) % rCols.length]; rCtx.font = 'bold 50px sans-serif'; rCtx.textAlign = 'center'; rCtx.fillText('R A V E', 128, 80);
+                raveTex.needsUpdate = true;
+            }
+
+            // Stop music if leaving the Rave or stop dancing
+            if (isPlayingMusic && (currentLoc !== "Secret Rave Zone" || !isDancing)) { stopTrack(); isDancing = false; }
+
+            // Floating Animations
+            const tAnim = Date.now() * 0.003;
+            buddyModel.position.y = 1.5 + Math.sin(tAnim) * 0.2;
+            auraMesh.scale.setScalar(1 + Math.sin(tAnim) * 0.1);
+            botModel.position.y = 0.75 + Math.cos(tAnim * 1.2) * 0.15;
+            botAura.scale.setScalar(1 + Math.cos(tAnim * 1.2) * 0.1);
 
             // Companion Bot Roaming & Following Logic
+            botGroup.position.y += (botBaseY - botGroup.position.y) * 0.2; // Climb stairs smoothly
             if (!hasBot) {
                 botWait--;
-                // Re-target if timer expires OR if bot is left too far behind (300 units = approx 3 zones away)
-                if (botWait <= 0 || botMesh.position.distanceTo(playerGroup.position) > 300) {
+                if (currentLoc === "Secret Rave Zone" && isDancing) {
+                    botTarget.set(150 + (Math.random()-0.5)*10, botBaseY, 150 + (Math.random()-0.5)*10); // Race to dance floor!
+                    botWait = 30; // Update path frequently
+                } else if (botWait <= 0 || botGroup.position.distanceTo(playerGroup.position) > 300) {
                     botWait = 60 + Math.random() * 180; // Wait 1-3 seconds
                     let angle = Math.random() * Math.PI * 2;
                     let dist = 30 + Math.random() * 70; // Roam randomly around player
@@ -376,43 +624,47 @@
                     botTarget.z = Math.max(-980, Math.min(980, botTarget.z));
                 }
                 
-                let dx = botTarget.x - botMesh.position.x;
-                let dz = botTarget.z - botMesh.position.z;
+                let dx = botTarget.x - botGroup.position.x;
+                let dz = botTarget.z - botGroup.position.z;
                 let d = Math.sqrt(dx*dx + dz*dz);
                 if (d > 1 && !isDancing) {
-                    botMesh.position.x += (dx/d) * 0.2; // Bot walking speed
-                    botMesh.position.z += (dz/d) * 0.2;
-                    botMesh.rotation.y = Math.atan2(dx, dz);
-                    botMesh.position.y = 0.75 + Math.abs(Math.sin(Date.now() * 0.01)) * 0.5; // Walking bob
+                    botGroup.position.x += (dx/d) * 0.2; // Bot walking speed
+                    botGroup.position.z += (dz/d) * 0.2;
+                    botGroup.rotation.y = Math.atan2(dx, dz);
+                    botGroup.position.y = botBaseY + Math.abs(Math.sin(Date.now() * 0.01)) * 0.5; // Walking hop
                 } else if (!isDancing) {
-                    botMesh.position.y = 0.75;
+                    botGroup.position.y = botBaseY;
                 }
-            } else { botMesh.rotation.y = 0; } // Reset rotation if attached
+            } else { botGroup.rotation.y = 0; } // Reset rotation if attached
 
             // Dancing Modality
             if (isDancing) {
+                const danceTime = Date.now() * 0.006;
                 if (!inCar) {
-                    playerGroup.rotation.y += 0.15;
-                    playerGroup.position.y = targetGround + Math.abs(Math.sin(Date.now() * 0.015)) * 1.2; // Dance jump
+                    if (danceMove === 0) { // The Floss Groove
+                        buddyModel.rotation.y = Math.sin(danceTime) * 0.5;
+                        playerGroup.position.y = targetGround + Math.abs(Math.sin(danceTime * 2)) * 0.8;
+                        armL.rotation.z = -Math.PI/2 + Math.sin(danceTime * 4) * 0.5;
+                        armR.rotation.z = Math.PI/2 + Math.sin(danceTime * 4) * 0.5; 
+                    } else if (danceMove === 1) { // The Helicopter Spin
+                        buddyModel.rotation.y = danceTime;
+                        playerGroup.position.y = targetGround + Math.abs(Math.sin(danceTime * 4)) * 0.4;
+                        armL.rotation.z = Math.PI; armR.rotation.z = -Math.PI; 
+                    } else { // The Head Bop
+                        buddyModel.rotation.y = 0; buddyModel.rotation.z = Math.sin(danceTime * 2) * 0.3;
+                        playerGroup.position.y = targetGround;
+                        armL.rotation.z = -Math.PI/2 + Math.cos(danceTime * 4) * 0.8;
+                        armR.rotation.z = Math.PI/2 - Math.cos(danceTime * 4) * 0.8;
+                    }
                 }
-                if (hasBot) { botMesh.rotation.y += 0.2; } 
-                else if (botMesh.position.distanceTo(playerGroup.position) < 80) {
-                    // Companion joins the dance if nearby!
-                    botMesh.rotation.y -= 0.2;
-                    botMesh.position.y = 0.75 + Math.abs(Math.sin(Date.now() * 0.015)) * 1.0;
+                botModel.rotation.y = Math.cos(danceTime) * 0.5;
+                if (hasBot) { /* Riding along */ } 
+                else if (botGroup.position.distanceTo(playerGroup.position) < 80) {
+                    botGroup.position.y = botBaseY + Math.abs(Math.cos(danceTime * 2)) * 0.8;
                 }
-            }
-
-            // Location Proximity
-            let currentLoc = "Sault Ste. Marie";
-            locations.forEach(loc => {
-                if(mover.position.distanceTo(loc.mesh.position) < Math.max(loc.mesh.geometry.parameters.width, loc.mesh.geometry.parameters.depth)) {
-                    currentLoc = loc.name;
-                }
-            });
-            if(locUi.innerText !== currentLoc) {
-                locUi.style.opacity = 0;
-                setTimeout(() => { locUi.innerText = currentLoc; locUi.style.opacity = 1; }, 300);
+            } else {
+                buddyModel.rotation.y = 0; botModel.rotation.y = 0;
+                armL.rotation.z = -0.2; armR.rotation.z = 0.2; // Reset idle arms
             }
 
             // Tooltips
@@ -423,11 +675,14 @@
             } else if(!inCar && playerGroup.position.distanceTo(carGroup.position) < 10) {
                 tipUi.innerText = "Press F to Enter Passat";
                 showTip = true;
-            } else if(!hasBot && playerGroup.position.distanceTo(botMesh.position) < 10) {
+            } else if(!hasBot && playerGroup.position.distanceTo(botGroup.position) < 10) {
                 tipUi.innerText = "Press E to Pick Up Companion";
                 showTip = true;
             } else if(currentLoc === "Secret Rave Zone" && !isDancing && !inCar) {
                 tipUi.innerText = "Press R to Dance";
+                showTip = true;
+            } else if(currentLoc === "Secret Rave Zone" && isDancing && !inCar) {
+                tipUi.innerText = "Press M to Change Track | R to Switch Moves";
                 showTip = true;
             } else if(hasBot && !inCar) {
                 tipUi.innerText = "Press E to Drop Companion";
@@ -438,11 +693,14 @@
             }
             tipUi.style.display = showTip ? 'block' : 'none';
             
+            // Toggle specific touch buttons contextually
+            const tH = document.getElementById('t-h'); if(tH) tH.style.display = inCar ? 'flex' : 'none';
+            
             // Luigi's Fine Pasta Cinematic Interactions
             const dialogBox = document.getElementById('dialog-box');
             if (currentLoc === "Luigi's Fine Pasta") {
                 let msg = "...I cannot eat.";
-                if (hasBot || botMesh.position.distanceTo(playerGroup.position) < 30) {
+                if (hasBot || botGroup.position.distanceTo(playerGroup.position) < 30) {
                     msg = "...We cannot eat.";
                 }
                 dialogBox.innerText = msg;

@@ -157,10 +157,13 @@ def rpg():
     elif month in [9, 10, 11]: season_data = {"terrain": "0x8b4513", "leaves": "0xd2691e", "season": "Autumn"} # Brown grass, orange leaves
     else: season_data = {"terrain": "0x228b22", "leaves": "0x006400", "season": "Summer"} # Deep green
     
+    is_christmas = (now.month == 12 and now.day == 25)
+    
     return render_template('rpg.html', 
                            terrain_color=season_data["terrain"], 
                            leaf_color=season_data["leaves"],
                            season_name=season_data["season"],
+                           is_christmas=is_christmas,
                            **state.copy())
 
 @app.route('/api/move/<station>')
