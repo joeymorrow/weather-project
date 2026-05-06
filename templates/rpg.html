@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Buddy's World - {{ season_name }}</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; touch-action: none; overscroll-behavior: none; }
         #ui { position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none; }
         #controls { background: rgba(0,0,0,0.7); color: #fff; padding: 15px; border-radius: 10px; border: 1px solid #00ffff; display: inline-block; }
         #tip { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,255,255,0.2); border: 2px solid #00ffff; color: #fff; padding: 15px 30px; font-size: 1.5rem; font-weight: bold; border-radius: 30px; text-transform: uppercase; display: none; z-index: 10; text-shadow: 0 2px 5px #000; box-shadow: 0 0 20px rgba(0,255,255,0.5); transition: opacity 0.3s; }
@@ -86,15 +86,16 @@
         }
         scene.add(clouds);
 
-        // Christmas Snow Easter Egg!
+        // Christmas Snow & Live Weather Parity!
         const isChristmas = {{ 'true' if is_christmas else 'false' }};
-        let snowParticles = null;
-        if (isChristmas) {
-            const snowGeo = new THREE.BufferGeometry(); const snowPos = [];
-            for(let i=0; i<2000; i++) snowPos.push((Math.random()-0.5)*1500, Math.random()*300, (Math.random()-0.5)*1500);
-            snowGeo.setAttribute('position', new THREE.Float32BufferAttribute(snowPos, 3));
-            snowParticles = new THREE.Points(snowGeo, new THREE.PointsMaterial({color: 0xffffff, size: 2, transparent: true, opacity: 0.8}));
-            scene.add(snowParticles);
+        const isRaining = {{ 'true' if pop > 50 else 'false' }} && !isChristmas && '{{ season_name }}' !== 'Winter';
+        let weatherParticles = null;
+        if (isChristmas || isRaining) {
+            const wGeo = new THREE.BufferGeometry(); const wPos = [];
+            for(let i=0; i<2000; i++) wPos.push((Math.random()-0.5)*1500, Math.random()*300, (Math.random()-0.5)*1500);
+            wGeo.setAttribute('position', new THREE.Float32BufferAttribute(wPos, 3));
+            weatherParticles = new THREE.Points(wGeo, new THREE.PointsMaterial({color: isRaining ? 0x00aaff : 0xffffff, size: isRaining ? 1.5 : 2, transparent: true, opacity: 0.8}));
+            scene.add(weatherParticles);
         }
 
         // Terrain (Seasonal Color passed from Flask)
@@ -165,9 +166,19 @@
         carMesh.position.y = 1; carMesh.castShadow = true;
         carGroup.add(carMesh);
         
+        // Exhaust System
+        const exhaustGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        const exhaustMat = new THREE.MeshBasicMaterial({color: 0xaaaaaa, transparent: true, opacity: 0.4});
+        const puffs = [];
+
         const carShadow = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 9.5), new THREE.MeshBasicMaterial({color: 0x000000, transparent: true, opacity: 0.4}));
         carShadow.rotation.x = -Math.PI / 2; carShadow.position.y = 0.05;
         carGroup.add(carShadow);
+        
+        // The "Juice": Passat Headlights!
+        const headlight = new THREE.SpotLight(0xffffff, 2, 100, Math.PI/4, 0.5, 1);
+        headlight.position.set(0, 1, -4); headlight.target.position.set(0, 0, -20);
+        carGroup.add(headlight); carGroup.add(headlight.target);
         
         carGroup.position.set(-10, 0, 10);
         scene.add(carGroup);
@@ -177,6 +188,10 @@
         kioskGroup.position.set(0, 0, -15);
         scene.add(kioskGroup);
         platforms.push({ x: 0, z: -15, w: 6, h: 6, d: 2 });
+        
+        // Dynamic Jump Shadow for Platforming
+        const buddyShadow = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({color: 0x000000, transparent: true, opacity: 0.3}));
+        buddyShadow.rotation.x = -Math.PI / 2; scene.add(buddyShadow);
 
         const kioskStandGeo = new THREE.BoxGeometry(6, 6, 2);
         const kioskStandMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
@@ -352,7 +367,7 @@
         function stopTrack() { if (osc) { osc.stop(); lfo.stop(); osc = null; } isPlayingMusic = false; }
         
         const honkUi = document.createElement('div');
-        honkUi.style.cssText = 'position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); color: #ffff00; font-size: 5rem; font-weight: bold; font-style: italic; display: none; text-shadow: 4px 4px 0 #ff0000; z-index: 50; pointer-events: none;';
+        honkUi.style.cssText = 'position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) scale(0.5); color: #ffff00; font-size: 5rem; font-weight: bold; font-style: italic; opacity: 0; transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s; text-shadow: 4px 4px 0 #ff0000; z-index: 50; pointer-events: none;';
         honkUi.innerText = "HONK!";
         document.body.appendChild(honkUi);
 
@@ -365,8 +380,19 @@
                 currentTrack = (currentTrack + 1) % 3; playTrack(currentTrack);
             }
             if(k === 'h' && inCar) {
-                honkUi.style.display = 'block';
-                setTimeout(() => honkUi.style.display = 'none', 400);
+                honkUi.style.opacity = '1'; honkUi.style.transform = 'translate(-50%, -50%) scale(1.2)';
+                setTimeout(() => { honkUi.style.opacity = '0'; honkUi.style.transform = 'translate(-50%, -50%) scale(0.5)'; }, 300);
+                
+                // Audio Juice!
+                try {
+                    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const hOsc = audioCtx.createOscillator(); const hGain = audioCtx.createGain();
+                    hOsc.type = 'sawtooth'; hOsc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    hOsc.frequency.exponentialRampToValueAtTime(280, audioCtx.currentTime + 0.2);
+                    hGain.gain.setValueAtTime(0.5, audioCtx.currentTime); hGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    hOsc.connect(hGain); hGain.connect(audioCtx.destination);
+                    hOsc.start(); hOsc.stop(audioCtx.currentTime + 0.3);
+                } catch(e) {}
             }
             if(k === 'f') {
                 if(!inCar && playerGroup.position.distanceTo(carGroup.position) < 8) {
@@ -375,12 +401,14 @@
                     carGroup.position.copy(playerGroup.position);
                     carGroup.rotation.y = playerGroup.rotation.y;
                     activeTarget = carGroup;
+                    if (hasBot) { botGroup.position.set(1.5, 1.5, -1); botModel.scale.y = 0.6; carGroup.add(botGroup); }
                 } else if(inCar) {
                     inCar = false;
                     buddyModel.visible = true;
                     playerGroup.position.copy(carGroup.position);
                     playerGroup.position.x -= 5; // Step out to the side
                     activeTarget = playerGroup;
+                    if (hasBot) { botGroup.position.set(2, 1, 0); botModel.scale.y = 1.0; playerGroup.add(botGroup); }
                 }
             }
             if(k === 'e') {
@@ -392,11 +420,6 @@
                     hasBot = true;
                     botGroup.position.set(2, 1, 0); // Put bot on Buddy's shoulder
                     playerGroup.add(botGroup);
-                } else if(hasBot && inCar) {
-                     // Easter egg: bot rides shotgun
-                     botGroup.position.set(1.5, 1.5, -1);
-                     botModel.scale.y = 0.6; // Sit down!
-                     carGroup.add(botGroup);
                 } else if(hasBot && !inCar) {
                     // Drop companion
                     hasBot = false;
@@ -411,6 +434,7 @@
         
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
+            if(k === 'escape') window.location.href = '/';
             if(keys.hasOwnProperty(k) || ['arrowup','arrowdown','arrowleft','arrowright',' ','shift'].includes(k)) {
                 if(k === 'arrowup') keys.w = true;
                 if(k === 'arrowdown') keys.s = true;
@@ -422,7 +446,7 @@
                 if(k === 'h') keys.h = true;
                 if(keys.hasOwnProperty(k)) keys[k] = true;
             }
-            if((k === 'f' || k === 'e' || k === 'r' || k === 'm' || k === 'h') && !e.repeat) trigger onAction(k);
+            if((k === 'f' || k === 'e' || k === 'r' || k === 'm' || k === 'h') && !e.repeat) triggerAction(k);
         });
         window.addEventListener('keyup', (e) => {
             const k = e.key.toLowerCase();
@@ -464,6 +488,8 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+        
+        let lastRStep = -1; // Optimizer for GPU texture updates
 
         function animate() {
             requestAnimationFrame(animate);
@@ -500,6 +526,21 @@
             
             // Dynamic Vehicle Body Roll
             carMesh.rotation.z += (targetRoll - carMesh.rotation.z) * 0.15;
+            
+            // Passat Exhaust Particle Engine
+            if (inCar && Math.abs(carV) > 0.5 && Math.random() > 0.6) {
+                const puff = new THREE.Mesh(exhaustGeo, exhaustMat.clone());
+                puff.position.copy(carGroup.position);
+                puff.position.x += Math.sin(carGroup.rotation.y) * 4; puff.position.z += Math.cos(carGroup.rotation.y) * 4; puff.position.y = 0.5;
+                scene.add(puff); puffs.push({mesh: puff, life: 1.0});
+            }
+            for(let i = puffs.length - 1; i >= 0; i--) {
+                let p = puffs[i];
+                p.life -= 0.02; p.mesh.position.y += 0.05;
+                p.mesh.scale.setScalar(1 + (1 - p.life));
+                p.mesh.material.opacity = p.life * 0.5;
+                if (p.life <= 0) { scene.remove(p.mesh); p.mesh.material.dispose(); puffs.splice(i, 1); }
+            }
             
             // Keep player inside the world bounds
             mover.position.x = Math.max(-980, Math.min(980, mover.position.x));
@@ -555,6 +596,13 @@
                 }
             } else { carGroup.position.y = 0; } // Keep car on the dirt
             
+            // Grounding "Juice": Drop Shadow scales to altitude!
+            buddyShadow.position.set(playerGroup.position.x, targetGround + 0.05, playerGroup.position.z);
+            const shadowScale = Math.max(0.2, 1 - (playerGroup.position.y - targetGround) * 0.15);
+            buddyShadow.scale.setScalar(shadowScale);
+            buddyShadow.material.opacity = 0.4 * shadowScale;
+            buddyShadow.visible = !inCar;
+            
             // Smoothly recover Squash & Stretch
             buddyModel.scale.x += (1 - buddyModel.scale.x) * 0.15;
             buddyModel.scale.y += (1 - buddyModel.scale.y) * 0.15;
@@ -565,13 +613,13 @@
                 c.position.x += 0.1;
                 if(c.position.x > 750) c.position.x = -750;
             });
-            if (snowParticles) {
-                const positions = snowParticles.geometry.attributes.position.array;
+            if (weatherParticles) {
+                const positions = weatherParticles.geometry.attributes.position.array;
                 for(let i=1; i<positions.length; i+=3) {
-                    positions[i] -= 0.4;
+                    positions[i] -= isRaining ? 2.5 : 0.4; // Rain falls much faster!
                     if(positions[i] < 0) positions[i] = 300;
                 }
-                snowParticles.geometry.attributes.position.needsUpdate = true;
+                weatherParticles.geometry.attributes.position.needsUpdate = true;
             }
             
             // Rave Flashing Effects & Lasers
@@ -584,18 +632,22 @@
             });
             
             if (mover.position.distanceTo(raveLasers.position) < 400) { // Optimize!
-                const rCols = ['#ff00ff', '#00ffff', '#ffff00', '#00ff00'];
-                for(let i=0; i<4; i++) {
-                    for(let j=0; j<4; j++) {
-                        dCtx.fillStyle = rCols[Math.floor(i + j + rTime) % rCols.length];
-                        dCtx.fillRect(i*32, j*32, 32, 32);
+                const rStep = Math.floor(rTime * 1.5);
+                if (rStep !== lastRStep) { // GPU Optimization: Only draw when color shifts!
+                    lastRStep = rStep;
+                    const rCols = ['#ff00ff', '#00ffff', '#ffff00', '#00ff00'];
+                    for(let i=0; i<4; i++) {
+                        for(let j=0; j<4; j++) {
+                            dCtx.fillStyle = rCols[Math.floor(i + j + rTime) % rCols.length];
+                            dCtx.fillRect(i*32, j*32, 32, 32);
+                        }
                     }
+                    dTex.needsUpdate = true;
+                    rCtx.fillStyle = '#111'; rCtx.fillRect(0, 0, 256, 128); 
+                    rCtx.lineWidth = 8; rCtx.strokeStyle = rCols[Math.floor(rTime) % rCols.length]; rCtx.strokeRect(4, 4, 248, 120);
+                    rCtx.fillStyle = rCols[rStep % rCols.length]; rCtx.font = 'bold 50px sans-serif'; rCtx.textAlign = 'center'; rCtx.fillText('R A V E', 128, 80);
+                    raveTex.needsUpdate = true;
                 }
-                dTex.needsUpdate = true;
-                rCtx.fillStyle = '#111'; rCtx.fillRect(0, 0, 256, 128); 
-                rCtx.lineWidth = 8; rCtx.strokeStyle = rCols[Math.floor(rTime) % rCols.length]; rCtx.strokeRect(4, 4, 248, 120);
-                rCtx.fillStyle = rCols[Math.floor(rTime * 1.5) % rCols.length]; rCtx.font = 'bold 50px sans-serif'; rCtx.textAlign = 'center'; rCtx.fillText('R A V E', 128, 80);
-                raveTex.needsUpdate = true;
             }
 
             // Stop music if leaving the Rave or stop dancing
@@ -709,11 +761,17 @@
                 dialogBox.style.display = 'none';
             }
 
-            // 3rd Person Camera Follow
+            // 3rd Person Camera & FOV "Speed Juice"
             const relativeCameraOffset = new THREE.Vector3(0, inCar ? 10 : 8, inCar ? 20 : 15);
             const cameraOffset = relativeCameraOffset.applyMatrix4(mover.matrixWorld);
             camera.position.lerp(cameraOffset, 0.1);
             camera.lookAt(mover.position);
+            
+            const targetFov = inCar ? 75 + Math.abs(carV) * 8 : 75;
+            if (Math.abs(camera.fov - targetFov) > 0.1) {
+                camera.fov += (targetFov - camera.fov) * 0.1;
+                camera.updateProjectionMatrix();
+            }
 
             renderer.render(scene, camera);
         }
