@@ -87,7 +87,8 @@ state = {
     "desc": "Syncing...", "high": 0, "low": 0, "date": "", "time": "--", "icon": "01d",
     "bubble": "...", "pulse": "Anchoring Sault Pulse...",
     "forecast": "Loading forecast...", "acc_css": "none", "is_sleeping": False, "show_bed": False,
-    "is_day": False, "is_golden": False, "pop": 0, "pulse_history": load_history()
+    "is_day": False, "is_golden": False, "pop": 0, "pulse_history": load_history(),
+    "weekly_list": [], "weekly_summary": "Analyzing weekly patterns..."
 }
 
 if os.path.exists(STATE_FILE):
@@ -144,6 +145,23 @@ def run_sync():
         t_low = int(min([i['main']['temp_min'] for i in t_items[:8]])) if t_items else 0
         t_desc = t_items[min(4, len(t_items)-1)]['weather'][0]['description'].title() if t_items else "..."
         t_pop = int(max([i.get('pop', 0) for i in t_items[:8]]) * 100) if t_items else 0
+        
+        # Calculate 5-Day Outlook
+        daily_forecasts = {}
+        for item in f['list']:
+            d_str = item['dt_txt'].split(' ')[0]
+            if d_str not in daily_forecasts:
+                daily_forecasts[d_str] = {'high': -100, 'low': 100, 'icons': []}
+            daily_forecasts[d_str]['high'] = max(daily_forecasts[d_str]['high'], item['main']['temp_max'])
+            daily_forecasts[d_str]['low'] = min(daily_forecasts[d_str]['low'], item['main']['temp_min'])
+            daily_forecasts[d_str]['icons'].append(item['weather'][0]['icon'].replace('n', 'd'))
+            
+        weekly_list = []
+        for dt, dat in list(daily_forecasts.items())[1:6]:
+            d_icon = max(set(dat['icons']), key=dat['icons'].count) if dat['icons'] else "01d"
+            day_name = datetime.strptime(dt, '%Y-%m-%d').strftime('%a')
+            weekly_list.append({"day": day_name, "high": int(dat['high']), "low": int(dat['low']), "icon": d_icon})
+            
         is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22)
 
         global manual_override
@@ -166,8 +184,9 @@ def run_sync():
         Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
         {pulse_task}
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
-        Task 4 (Attire): 2-4 word practical clothing or gear suggestion based on the forecast. Factor in the current season ({now.strftime('%B')}) to match real-world wardrobe habits (e.g., favor layers or rain jackets over heavy winter boots in spring/summer).
-        Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "is_news": true }}
+        Task 4 (Attire): 2-4 word practical clothing/gear suggestion based on the forecast. Factor in current season ({now.strftime('%B')}).
+        Task 5 (Weekly): 1-2 sentence overall outlook for the upcoming 5 days based on the forecast trend.
+        Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true }}
         """
         
         success = False
@@ -199,7 +218,8 @@ def run_sync():
                     state.update({
                         "suggestion": ai.get("tip"), "bubble": ai.get("say"), 
                         "pulse": new_pulse, "acc_css": "zzz" if is_sleep else ai.get("acc", "none"),
-                        "forecast": ai.get("forecast", "Weather data processing..."),
+                        "forecast": ai.get("forecast", "Weather data processing..."), 
+                        "weekly_summary": ai.get("weekly_summary", "Weekly pattern steady."),
                         "pulse_history": hist
                     })
                 print(f"[API] Success via {m_id}", flush=True)
@@ -219,7 +239,8 @@ def run_sync():
                 "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6), 
                 "t_high": t_high, "t_low": t_low, "t_desc": t_desc, "t_pop": t_pop,
                 "is_late_night": is_late_night,
-                "is_day": is_day, "is_golden": is_golden, "pop": pop
+                "is_day": is_day, "is_golden": is_golden, "pop": pop,
+                "weekly_list": weekly_list
             })
             with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
     except Exception as e: 

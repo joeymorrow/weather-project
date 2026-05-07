@@ -533,6 +533,13 @@
         addSolidBox(0x8b4513, 20, 12, 20, 80, -80);
         createSign("UP TRADING POST", 80, -60);
         locations.push({x: 80, z: -80, r: 40, name: "UP Trading Post"});
+        
+        // UP Pasty Stand
+        addSolidBox(0xffa500, 18, 12, 18, -250, 120);
+        const pastyRoof = new THREE.Mesh(new THREE.ConeGeometry(14, 8, 4), new THREE.MeshLambertMaterial({color: 0x8b0000}));
+        pastyRoof.position.set(-250, 16, 120); pastyRoof.rotation.y = Math.PI / 4; scene.add(pastyRoof);
+        createSign("UP PASTY STAND", -220, 130);
+        locations.push({x: -250, z: 120, r: 40, name: "UP Pasty Stand"});
 
         // LSSU Campus
         addSolidBox(0xb22222, 40, 15, 20, -50, -50);
@@ -1618,12 +1625,29 @@
             if (document.visibilityState === 'visible') {
                 if (Date.now() - lastTempSync > 300000) syncKioskTemp();
                 if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-                lastInputTime = Date.now(); // Prevent instant AFK bed upon wake
             } else {
                 if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
                 // Release all inputs so player/car doesn't get stuck infinitely moving in the background
                 keys.w = keys.a = keys.s = keys.d = keys.space = keys.shift = keys.h = keys.g = keys.m = keys.r = false;
                 if (typeof resetJoy === 'function') resetJoy();
+                
+                // Force Buddy into his bed visually when backgrounded!
+                lastInputTime = 0; 
+                if (!inCar && !isDancing) {
+                    if (!window.idleBed) {
+                        window.idleBed = new THREE.Group();
+                        const bedBase = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 4), new THREE.MeshLambertMaterial({color: 0x8b0000}));
+                        const pillow = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 1), new THREE.MeshLambertMaterial({color: 0xffffff}));
+                        pillow.position.set(0, 0.75, -1.2);
+                        window.idleBed.add(bedBase); window.idleBed.add(pillow);
+                        scene.add(window.idleBed);
+                    }
+                    window.idleBed.position.set(playerGroup.position.x, playerGroup.position.y + 0.5, playerGroup.position.z);
+                    window.idleBed.visible = true;
+                    buddyModel.rotation.x = -Math.PI / 2;
+                    buddyModel.position.y = 1.0;
+                    renderer.render(scene, camera); // Paint the bed to the screen before freezing
+                }
             }
         });
 
