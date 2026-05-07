@@ -90,11 +90,10 @@
         <div class="t-btn" id="t-h" style="display: none;">HONK</div>
         <div class="t-btn" id="t-m">TUNE</div>
         <div class="t-btn" id="t-r">DANCE</div>
-        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r17/Stats.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/17/Stats.min.js"></script>
     <script>
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x87CEEB, 0.0012); // Pushed back to reveal the horizon!
@@ -108,12 +107,15 @@
         document.body.appendChild(renderer.domElement);
 
         // WebGL Performance & Memory Tracker (stats.js)
-        const stats = new Stats();
-        stats.showPanel(0); // 0: fps, 1: ms, 2: mb (Click widget to toggle!)
-        stats.dom.style.position = 'absolute';
-        stats.dom.style.top = '150px';
-        stats.dom.style.left = '20px';
-        document.body.appendChild(stats.dom);
+        let stats = null;
+        if (typeof Stats !== 'undefined') {
+            stats = new Stats();
+            stats.showPanel(0); // 0: fps, 1: ms, 2: mb (Click widget to toggle!)
+            stats.dom.style.position = 'absolute';
+            stats.dom.style.top = '150px';
+            stats.dom.style.left = '20px';
+            document.body.appendChild(stats.dom);
+        }
 
         // Lighting
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
@@ -933,7 +935,7 @@
         let nextPuffIdx = 0; // O(1) Ring Buffer index for particles
 
         function animate() {
-            stats.begin();
+            if(stats) stats.begin();
             requestAnimationFrame(animate);
             
             const nowMs = Date.now();
@@ -1421,7 +1423,7 @@
             }
 
             renderer.render(scene, camera);
-            stats.end();
+            if(stats) stats.end();
         }
         animate();
         
