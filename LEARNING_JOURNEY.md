@@ -39,11 +39,19 @@ I learned that sending 650 individual "draw calls" to a GPU creates a massive bo
 I learned that if a user can't see it, the computer shouldn't calculate it. I implemented squared-distance checks (`dx*dx + dz*dz`) to disable the companion bot's pathfinding, halt anchor animations on the Speer, and shrink the Sun's shadow map dynamically based on screen context.
 * **Why a B+:** Excellent implementation, but balancing the exact threshold numbers to prevent objects from "popping" into existence requires ongoing tuning.
 
-### 5. Responsive Mobile UI Mathematics (Grade: A)
-I learned how to escape the rigidity of pixels (`px`) and viewport minimums (`vmin`). By using CSS `clamp()` combined with invisible `::after` pseudo-element bumpers, I built a fluid, forgiving, senior-accessible touch interface that mathematically prevents buttons from overlapping.
-* **Why an A:** I seamlessly bridged the gap between highly technical CSS constraints and genuine human empathy in UI design.
+### 5. Advanced Frustum Shuffling & Economies (Grade: A)
+I learned that game economies require immersive pacing. I built a multi-coin scavenger hunt using a `THREE.Frustum` to check if a 3D coordinate is actively within the camera's view before dynamically respawning a coin there. This prevents immersion-breaking "pop-in".
+* **Why an A:** I combined AAA camera-math with practical game loop design (Explore -> Collect -> Spend) to create a deeply engaging Upper Peninsula novelty economy.
 
-### 6. Temporal Dead Zones & The Event Loop (Grade: B+)
+### 6. Responsive Mobile UI & Multi-Touch Mathematics (Grade: A+)
+I learned how to escape the rigidity of pixels (`px`) and viewport minimums (`vmin`) using `100dvh` and CSS `clamp()`. I built a fluid, forgiving, senior-accessible touch interface that mathematically prevents buttons from overlapping. Furthermore, I mastered true Multi-Touch by tracking `e.changedTouches[i].identifier`, allowing independent thumbs to operate the joystick and camera simultaneously.
+* **Why an A+:** I seamlessly bridged the gap between highly technical CSS constraints, raw hardware touch IDs, and genuine human empathy in UI design.
+
+### 7. Procedural Audio Synthesis (Grade: A)
+I learned that the Web Audio API is incredibly powerful. By chaining Oscillators, Gain Nodes, and LFOs, and applying exponential ramps (`exponentialRampToValueAtTime`), I synthesized a twangy pentatonic guitar and a screen-shaking freighter horn entirely in code—zero external assets required.
+* **Why an A:** I bypassed heavy MP3 downloads, saving bandwidth while creating highly dynamic, responsive soundscapes.
+
+### 8. Temporal Dead Zones & The Event Loop (Grade: B+)
 I encountered the "skipping/teleporting" bug and learned about the Javascript Temporal Dead Zone—where attempting to reference a variable (like `targetGround`) before it is initialized crashes the render frame but leaves the input loop running.
 * **Why a B+:** I can now identify the *symptoms* of a misaligned render loop, though tracing the exact line of failure in async Javascript takes a sharp eye.
 
