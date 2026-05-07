@@ -78,6 +78,7 @@ jobs:
             const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
             const page = await browser.newPage();
             let errors = 0;
+            await page.setViewport({ width: 1280, height: 720 });
             page.on('pageerror', error => { console.error('[PAGE ERROR]', error.message); errors++; });
             page.on('console', msg => { 
               if (msg.type() === 'error' && !msg.text().includes('Failed to load resource')) { 
@@ -88,6 +89,26 @@ jobs:
               console.log('Testing / ...');
               await page.goto('http://127.0.0.1:5000/', {waitUntil: 'domcontentloaded', timeout: 15000});
               await new Promise(r => setTimeout(r, 2000));
+              
+              // Dynamic Layout Clash Check
+              const layoutErrors = await page.evaluate(() => {
+                const issues = [];
+                const checkClash = (sel1, sel2) => {
+                  const el1 = document.querySelector(sel1);
+                  const el2 = document.querySelector(sel2);
+                  if (el1 && el2) {
+                    const b1 = el1.getBoundingClientRect(); const b2 = el2.getBoundingClientRect();
+                    if (b1.width === 0 || b1.height === 0 || b2.width === 0 || b2.height === 0) return; // Ignore hidden elements
+                    const overlaps = !(b1.right <= b2.left || b1.left >= b2.right || b1.bottom <= b2.top || b1.top >= b2.bottom);
+                    if (overlaps) issues.push('Layout Clash: ' + sel1 + ' is overlapping ' + sel2 + '!');
+                  }
+                };
+                checkClash('#buddy-container', '#center-info');
+                checkClash('#header-container', '#center-info');
+                return issues;
+              });
+              layoutErrors.forEach(err => { console.error('[QA CLASH ERROR]', err); errors++; });
+
               console.log('Testing /rpg ...');
               await page.goto('http://127.0.0.1:5000/rpg', {waitUntil: 'domcontentloaded', timeout: 15000});
               await new Promise(r => setTimeout(r, 2000));
