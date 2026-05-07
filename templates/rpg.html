@@ -427,20 +427,20 @@
         const river = new THREE.Mesh(riverGeo, riverMat);
         river.rotation.x = -Math.PI / 2; river.position.set(200, -2.5, 0); scene.add(river);
         
-        const leftRamp = new THREE.Mesh(new THREE.BoxGeometry(85, 2, 20), new THREE.MeshLambertMaterial({color: 0x444444}));
-        leftRamp.position.set(120, 2, 50); leftRamp.rotation.z = -0.1; leftRamp.receiveShadow = true; scene.add(leftRamp);
-        platforms.push({ x: 120, z: 50, w: 85, h: 6, d: 20 });
-        const midDeck = new THREE.Mesh(new THREE.BoxGeometry(85, 2, 20), new THREE.MeshLambertMaterial({color: 0x444444}));
+        const leftRamp = new THREE.Mesh(new THREE.BoxGeometry(60, 2, 20), new THREE.MeshLambertMaterial({color: 0x444444}));
+        leftRamp.position.set(130, 3, 50); leftRamp.rotation.z = -0.1; leftRamp.receiveShadow = true; scene.add(leftRamp);
+        platforms.push({ x: 130, z: 50, w: 60, h: 6, d: 20, isRamp: 'left' });
+        const midDeck = new THREE.Mesh(new THREE.BoxGeometry(80, 2, 20), new THREE.MeshLambertMaterial({color: 0x444444}));
         midDeck.position.set(200, 6, 50); midDeck.receiveShadow = true; scene.add(midDeck);
-        platforms.push({ x: 200, z: 50, w: 85, h: 7, d: 20 });
-        const rightRamp = new THREE.Mesh(new THREE.BoxGeometry(85, 2, 20), new THREE.MeshLambertMaterial({color: 0x444444}));
-        rightRamp.position.set(280, 2, 50); rightRamp.rotation.z = 0.1; rightRamp.receiveShadow = true; scene.add(rightRamp);
-        platforms.push({ x: 280, z: 50, w: 85, h: 6, d: 20 });
-        addSolidBox(0xaaaaaa, 8, 60, 6, 120, 36); // Tower 1 North Pillar
-        addSolidBox(0xaaaaaa, 8, 60, 6, 120, 64); // Tower 1 South Pillar
+        platforms.push({ x: 200, z: 50, w: 80, h: 6, d: 20 });
+        const rightRamp = new THREE.Mesh(new THREE.BoxGeometry(60, 2, 20), new THREE.MeshLambertMaterial({color: 0x444444}));
+        rightRamp.position.set(270, 3, 50); rightRamp.rotation.z = 0.1; rightRamp.receiveShadow = true; scene.add(rightRamp);
+        platforms.push({ x: 270, z: 50, w: 60, h: 6, d: 20, isRamp: 'right' });
+        addSolidBox(0xaaaaaa, 8, 60, 6, 130, 36); // Tower 1 North Pillar
+        addSolidBox(0xaaaaaa, 8, 60, 6, 130, 64); // Tower 1 South Pillar
         addSolidBox(0xaaaaaa, 8, 60, 6, 280, 36); // Tower 2 North Pillar
         addSolidBox(0xaaaaaa, 8, 60, 6, 280, 64); // Tower 2 South Pillar
-        const crossbeam1 = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 36), new THREE.MeshLambertMaterial({color: 0xaaaaaa})); crossbeam1.position.set(120, 40, 50); scene.add(crossbeam1);
+        const crossbeam1 = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 36), new THREE.MeshLambertMaterial({color: 0xaaaaaa})); crossbeam1.position.set(130, 40, 50); scene.add(crossbeam1);
         const crossbeam2 = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 36), new THREE.MeshLambertMaterial({color: 0xaaaaaa})); crossbeam2.position.set(280, 40, 50); scene.add(crossbeam2);
         locations.push({x: 200, z: 50, r: 130, name: "Mackinac Bridge"});
         
@@ -690,6 +690,8 @@
                 osc.type = 'square'; osc.frequency.value = 60; lfo.type = 'square'; lfo.frequency.value = 14;
             } else { // Dubstep Grime
                 osc.type = 'triangle'; osc.frequency.value = 35; lfo.type = 'sawtooth'; lfo.frequency.value = 4;
+            } else if (tIdx === 3) { // Pure Guitar Backing Track
+                osc.type = 'triangle'; osc.frequency.value = 98; lfo.type = 'square'; lfo.frequency.value = 2;
             }
             
             lfoGain = audioCtx.createGain(); lfoGain.gain.value = 1;
@@ -1045,15 +1047,21 @@
         const oldBotPos = new THREE.Vector3();
         const relativeCameraOffset = new THREE.Vector3();
         let nextPuffIdx = 0; // O(1) Ring Buffer index for particles
+        let animationId;
 
         function animate() {
             if(stats) stats.begin();
-            requestAnimationFrame(animate);
+            animationId = requestAnimationFrame(animate);
+            
+            // Hard stop all rendering and physics when OS backgrounds the app!
+            if (document.visibilityState === 'hidden') {
+                if(stats) stats.end();
+                return;
+            }
             
             const nowMs = Date.now();
             
-            // Opt: Aggressive Idle Throttling & Bed Spawner (Give back CPU/Battery when AFK or Tab Hidden!)
-            const isHidden = document.visibilityState === 'hidden';
+            // Opt: Aggressive Idle Throttling & Bed Spawner (Give back CPU/Battery when AFK!)
             const isIdle = (nowMs - lastInputTime > 60000) && !inCar && !isDancing;
             if (isIdle) {
                 if (!window.idleBed) {
@@ -1170,16 +1178,23 @@
             // AABB Collision Engine
             let hitX = false, hitZ = false;
             let botHitWall = false;
-            let targetGround = (mover.position.x > 100 && mover.position.x < 300) ? -2.5 : 0;
+            let targetGround = (mover.position.x > 100 && mover.position.x < 300) ? (inCar ? -1.5 : -3.5) : 0;
             let radius = inCar ? 4 : 1.5;
-            let botBaseY = (botGroup.position.x > 100 && botGroup.position.x < 300) ? -2.5 : 0;
+            let botBaseY = (botGroup.position.x > 100 && botGroup.position.x < 300) ? -3.5 : 0;
             const isWater = targetGround <= -2 && mover.position.y <= -1;
             
             for (let i = 0; i < platforms.length; i++) {
                 const p = platforms[i];
                 if(Math.abs(mover.position.x - p.x) < (p.w/2 + radius) && Math.abs(mover.position.z - p.z) < (p.d/2 + radius)) {
-                    if (oldPos.y >= p.h - 2.5) {
-                        targetGround = Math.max(targetGround, p.h); // We are jumping/falling onto it!
+                    let currentH = p.h;
+                    if (p.isRamp === 'left') {
+                        currentH = ((mover.position.x - (p.x - p.w/2)) / p.w) * 6; // Dynamically trace the slope!
+                    } else if (p.isRamp === 'right') {
+                        currentH = 6 - (((mover.position.x - (p.x - p.w/2)) / p.w) * 6);
+                    }
+                    
+                    if (oldPos.y >= currentH - 2.5) {
+                        targetGround = Math.max(targetGround, currentH); // Walk UP the ramp!
                     } else {
                         const overlapX = (p.w/2 + radius) - Math.abs(mover.position.x - p.x);
                         const overlapZ = (p.d/2 + radius) - Math.abs(mover.position.z - p.z);
@@ -1187,8 +1202,14 @@
                     }
                 }
                 if(!hasBot && Math.abs(botGroup.position.x - p.x) < (p.w/2 + 1.2) && Math.abs(botGroup.position.z - p.z) < (p.d/2 + 1.2)) {
-                    if (oldBotPos.y >= p.h - 2.5) {
-                        botBaseY = Math.max(botBaseY, p.h); // Companion steps up!
+                    let currentH = p.h;
+                    if (p.isRamp === 'left') {
+                        currentH = ((botGroup.position.x - (p.x - p.w/2)) / p.w) * 6;
+                    } else if (p.isRamp === 'right') {
+                        currentH = 6 - (((botGroup.position.x - (p.x - p.w/2)) / p.w) * 6);
+                    }
+                    if (oldBotPos.y >= currentH - 2.5) {
+                        botBaseY = Math.max(botBaseY, currentH); // Companion traces slope!
                     } else {
                         botHitWall = true; // Companion hit a wall!
                     }
@@ -1497,8 +1518,8 @@
                 tipUi.innerText = `${tAct('DANCE')} to Dance`;
                 showTip = true;
             } else if(currentLoc === "Secret Rave Zone" && isDancing && !inCar) {
-                if (hasGuitar && currentTrack === 3) {
-                    tipUi.innerText = `${tAct('TUNE')} to Change Track (Playing Guitar!) | ${tAct('DANCE')} to Switch Moves`;
+                if (hasGuitar) {
+                    tipUi.innerText = `${tAct('TUNE')} to Change Track | ${tAct('PLAY 🎸')} (G) to Strum | ${tAct('DANCE')} to Switch Moves`;
                 } else {
                     tipUi.innerText = `${tAct('TUNE')} to Change Track | ${tAct('DANCE')} to Switch Moves`;
                 }
@@ -1591,6 +1612,27 @@
                 telemetrySent = true;
             }
         }, 60000); // Check every 60s
+        
+        // Mobile & OS Lifecycle Event Handling (Strict Battery Saver!)
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === 'visible') {
+                if (Date.now() - lastTempSync > 300000) syncKioskTemp();
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                lastInputTime = Date.now(); // Prevent instant AFK bed upon wake
+            } else {
+                if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+                // Release all inputs so player/car doesn't get stuck infinitely moving in the background
+                keys.w = keys.a = keys.s = keys.d = keys.space = keys.shift = keys.h = keys.g = keys.m = keys.r = false;
+                if (typeof resetJoy === 'function') resetJoy();
+            }
+        });
+
+        // Explicitly tear down hardware hooks on close to prevent Linux zombie processes!
+        window.addEventListener('beforeunload', () => {
+            if (animationId) cancelAnimationFrame(animationId);
+            if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
+            if (renderer) { renderer.dispose(); renderer.forceContextLoss(); }
+        });
     </script>
 </body>
 </html>

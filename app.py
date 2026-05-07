@@ -136,6 +136,15 @@ def run_sync():
         is_golden = (sunrise - 900 <= now_ts < sunrise + 2700) or (sunset - 2700 <= now_ts < sunset + 900)
         is_day = (sunrise + 2700) <= now_ts < (sunset - 2700)
         pop = int(f['list'][0].get('pop', 0) * 100)
+        
+        # Calculate tomorrow's forecast (Skipping today's remaining blocks)
+        now_str = now.strftime('%Y-%m-%d')
+        t_items = [i for i in f['list'] if i['dt_txt'].split(' ')[0] != now_str]
+        t_high = int(max([i['main']['temp_max'] for i in t_items[:8]])) if t_items else 0
+        t_low = int(min([i['main']['temp_min'] for i in t_items[:8]])) if t_items else 0
+        t_desc = t_items[min(4, len(t_items)-1)]['weather'][0]['description'].title() if t_items else "..."
+        t_pop = int(max([i.get('pop', 0) for i in t_items[:8]]) * 100) if t_items else 0
+        is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22)
 
         global manual_override
         if manual_override and time.time() < override_expiry:
@@ -150,7 +159,6 @@ def run_sync():
         time_str = now.strftime('%I:%M %p')
         date_str = now.strftime('%B %d')
         
-        is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22)
         pulse_task = "Task 2 (Pulse): 1-sentence sleek summary of tomorrow's weather forecast. Start with 'Tomorrow:'. Make it conversational, descriptive, and highly engaging. Do not search for news. Set 'is_news' to false." if is_late_night else "Task 2 (Pulse): Adopt the persona of a masterful, charismatic writer (akin to a top-tier presidential speechwriter). You wake up aware of the world's worries, but your mission is to ease them. You believe deeply in the indomitable human spirit, the comforting cyclical patterns of life, and that providing this daily pulse is a small effort to lift the city's spirits. Provide a concise, profound 2-sentence pulse on the region's true rhythm that resonates with all ages. Be robust and grounded—do not make 'charisma' your entire personality; let the real world do the talking. STRICT RULE: Rely ONLY on the provided weather/date context. Never hallucinate seasonal details (e.g., do not mention snow or ice unless the current weather data confirms it is freezing). Search the web for real local happenings in Sault Ste. Marie or the EUP. Examples of the VIBE (do not copy literally unless true): 'A full flight is landing at CIU tonight...', 'Sherman Park Beach will be packed today.', 'The Kincheloe garage sale starts Friday.', or 'Take a quiet drive to Mackinac City!'. Ground the update in vivid, factual UP sensory details (e.g., the hum of the highway, or actual weather). Refer to the city as 'the Sault' or 'the Soo'. If your update shares a tangible local fact, event, or specific community detail, set 'is_news' to true. Otherwise, set it to false."
 
         prompt = f"""
@@ -208,7 +216,9 @@ def run_sync():
                 "low": int(min([i['main']['temp_min'] for i in f['list'][:8]])),
                 "desc": w['weather'][0]['description'].title(), "icon": w['weather'][0]['icon'],
                 "date": now.strftime(f"%A, %B {day}{suffix}, %Y"), "time": now.strftime('%I:%M %p'), 
-                "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6),
+                "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6), 
+                "t_high": t_high, "t_low": t_low, "t_desc": t_desc, "t_pop": t_pop,
+                "is_late_night": is_late_night,
                 "is_day": is_day, "is_golden": is_golden, "pop": pop
             })
             with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
