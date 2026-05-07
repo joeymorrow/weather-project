@@ -199,7 +199,7 @@ def run_sync():
 
 def sync_loop():
     # Prevent multiple Gunicorn workers from spawning redundant background threads!
-    lock_file = open(os.path.join(DATA_DIR, "sync_loop.lock"), "w")
+    lock_file = open(os.path.join(DATA_DIR, "sync_loop.lock"), "a")
     try:
         fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except IOError:
@@ -211,14 +211,14 @@ def sync_loop():
 
 def monitor_loop():
     # Prevent multiple Gunicorn workers from spawning redundant monitor threads
-    lock_file = open(os.path.join(DATA_DIR, "monitor_loop.lock"), "w")
+    lock_file = open(os.path.join(DATA_DIR, "monitor_loop.lock"), "a")
     try:
         fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except IOError:
         return # Another worker is already running the monitor loop.
 
     tracemalloc.start()
-    last_snapshot = tracemalloc.take_snapshot()
+    baseline_snapshot = tracemalloc.take_snapshot()
     initial_threads = threading.enumerate()
     log_system_event("MONITOR_START", f"Monitoring started with {len(initial_threads)} threads.", {"threads": [t.name for t in initial_threads]})
 
@@ -241,22 +241,20 @@ def monitor_loop():
 
         # 3. Memory Growth Check
         current_snapshot = tracemalloc.take_snapshot()
-        top_stats = current_snapshot.compare_to(last_snapshot, 'lineno')
+        top_stats = current_snapshot.compare_to(baseline_snapshot, 'lineno')
         total_growth = sum(stat.size_diff for stat in top_stats)
-        if total_growth > 1024 * 1024: # Log if memory grew by more than 1MB
+        if total_growth > 1024 * 1024 * 5: # Log if memory grew by more than 5MB since baseline
             leak_details = [str(stat) for stat in top_stats[:5]]
-            log_system_event("MEMORY_GROWTH", f"Memory grew by {total_growth / 1024:.1f} KiB in last 30 mins.", {"top_5_leaks": leak_details})
+            log_system_event("MEMORY_GROWTH", f"Memory grew by {total_growth / 1024:.1f} KiB since baseline.", {"top_5_leaks": leak_details})
             
             # Heuristic 1: Deduplication (Ignore if it's the exact same leak signature)
             current_sig = "".join([str(stat.traceback) for stat in top_stats[:3]])
             if current_sig == last_leak_signature:
-                last_snapshot = current_snapshot
                 continue
 
             # Heuristic 2: Backoff (Max 1 alert every 12 hours)
             current_time = time.time()
             if current_time - last_leak_email_time < 43200:
-                last_snapshot = current_snapshot
                 continue
 
             # Heuristic 3: AI Criticality Check & Triage
@@ -285,12 +283,11 @@ def monitor_loop():
                             log_system_event("EMAIL_SENT", "Sent critical memory leak email to joseph@morrowedge.com")
                             last_leak_email_time = current_time
                             last_leak_signature = current_sig
+                            baseline_snapshot = current_snapshot # Reset baseline ONLY after alerting!
                         break # AI evaluated successfully, break fallback loop
                     except: continue
             except Exception as e:
                 print(f"[ERROR] AI Leak eval/email failed: {e}", flush=True)
-                
-        last_snapshot = current_snapshot
 
 @app.route('/')
 def index():

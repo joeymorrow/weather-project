@@ -640,12 +640,25 @@
                 try {
                     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     const hOsc = audioCtx.createOscillator(); const hGain = audioCtx.createGain();
-                    hOsc.type = 'sawtooth'; hOsc.frequency.setValueAtTime(300, audioCtx.currentTime);
-                    hOsc.frequency.exponentialRampToValueAtTime(280, audioCtx.currentTime + 0.2);
-                    hGain.gain.setValueAtTime(0.5, audioCtx.currentTime); hGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-                    hOsc.connect(hGain); hGain.connect(audioCtx.destination);
-                    hOsc.start(); hOsc.stop(audioCtx.currentTime + 0.3);
-                    hOsc.onended = () => { hOsc.disconnect(); hGain.disconnect(); };
+                    
+                    if (hasHorn) {
+                        // Massive Freighter Horn Upgrade!
+                        document.body.classList.add('shake-screen'); setTimeout(() => document.body.classList.remove('shake-screen'), 500);
+                        honkUi.innerText = "BWOOOOOOM!"; honkUi.style.fontSize = '8rem';
+                        hOsc.type = 'square'; hOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
+                        const hOsc2 = audioCtx.createOscillator(); hOsc2.type = 'sawtooth'; hOsc2.frequency.setValueAtTime(65, audioCtx.currentTime);
+                        hOsc2.connect(hGain); hOsc2.start(); hOsc2.stop(audioCtx.currentTime + 0.8);
+                        hGain.gain.setValueAtTime(1.0, audioCtx.currentTime); hGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                        hOsc.connect(hGain); hGain.connect(audioCtx.destination);
+                        hOsc.start(); hOsc.stop(audioCtx.currentTime + 0.8);
+                    } else {
+                        // Standard Beep
+                        honkUi.innerText = "HONK!"; honkUi.style.fontSize = '5rem';
+                        hOsc.type = 'sawtooth'; hOsc.frequency.setValueAtTime(300, audioCtx.currentTime); hOsc.frequency.exponentialRampToValueAtTime(280, audioCtx.currentTime + 0.2);
+                        hGain.gain.setValueAtTime(0.5, audioCtx.currentTime); hGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                        hOsc.connect(hGain); hGain.connect(audioCtx.destination);
+                        hOsc.start(); hOsc.stop(audioCtx.currentTime + 0.3);
+                    }
                 } catch(e) {}
             }
             if(k === 'f') {
@@ -698,6 +711,30 @@
                         }
                         return;
                     }
+                }
+                if (currentLoc === "The Garage" && !inCar) {
+                    if (!hasHorn && score >= 75) {
+                        hasHorn = true; score -= 75;
+                        if (window.wowDialog) window.wowDialog("FREIGHTER HORN INSTALLED!"); 
+                        if (window.updateScoreUi) window.updateScoreUi();
+                    } else if (score >= 25) {
+                        score -= 25; carColorIdx = (carColorIdx + 1) % carColors.length; carMat.color.setHex(carColors[carColorIdx]);
+                        if (window.wowDialog) window.wowDialog("NEW PAINT JOB!"); 
+                        if (window.updateScoreUi) window.updateScoreUi();
+                    } else { 
+                        if (window.wowDialog) window.wowDialog("NOT ENOUGH COINS!"); 
+                    }
+                    return;
+                }
+                if (currentLoc === "UP Trading Post" && !inCar) {
+                    if (!hasKromer && score >= 100) {
+                        hasKromer = true; score -= 100; kromerGroup.visible = true;
+                        if (window.wowDialog) window.wowDialog("STORMY KROMER ACQUIRED!"); 
+                        if (window.updateScoreUi) window.updateScoreUi();
+                    } else if (!hasKromer) { 
+                        if (window.wowDialog) window.wowDialog("NOT ENOUGH COINS!"); 
+                    }
+                    return;
                 }
                 // Check Anchor Interaction at the Bow of the Speer
                 const dAx = playerGroup.position.x - 180; const dAz = playerGroup.position.z + 184;
