@@ -861,6 +861,25 @@
 
         const tipUi = document.getElementById('tip');
         const locUi = document.getElementById('location-tag');
+        const scoreUi = document.getElementById('score-ui');
+        const dialogBox = document.getElementById('dialog-box');
+        const wowBox = document.getElementById('wow-dialog');
+        
+        window.updateScoreUi = function() {
+            if (scoreUi) {
+                scoreUi.innerText = "⭐ SCORE: " + score;
+                scoreUi.style.opacity = 1; scoreUi.style.transform = "scale(1.2)";
+                setTimeout(() => scoreUi.style.transform = "scale(1)", 300);
+            }
+        };
+        
+        window.wowDialog = function(text) {
+            if (wowBox) {
+                wowBox.innerText = text;
+                wowBox.style.display = 'block'; wowBox.style.transform = 'translate(-50%, -50%) scale(1.2)';
+                setTimeout(() => { wowBox.style.display = 'none'; wowBox.style.transform = 'translate(-50%, -50%) scale(0.5)'; }, 2500);
+            }
+        };
 
         function checkOrientationBadge() {
             if (touchActive && window.innerHeight > window.innerWidth) {
