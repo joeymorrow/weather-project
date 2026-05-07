@@ -483,14 +483,41 @@
         scene.add(leafInstanced); scene.add(trunkInstanced);
         locations.push({x: 350, z: 200, r: 80, name: "Sugar Island"});
         
-        // Collectible Coin (The "Game" Element!)
+        // Economy: Multi-Coin Frustum Pool
+        const coins = []; const frustum = new THREE.Frustum(); const projScreenMatrix = new THREE.Matrix4();
         const coinGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.4, 16);
         const coinMat = new THREE.MeshBasicMaterial({ color: 0xffd700 });
-        const coin = new THREE.Mesh(coinGeo, coinMat);
-        coin.rotation.x = Math.PI / 2;
-        coin.position.set(350, 10, 200); // Floating on Sugar Island
-        scene.add(coin);
-        let score = 0; let coinActive = true;
+        for(let i=0; i<15; i++) {
+            const coin = new THREE.Mesh(coinGeo, coinMat);
+            coin.rotation.x = Math.PI / 2; coin.visible = false;
+            scene.add(coin); coins.push({ mesh: coin, active: false, timer: 0 });
+        }
+        let score = 0;
+        function spawnCoin(coinObj) {
+            camera.updateMatrixWorld(); projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); frustum.setFromProjectionMatrix(projScreenMatrix);
+            for(let attempts=0; attempts<15; attempts++) {
+                const rLoc = locations[Math.floor(Math.random() * locations.length)];
+                const testPos = new THREE.Vector3(rLoc.x + (Math.random()-0.5)*40, 10, rLoc.z + (Math.random()-0.5)*40);
+                if (!frustum.containsPoint(testPos) && playerGroup.position.distanceToSquared(testPos) > 2500) { coinObj.mesh.position.copy(testPos); coinObj.active = true; coinObj.mesh.visible = true; coinObj.timer = 800 + Math.random() * 1000; return; }
+            }
+            coinObj.mesh.position.set(Math.random()*800 - 400, 10, Math.random()*800 - 400); coinObj.active = true; coinObj.mesh.visible = true; coinObj.timer = 800 + Math.random() * 1000;
+        }
+        setTimeout(() => { for(let i=0; i<coins.length; i++) spawnCoin(coins[i]); }, 1000);
+        
+        // Crooked Music
+        addSolidBox(0x8b008b, 25, 12, 20, 50, 100);
+        createSign("CROOKED MUSIC", 50, 115);
+        locations.push({x: 50, z: 100, r: 40, name: "Crooked Music"});
+
+        // The Garage (Mechanic)
+        addSolidBox(0x555555, 30, 15, 30, -150, 20);
+        createSign("THE GARAGE", -120, 20);
+        locations.push({x: -150, z: 20, r: 50, name: "The Garage"});
+        
+        // UP Trading Post (Hat Shop)
+        addSolidBox(0x8b4513, 20, 12, 20, 80, -80);
+        createSign("UP TRADING POST", 80, -60);
+        locations.push({x: 80, z: -80, r: 40, name: "UP Trading Post"});
 
         // LSSU Campus
         addSolidBox(0xb22222, 40, 15, 20, -50, -50);
