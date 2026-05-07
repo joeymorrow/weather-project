@@ -121,7 +121,6 @@ def get_best_models():
     except: return ["models/gemini-2.1-flash-lite", "models/gemini-1.5-flash"]
 
 def run_sync():
-    global state
     try:
         w = requests.get(f"https://api.openweathermap.org/data/2.5/weather?q=Sault+Ste.+Marie,MI,US&appid={OWM_KEY}&units=imperial", timeout=10).json()
         f = requests.get(f"https://api.openweathermap.org/data/2.5/forecast?q=Sault+Ste.+Marie,MI,US&appid={OWM_KEY}&units=imperial", timeout=10).json()
@@ -138,7 +137,7 @@ def run_sync():
         is_day = (sunrise + 2700) <= now_ts < (sunset - 2700)
         pop = int(f['list'][0].get('pop', 0) * 100)
 
-        global manual_override, override_expiry
+        global manual_override
         if manual_override and time.time() < override_expiry:
             st_id = manual_override
             is_sleep = (st_id == "bed")
@@ -320,7 +319,6 @@ def get_system_logs():
 
 @app.route('/api/telemetry/report', methods=['POST'])
 def telemetry_report():
-    global client_alerts
     data = request.json
     if not data: return jsonify(success=False), 400
 
@@ -364,7 +362,7 @@ def rpg():
 
 @app.route('/api/move/<station>')
 def move_buddy(station):
-    global state, manual_override, override_expiry
+    global manual_override, override_expiry
     manual_override = station
     override_expiry = time.time() + 3600 # Manual override lasts 1 hour
     now = datetime.now(TZ)
