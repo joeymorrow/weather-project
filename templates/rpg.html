@@ -15,30 +15,48 @@
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; touch-action: none; overscroll-behavior: none; }
         #ui { position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none; }
         #controls { background: rgba(0,0,0,0.7); color: #fff; padding: 15px; border-radius: 10px; border: 1px solid #00ffff; display: inline-block; }
-        #tip { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,255,255,0.2); border: 2px solid #00ffff; color: #fff; padding: 15px 30px; font-size: 1.5rem; font-weight: bold; border-radius: 30px; text-transform: uppercase; display: none; z-index: 10; text-shadow: 0 2px 5px #000; box-shadow: 0 0 20px rgba(0,255,255,0.5); transition: opacity 0.3s; }
+        #tip { position: absolute; top: clamp(90px, 15vh, 150px); bottom: auto; left: 50%; transform: translateX(-50%); background: rgba(0,255,255,0.2); border: 2px solid #00ffff; color: #fff; padding: 15px 30px; font-size: 1.5rem; font-weight: bold; border-radius: 30px; text-transform: uppercase; opacity: 0; pointer-events: none; z-index: 10; text-shadow: 0 2px 5px #000; box-shadow: 0 0 20px rgba(0,255,255,0.5); transition: opacity 0.3s ease-in-out; }
         #location-tag { position: absolute; top: 20px; right: 20px; font-size: 2rem; color: #fff; font-weight: bold; text-shadow: 0 2px 10px #000; opacity: 0.5; transition: opacity 0.5s; text-transform: uppercase; }
         #score-ui { position: absolute; top: 60px; right: 20px; font-size: 1.5rem; color: #ffd700; font-weight: bold; text-shadow: 0 2px 5px #000; opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 10; }
         .btn { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); border: 2px solid #ff4444; color: #ff4444; padding: 10px 20px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; text-decoration: none; pointer-events: auto; z-index: 20; transition: 0.3s; font-weight: bold; }
         .btn:hover { background: #ff4444; color: #fff; box-shadow: 0 0 15px #ff4444; }
-        .t-btn { position: relative; width: clamp(78px, 18vw, 110px); height: clamp(78px, 18vw, 110px); background: rgba(0,0,0,0.5); border: clamp(1px, 0.5vw, 3px) solid #00ffff; color: #00ffff; border-radius: 50%; font-size: clamp(1.4rem, 5vw, 2.2rem); display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.1s; }
+        .t-btn { position: relative; width: clamp(78px, 18vw, 110px); height: clamp(78px, 18vw, 110px); background: rgba(0,0,0,0.5); border: clamp(1px, 0.5vw, 3px) solid #00ffff; color: #00ffff; border-radius: 50%; font-size: clamp(1rem, 3.5vw, 1.5rem); display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.1s; text-align: center; letter-spacing: 1px; }
         .t-btn::after { content: ''; position: absolute; top: -10px; bottom: -10px; left: -10px; right: -10px; border-radius: 50%; } /* Invisible 'fat finger' hit perimeter! */
         .t-btn:active { background: #00ffff; color: #000; box-shadow: 0 0 20px #00ffff; transform: scale(0.9); }
-        #touch-dpad { position: absolute; bottom: clamp(15px, 5vw, 40px); left: clamp(15px, 5vw, 40px); z-index: 30; grid-template-columns: repeat(3, auto); gap: clamp(12px, 3vw, 25px); pointer-events: auto; }
         #touch-actions { position: absolute; bottom: clamp(15px, 5vw, 40px); right: clamp(15px, 5vw, 40px); z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: clamp(12px, 3vw, 25px); pointer-events: auto; }
         .t-row { display: flex; gap: clamp(12px, 3vw, 25px); justify-content: flex-end; }
+        #joystick-zone { position: absolute; bottom: clamp(15px, 5vw, 40px); left: clamp(15px, 5vw, 40px); width: 140px; height: 140px; z-index: 30; touch-action: none; pointer-events: auto; display: none; align-items: center; justify-content: center; }
+        #joystick-base { position: relative; width: 120px; height: 120px; background: rgba(0,0,0,0.5); border: 2px solid #00ffff; border-radius: 50%; box-shadow: inset 0 0 15px rgba(0,255,255,0.2); }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(0,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px rgba(0,255,255,0.5); pointer-events: none; transition: transform 0.05s ease-out; }
+        #orientation-badge { position: absolute; top: clamp(100px, 20vh, 150px); left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); border: 2px solid #ff8c42; color: #ff8c42; padding: 10px 20px; font-size: 1.2rem; border-radius: 20px; text-transform: uppercase; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 0.5s; font-weight: bold; white-space: nowrap; box-shadow: 0 0 20px rgba(255,140,66,0.4); }
+        
+        @media (orientation: portrait) {
+            #joystick-zone { transform: scale(0.75); transform-origin: bottom left; }
+            #touch-actions { transform: scale(0.75); transform-origin: bottom right; }
+            #location-tag { font-size: 1.2rem; top: 15px; right: 15px; }
+            #score-ui { font-size: 1.2rem; top: 40px; right: 15px; }
+            #tip { width: 85%; text-align: center; padding: 10px 15px; font-size: 1.2rem; }
+        }
+        @media (min-width: 768px) and (orientation: landscape) {
+            #joystick-zone { transform: scale(1.3); transform-origin: bottom left; }
+            #touch-actions { transform: scale(1.2); transform-origin: bottom right; }
+            #tip { font-size: 2rem; padding: 20px 40px; }
+        }
     </style>
 </head>
 <body>
     <div id="ui">
         <div id="controls">
             <h3 style="margin: 0 0 10px 0; color: #00ffff;">Buddy's World</h3>
-            WASD / Arrows to Move<br>
+            WASD to Move &nbsp;|&nbsp; Click & Drag to Look<br>
             SHIFT to Sprint &nbsp;|&nbsp; SPACE to Jump<br>
-            F to Enter/Exit Vehicle &nbsp;|&nbsp; H to Honk<br>
-            E to Interact &nbsp;|&nbsp; R to Dance &nbsp;|&nbsp; M for Music
+            F or ENTER to Enter/Interact<br>
+            R or PLAY to Dance &nbsp;|&nbsp; M or FF for Music &nbsp;|&nbsp; H or REW to Honk<br>
+            TV REMOTE: 4,8,6,2 Look (5 Center) | 0 Jump | 1 Sprint | 3 Exit
         </div>
     </div>
-    <div id="tip">Press F to Enter Passat</div>
+    <div id="tip">Press F or ENTER to Enter Passat</div>
+    <div id="orientation-badge">🔄 Rotate device for best experience</div>
     <div id="location-tag">Sault Ste. Marie</div>
     <div id="score-ui">⭐ SCORE: 0</div>
     <a href="/" class="btn">Exit to Dashboard</a>
@@ -47,25 +65,24 @@
     <div id="dialog-box" style="display: none; position: absolute; top: 20%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); border: 2px solid #00ffff; color: #fff; padding: 20px 40px; font-size: 2rem; border-radius: 15px; z-index: 10; text-align: center; font-style: italic; box-shadow: 0 0 20px rgba(0,255,255,0.3); pointer-events: none;">...I cannot eat.</div>
 
     <!-- Mobile Touch Controls -->
-    <div id="touch-dpad" style="display: none;">
-        <div style="grid-column: 2"><div class="t-btn" id="t-up">W</div></div>
-        <div style="grid-column: 1"><div class="t-btn" id="t-left">A</div></div>
-        <div style="grid-column: 2"><div class="t-btn" id="t-down">S</div></div>
-        <div style="grid-column: 3"><div class="t-btn" id="t-right">D</div></div>
+    <div id="joystick-zone">
+        <div id="joystick-base">
+            <div id="joystick-stick"></div>
+        </div>
     </div>
     <div id="touch-actions" style="display: none;">
         <div class="t-row">
-            <div class="t-btn" id="t-h" style="display: none;">📯</div>
-            <div class="t-btn" id="t-m">🎵</div>
-            <div class="t-btn" id="t-r">🕺</div>
+            <div class="t-btn" id="t-h" style="display: none;">HONK</div>
+            <div class="t-btn" id="t-m">TUNE</div>
+            <div class="t-btn" id="t-r">DANCE</div>
         </div>
         <div class="t-row">
-            <div class="t-btn" id="t-shift" style="font-size: clamp(1.1rem, 3.5vw, 1.5rem);">RUN</div>
-            <div class="t-btn" id="t-jump">^</div>
+            <div class="t-btn" id="t-shift">RUN</div>
+            <div class="t-btn" id="t-jump">JUMP</div>
         </div>
         <div class="t-row">
-            <div class="t-btn" id="t-e">E</div>
-            <div class="t-btn" id="t-f">F</div>
+            <div class="t-btn" id="t-e">USE</div>
+            <div class="t-btn" id="t-f">RIDE</div>
         </div>
     </div>
 
@@ -79,6 +96,7 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Drastic quality/sharpness boost for high-DPI screens!
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Beautiful, smooth shadows!
         document.body.appendChild(renderer.domElement);
 
         // Lighting
@@ -500,12 +518,13 @@
         let botWait = 0;
         let activeTarget = playerGroup; // Camera follows this
         let currentLoc = "Sault Ste. Marie";
-        const keys = { w:false, a:false, s:false, d:false, space:false, shift:false, m:false, h:false };
+        const keys = { w:false, a:false, s:false, d:false, space:false, shift:false, m:false, h:false, num4:false, num6:false, num8:false, num2:false, num5:false };
         
         // Camera Orbit Controls (Free-Look System)
         let camYaw = 0, camPitch = 0;
         let isDraggingCam = false;
         let prevCamX = 0, prevCamY = 0;
+        let camTouchId = null;
         let lastInputTime = Date.now();
         let lastRenderMs = 0;
         const sharedRaveColor = new THREE.Color(); // Opt: Prevents GC Memory Leak!
@@ -525,18 +544,38 @@
 
         renderer.domElement.addEventListener('touchstart', (e) => {
             lastInputTime = Date.now();
-            if(e.touches.length === 1) {
-                isDraggingCam = true; prevCamX = e.touches[0].clientX; prevCamY = e.touches[0].clientY;
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if (camTouchId === null) {
+                    camTouchId = e.changedTouches[i].identifier;
+                    isDraggingCam = true;
+                    prevCamX = e.changedTouches[i].clientX;
+                    prevCamY = e.changedTouches[i].clientY;
+                    break;
+                }
             }
         });
-        window.addEventListener('touchend', () => { isDraggingCam = false; });
+        const resetCamTouch = (e) => {
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === camTouchId) {
+                    isDraggingCam = false; camTouchId = null;
+                }
+            }
+        };
+        window.addEventListener('touchend', resetCamTouch);
+        window.addEventListener('touchcancel', resetCamTouch);
         window.addEventListener('touchmove', (e) => {
             lastInputTime = Date.now();
-            if(!isDraggingCam || e.touches.length !== 1) return;
-            camYaw += (e.touches[0].clientX - prevCamX) * 0.005;
-            camPitch += (e.touches[0].clientY - prevCamY) * 0.005;
-            camPitch = Math.max(-Math.PI/8, Math.min(Math.PI/3, camPitch));
-            prevCamX = e.touches[0].clientX; prevCamY = e.touches[0].clientY;
+            if(!isDraggingCam) return;
+            for(let i=0; i<e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === camTouchId) {
+                    camYaw += (e.changedTouches[i].clientX - prevCamX) * 0.005;
+                    camPitch += (e.changedTouches[i].clientY - prevCamY) * 0.005;
+                    camPitch = Math.max(-Math.PI/8, Math.min(Math.PI/3, camPitch));
+                    prevCamX = e.changedTouches[i].clientX;
+                    prevCamY = e.changedTouches[i].clientY;
+                    break;
+                }
+            }
         });
         
         // Music Synthesizer Engine
@@ -641,7 +680,13 @@
         window.addEventListener('keydown', (e) => {
             lastInputTime = Date.now();
             const k = e.key.toLowerCase();
-            if(k === 'escape') window.location.href = '/';
+            
+            // Commandeer TV Remote D-Pad, Action Keys & Numpad (Prevent spatial navigation focus stealing)
+            if(['arrowup','arrowdown','arrowleft','arrowright',' ','enter','mediaplaypause','mediafastforward','mediarewind','4','6','8','2','5','0','1','3'].includes(k)) {
+                e.preventDefault();
+            }
+
+            if(k === 'escape' || k === 'backspace' || k === 'browserback' || k === '3') window.location.href = '/';
             if(keys.hasOwnProperty(k) || ['arrowup','arrowdown','arrowleft','arrowright',' ','shift'].includes(k)) {
                 if(k === 'arrowup') keys.w = true;
                 if(k === 'arrowdown') keys.s = true;
@@ -651,13 +696,32 @@
                 if(k === 'shift') keys.shift = true;
                 if(k === 'm') keys.m = true;
                 if(k === 'h') keys.h = true;
+                // TV Numpad Camera Controls
+                if(k === '4') keys.num4 = true;
+                if(k === '6') keys.num6 = true;
+                if(k === '8') keys.num8 = true;
+                if(k === '2') keys.num2 = true;
+                if(k === '5') keys.num5 = true;
+                if(k === '0') keys.space = true;
+                if(k === '1') keys.shift = true;
                 if(keys.hasOwnProperty(k)) keys[k] = true;
             }
             if((k === 'f' || k === 'e' || k === 'r' || k === 'm' || k === 'h') && !e.repeat) triggerAction(k);
+            
+            // Map Generic TV Remote Media Keys to Actions
+            if(!e.repeat) {
+                if(k === 'enter') { triggerAction('f'); triggerAction('e'); } // Enter acts as a universal Use/Get-In button
+                if(k === 'mediaplaypause' || k === 'play') triggerAction('r');
+                if(k === 'mediafastforward' || k === 'fastforward') triggerAction('m');
+                if(k === 'mediarewind' || k === 'rewind') triggerAction('h');
+            }
         });
         window.addEventListener('keyup', (e) => {
             lastInputTime = Date.now();
             const k = e.key.toLowerCase();
+            
+            if(['arrowup','arrowdown','arrowleft','arrowright',' ','enter','4','6','8','2','5','0','1','3'].includes(k)) e.preventDefault();
+            
             if(k === 'arrowup') keys.w = false;
             if(k === 'arrowdown') keys.s = false;
             if(k === 'arrowleft') keys.a = false;
@@ -666,35 +730,96 @@
             if(k === 'shift') keys.shift = false;
             if(k === 'm') keys.m = false;
             if(k === 'h') keys.h = false;
+            if(k === '4') keys.num4 = false;
+            if(k === '6') keys.num6 = false;
+            if(k === '8') keys.num8 = false;
+            if(k === '2') keys.num2 = false;
+            if(k === '5') keys.num5 = false;
+            if(k === '0') keys.space = false;
+            if(k === '1') keys.shift = false;
             if(keys.hasOwnProperty(k)) keys[k] = false;
         });
 
         const tipUi = document.getElementById('tip');
         const locUi = document.getElementById('location-tag');
 
-        // Touch Controller Bootstrapper
-        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-            document.getElementById('touch-dpad').style.display = 'grid';
+        function checkOrientationBadge() {
+            if (touchActive && window.innerHeight > window.innerWidth) {
+                const badge = document.getElementById('orientation-badge');
+                badge.style.opacity = '1';
+                setTimeout(() => badge.style.opacity = '0', 4000);
+            }
+        }
+
+        // Touch Controller Bootstrapper (Only show if the user ACTUALLY touches the screen)
+        let touchActive = false;
+        window.addEventListener('touchstart', () => {
+            if(touchActive) return;
+            touchActive = true;
+            document.getElementById('joystick-zone').style.display = 'flex';
             document.getElementById('touch-actions').style.display = 'flex';
             document.getElementById('controls').style.display = 'none'; // Hide KB text
             document.querySelector('.btn').style.top = '20px'; // Shift exit btn up
             document.querySelector('.btn').style.bottom = 'auto'; 
+            checkOrientationBadge();
+        }, {passive: true});
+        
+        const joyZone = document.getElementById('joystick-zone');
+        const joyBase = document.getElementById('joystick-base');
+        const joyStick = document.getElementById('joystick-stick');
+        let joyActive = false;
+        let joyCenter = {x: 0, y: 0};
+
+        const updateJoy = (touch) => {
+            const rect = joyBase.getBoundingClientRect();
+            const scale = rect.width / 120; // 120px is the raw CSS width. Detects dynamic @media scales!
             
-            const bindTouch = (id, key) => {
-                const el = document.getElementById(id);
-                el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; if(key==='f' || key==='e') triggerAction(key); });
-                el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
-            };
-            bindTouch('t-up', 'w'); bindTouch('t-down', 's'); bindTouch('t-left', 'a'); bindTouch('t-right', 'd');
-            bindTouch('t-jump', 'space'); bindTouch('t-shift', 'shift');
-            bindTouch('t-r', 'r'); bindTouch('t-m', 'm'); bindTouch('t-h', 'h');
-            bindTouch('t-f', 'f'); bindTouch('t-e', 'e');
-        }
+            let dx = (touch.clientX - joyCenter.x) / scale;
+            let dy = (touch.clientY - joyCenter.y) / scale;
+            const maxD = 40;
+            
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if(dist > maxD) { dx = (dx/dist)*maxD; dy = (dy/dist)*maxD; }
+            joyStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            
+            if(dist < 10) { keys.w = keys.a = keys.s = keys.d = false; return; }
+            
+            const angle = Math.atan2(dy, dx);
+            keys.d = Math.cos(angle) > 0.3;
+            keys.a = Math.cos(angle) < -0.3;
+            keys.s = Math.sin(angle) > 0.3;
+            keys.w = Math.sin(angle) < -0.3;
+        };
+
+        joyZone.addEventListener('touchstart', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            joyActive = true;
+            const rect = joyBase.getBoundingClientRect();
+            joyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+            updateJoy(e.touches[0]);
+        }, {passive: false});
+        joyZone.addEventListener('touchmove', (e) => {
+            if(!joyActive) return; e.preventDefault(); e.stopPropagation(); updateJoy(e.touches[0]);
+        }, {passive: false});
+        const resetJoy = () => { joyActive = false; joyStick.style.transform = 'translate(-50%, -50%)'; keys.w = keys.a = keys.s = keys.d = false; };
+        joyZone.addEventListener('touchend', resetJoy); joyZone.addEventListener('touchcancel', resetJoy);
+
+        const bindTouch = (id, key) => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); keys[key] = true; if(key==='f' || key==='e') triggerAction(key); }, {passive: false});
+            el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); keys[key] = false; }, {passive: false});
+            el.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); keys[key] = false; }, {passive: false});
+        };
+        bindTouch('t-jump', 'space'); bindTouch('t-shift', 'shift');
+        bindTouch('t-r', 'r'); bindTouch('t-m', 'm'); bindTouch('t-h', 'h');
+        bindTouch('t-f', 'f'); bindTouch('t-e', 'e');
         
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            if(touchActive) checkOrientationBadge();
         });
         
         let lastRStep = -1; // Optimizer for GPU texture updates
@@ -702,7 +827,9 @@
         
         // Pre-allocate vectors to prevent 60fps GC Memory Leaks!
         const oldPos = new THREE.Vector3();
+        const oldBotPos = new THREE.Vector3();
         const relativeCameraOffset = new THREE.Vector3();
+        let nextPuffIdx = 0; // O(1) Ring Buffer index for particles
 
         function animate() {
             requestAnimationFrame(animate);
@@ -732,13 +859,13 @@
 
             // Movement Math
             oldPos.copy(mover.position);
-            const oldBotPos = botGroup.position.clone(); // Track bot position for collisions!
+            oldBotPos.copy(botGroup.position); // Fixed: Removed .clone() to prevent GC memory leak!
             const pX = mover.position.x; const pZ = mover.position.z;
             let targetRoll = 0;
             
             if (inCar) {
-                if(keys.w) carV += 0.02; // Accelerate
-                if(keys.s) carV -= 0.02; // Reverse/Brake
+                if(keys.w) carV += 0.12; // Accelerate (Higher Torque!)
+                if(keys.s) carV -= 0.12; // Reverse/Brake
                 carV *= 0.96; // Coasting Friction
                 carV = Math.max(-0.8, Math.min(2.8, carV)); // Top Speed limits
                 mover.translateZ(-carV);
@@ -766,12 +893,13 @@
             
             // Passat Exhaust Particle Engine
             if (inCar && Math.abs(carV) > 0.5 && Math.random() > 0.6) {
-                let p = puffPool.find(x => !x.active);
-                if (p) {
+                let p = puffPool[nextPuffIdx];
+                if (!p.active) {
                     p.mesh.position.copy(carGroup.position);
                     p.mesh.position.x += Math.sin(carGroup.rotation.y) * 4; p.mesh.position.z += Math.cos(carGroup.rotation.y) * 4; p.mesh.position.y = 0.5;
                     p.life = 1.0; p.active = true; p.mesh.visible = true;
                 }
+                nextPuffIdx = (nextPuffIdx + 1) % puffPool.length;
             }
             
             // Passat Headlight Optimization
@@ -850,12 +978,13 @@
             // Buddy Sprint Dust Engine (Moved below collision engine so 'targetGround' is defined!)
             if (!inCar && keys.shift && (keys.w || keys.s || keys.a || keys.d) && playerGroup.position.y <= targetGround + 0.1) {
                 if (Math.random() > 0.5) {
-                    let p = puffPool.find(x => !x.active);
-                    if (p) {
+                    let p = puffPool[nextPuffIdx];
+                    if (!p.active) {
                         p.mesh.position.copy(playerGroup.position);
                         p.mesh.position.y = targetGround + 0.2; p.mesh.position.x += (Math.random() - 0.5); p.mesh.position.z += (Math.random() - 0.5);
                         p.life = 1.0; p.active = true; p.mesh.visible = true;
                     }
+                    nextPuffIdx = (nextPuffIdx + 1) % puffPool.length;
                 }
             }
             
@@ -1046,16 +1175,16 @@
             let showTip = false;
             const dAx = playerGroup.position.x - 180; const dAz = playerGroup.position.z + 184;
             if(!inCar && playerGroup.position.distanceToSquared(kioskGroup.position) < 64) {
-                tipUi.innerText = "Press E to Return to Dashboard";
+                tipUi.innerText = "Press E or ENTER to Return to Dashboard";
                 showTip = true;
             } else if(!inCar && (dAx*dAx + dAz*dAz) < 100) {
-                tipUi.innerText = anchorDown ? "Press E to Raise Anchor" : "Press E to Drop Anchor";
+                tipUi.innerText = anchorDown ? "Press E or ENTER to Raise Anchor" : "Press E or ENTER to Drop Anchor";
                 showTip = true;
             } else if(!inCar && playerGroup.position.distanceToSquared(carGroup.position) < 100) {
-                tipUi.innerText = "Press F to Enter Passat";
+                tipUi.innerText = "Press F or ENTER to Enter Passat";
                 showTip = true;
             } else if(!hasBot && playerGroup.position.distanceToSquared(botGroup.position) < 100) {
-                tipUi.innerText = "Press E to Pick Up Companion";
+                tipUi.innerText = "Press E or ENTER to Pick Up Companion";
                 showTip = true;
             } else if(currentLoc === "Secret Rave Zone" && !isDancing && !inCar) {
                 tipUi.innerText = "Press R to Dance";
@@ -1064,13 +1193,13 @@
                 tipUi.innerText = "Press M to Change Track | R to Switch Moves";
                 showTip = true;
             } else if(hasBot && !inCar) {
-                tipUi.innerText = "Press E to Drop Companion";
+                tipUi.innerText = "Press E or ENTER to Drop Companion";
                 showTip = true;
             } else if(inCar) {
-                tipUi.innerText = "Press F to Exit Vehicle";
+                tipUi.innerText = "Press F or ENTER to Exit Vehicle";
                 showTip = true;
             }
-            tipUi.style.display = showTip ? 'block' : 'none';
+            tipUi.style.opacity = showTip ? '1' : '0';
             
             // Toggle specific touch buttons contextually
             const tH = document.getElementById('t-h'); if(tH) tH.style.display = inCar ? 'flex' : 'none';
@@ -1079,7 +1208,7 @@
             const dialogBox = document.getElementById('dialog-box');
             if (currentLoc === "Luigi's Fine Pasta") {
                 let msg = "...I cannot eat.";
-                if (hasBot || botGroup.position.distanceTo(playerGroup.position) < 30) {
+                if (hasBot || botGroup.position.distanceToSquared(playerGroup.position) < 900) {
                     msg = "...We cannot eat.";
                 }
                 dialogBox.innerText = msg;
@@ -1093,6 +1222,14 @@
                 camYaw += (0 - camYaw) * 0.05;
                 camPitch += (0 - camPitch) * 0.05;
             }
+            
+            // TV Remote / Numpad Camera Manual Pan overrides
+            if (keys.num4) camYaw += 0.04;
+            if (keys.num6) camYaw -= 0.04;
+            if (keys.num8) camPitch += 0.02;
+            if (keys.num2) camPitch -= 0.02;
+            if (keys.num5) { camYaw += (0 - camYaw) * 0.1; camPitch += (0 - camPitch) * 0.1; }
+            camPitch = Math.max(-Math.PI/8, Math.min(Math.PI/3, camPitch)); // Clamp pitch
             
             // 3rd Person Camera Orbit Math & FOV "Speed Juice"
             const dist = inCar ? 22 : 16;
