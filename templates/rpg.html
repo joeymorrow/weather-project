@@ -304,7 +304,7 @@
         const propGroup = new THREE.Group();
         const propShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1), new THREE.MeshLambertMaterial({color: 0x222222})); propShaft.rotation.x = Math.PI/2;
         const propBlade = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 0.1), new THREE.MeshLambertMaterial({color: 0xcccccc}));
-        propGroup.add(propShaft); propGroup.add(propBlade); propGroup.position.set(0, -0.5, 4.5);
+        propGroup.add(propShaft); propGroup.add(propBlade); propGroup.position.set(0, -0.2, 4.8);
         carGroup.add(propGroup);
         
         // Exhaust System
@@ -1193,15 +1193,8 @@
             for (let i = 0; i < platforms.length; i++) {
                 const p = platforms[i];
                 if(Math.abs(mover.position.x - p.x) < (p.w/2 + radius) && Math.abs(mover.position.z - p.z) < (p.d/2 + radius)) {
-                    let currentH = p.h;
-                    if (p.isRamp === 'left') {
-                        currentH = ((mover.position.x - (p.x - p.w/2)) / p.w) * 6; // Dynamically trace the slope!
-                    } else if (p.isRamp === 'right') {
-                        currentH = 6 - (((mover.position.x - (p.x - p.w/2)) / p.w) * 6);
-                    }
-                    
-                    if (oldPos.y >= currentH - 2.5) {
-                        targetGround = Math.max(targetGround, currentH); // Walk UP the ramp!
+                    if (oldPos.y >= p.h - 2.5) {
+                        targetGround = Math.max(targetGround, p.h);
                     } else {
                         const overlapX = (p.w/2 + radius) - Math.abs(mover.position.x - p.x);
                         const overlapZ = (p.d/2 + radius) - Math.abs(mover.position.z - p.z);
@@ -1209,14 +1202,8 @@
                     }
                 }
                 if(!hasBot && Math.abs(botGroup.position.x - p.x) < (p.w/2 + 1.2) && Math.abs(botGroup.position.z - p.z) < (p.d/2 + 1.2)) {
-                    let currentH = p.h;
-                    if (p.isRamp === 'left') {
-                        currentH = ((botGroup.position.x - (p.x - p.w/2)) / p.w) * 6;
-                    } else if (p.isRamp === 'right') {
-                        currentH = 6 - (((botGroup.position.x - (p.x - p.w/2)) / p.w) * 6);
-                    }
-                    if (oldBotPos.y >= currentH - 2.5) {
-                        botBaseY = Math.max(botBaseY, currentH); // Companion traces slope!
+                    if (oldBotPos.y >= p.h - 2.5) {
+                        botBaseY = Math.max(botBaseY, p.h);
                     } else {
                         botHitWall = true; // Companion hit a wall!
                     }
@@ -1258,7 +1245,7 @@
             } else { 
                 carGroup.position.y += (targetGround - carGroup.position.y) * 0.15; 
                 propGroup.visible = isWater;
-                if (propGroup.visible) propBlade.rotation.z += carV * 0.5;
+            if (propGroup.visible) propBlade.rotation.z += carV * 0.8;
             }
             
             // Unified Particle Engine (Dust, Exhaust, Wake)
