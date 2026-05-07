@@ -14,7 +14,9 @@
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; touch-action: none; overscroll-behavior: none; }
         #ui { position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none; }
-        #controls { background: rgba(0,0,0,0.7); color: #fff; padding: 15px; border-radius: 10px; border: 1px solid #00ffff; display: inline-block; }
+        #controls { background: rgba(0,0,0,0.7); color: #fff; padding: 15px; border-radius: 10px; border: 1px solid #00ffff; display: inline-block; transition: opacity 1.5s ease-in-out; opacity: 0.9; pointer-events: auto; }
+        #controls:hover { opacity: 1 !important; }
+        .fade-out-ui { opacity: 0.15 !important; }
         #tip { position: absolute; top: clamp(90px, 15vh, 150px); bottom: auto; left: 50%; transform: translateX(-50%); background: rgba(0,255,255,0.2); border: 2px solid #00ffff; color: #fff; padding: 15px 30px; font-size: 1.5rem; font-weight: bold; border-radius: 30px; text-transform: uppercase; opacity: 0; pointer-events: none; z-index: 10; text-shadow: 0 2px 5px #000; box-shadow: 0 0 20px rgba(0,255,255,0.5); transition: opacity 0.3s ease-in-out; }
         #location-tag { position: absolute; top: 20px; right: 20px; font-size: 2rem; color: #fff; font-weight: bold; text-shadow: 0 2px 10px #000; opacity: 0.5; transition: opacity 0.5s; text-transform: uppercase; }
         #score-ui { position: absolute; top: 60px; right: 20px; font-size: 1.5rem; color: #ffd700; font-weight: bold; text-shadow: 0 2px 5px #000; opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 10; }
@@ -751,6 +753,9 @@
             }
         }
 
+        // Auto-fade controls to improve immersion
+        setTimeout(() => { const c = document.getElementById('controls'); if(c) c.classList.add('fade-out-ui'); }, 12000);
+
         // Touch Controller Bootstrapper (Only show if the user ACTUALLY touches the screen)
         let touchActive = false;
         window.addEventListener('touchstart', () => {
@@ -1105,6 +1110,15 @@
                     sUi.innerText = "⭐ SCORE: " + score;
                     sUi.style.opacity = 1; sUi.style.transform = "scale(1.2)";
                     setTimeout(() => sUi.style.transform = "scale(1)", 300);
+                    
+                    // Infinity Loop: Respawn the coin at a random landmark after 4 seconds!
+                    setTimeout(() => {
+                        if (locations.length > 0) {
+                            const rLoc = locations[Math.floor(Math.random() * locations.length)];
+                            coin.position.set(rLoc.x + (Math.random()-0.5)*30, 10, rLoc.z + (Math.random()-0.5)*30);
+                        }
+                        coinActive = true; coin.visible = true;
+                    }, 4000);
                 }
             }
 
@@ -1166,6 +1180,17 @@
                 else if (botGroup.position.distanceToSquared(playerGroup.position) < 6400) {
                     botGroup.position.y = botBaseY + Math.abs(Math.cos(danceTime * 2)) * 0.8;
                 }
+                
+                // Compound Interactivity Easter Egg: Passive points for raving with the companion!
+                if (currentLoc === "Secret Rave Zone" && hasBot && Math.random() < 0.03) {
+                    score += 2;
+                    const sUi = document.getElementById('score-ui');
+                    sUi.innerText = "⭐ SCORE: " + score;
+                    sUi.style.opacity = 1;
+                    sUi.style.transform = "scale(1.1)";
+                    setTimeout(() => sUi.style.transform = "scale(1)", 150);
+                }
+                
             } else {
                 buddyModel.rotation.y = 0; botModel.rotation.y = 0;
                 armL.rotation.z = -0.2; armR.rotation.z = 0.2; // Reset idle arms
