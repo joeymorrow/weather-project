@@ -22,26 +22,30 @@
         #score-ui { position: absolute; top: 60px; right: 20px; font-size: 1.5rem; color: #ffd700; font-weight: bold; text-shadow: 0 2px 5px #000; opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 10; }
         .btn { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); border: 2px solid #ff4444; color: #ff4444; padding: 10px 20px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; text-decoration: none; pointer-events: auto; z-index: 20; transition: 0.3s; font-weight: bold; }
         .btn:hover { background: #ff4444; color: #fff; box-shadow: 0 0 15px #ff4444; }
-        .t-btn { position: relative; width: clamp(78px, 18vw, 110px); height: clamp(78px, 18vw, 110px); background: rgba(0,0,0,0.5); border: clamp(1px, 0.5vw, 3px) solid #00ffff; color: #00ffff; border-radius: 50%; font-size: clamp(1rem, 3.5vw, 1.5rem); display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.1s; text-align: center; letter-spacing: 1px; }
+        .t-btn { position: relative; width: clamp(90px, 22vw, 130px); height: clamp(90px, 22vw, 130px); background: rgba(0,0,0,0.5); border: clamp(1px, 0.5vw, 3px) solid #00ffff; color: #00ffff; border-radius: 50%; font-size: clamp(1.2rem, 4vw, 1.8rem); display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.1s; text-align: center; letter-spacing: 1px; }
         .t-btn::after { content: ''; position: absolute; top: -10px; bottom: -10px; left: -10px; right: -10px; border-radius: 50%; } /* Invisible 'fat finger' hit perimeter! */
         .t-btn:active { background: #00ffff; color: #000; box-shadow: 0 0 20px #00ffff; transform: scale(0.9); }
-        #touch-actions { position: absolute; bottom: clamp(15px, 5vw, 40px); right: clamp(15px, 5vw, 40px); z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: clamp(12px, 3vw, 25px); pointer-events: auto; }
+        #touch-actions { position: absolute; bottom: clamp(30px, 8vw, 60px); right: clamp(30px, 8vw, 60px); z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: clamp(12px, 3vw, 25px); pointer-events: auto; }
+        #touch-aux { position: absolute; right: clamp(20px, 5vw, 40px); top: clamp(100px, 15vh, 180px); z-index: 30; display: flex; flex-direction: column; gap: clamp(12px, 3vw, 20px); pointer-events: auto; }
         .t-row { display: flex; gap: clamp(12px, 3vw, 25px); justify-content: flex-end; }
-        #joystick-zone { position: absolute; bottom: clamp(15px, 5vw, 40px); left: clamp(15px, 5vw, 40px); width: 140px; height: 140px; z-index: 30; touch-action: none; pointer-events: auto; display: none; align-items: center; justify-content: center; }
-        #joystick-base { position: relative; width: 120px; height: 120px; background: rgba(0,0,0,0.5); border: 2px solid #00ffff; border-radius: 50%; box-shadow: inset 0 0 15px rgba(0,255,255,0.2); }
-        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: rgba(0,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px rgba(0,255,255,0.5); pointer-events: none; transition: transform 0.05s ease-out; }
+        #joystick-zone { position: absolute; bottom: clamp(30px, 8vw, 60px); left: clamp(30px, 8vw, 60px); width: 180px; height: 180px; z-index: 30; touch-action: none; pointer-events: auto; display: none; align-items: center; justify-content: center; }
+        #joystick-base { position: relative; width: 160px; height: 160px; background: rgba(0,0,0,0.5); border: 2px solid #00ffff; border-radius: 50%; box-shadow: inset 0 0 15px rgba(0,255,255,0.2); }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 70px; height: 70px; background: rgba(0,255,255,0.7); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px rgba(0,255,255,0.5); pointer-events: none; transition: transform 0.05s ease-out; }
         #orientation-badge { position: absolute; top: clamp(100px, 20vh, 150px); left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); border: 2px solid #ff8c42; color: #ff8c42; padding: 10px 20px; font-size: 1.2rem; border-radius: 20px; text-transform: uppercase; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 0.5s; font-weight: bold; white-space: nowrap; box-shadow: 0 0 20px rgba(255,140,66,0.4); }
+        @keyframes prompt-pulse { 0% { transform: translateX(-50%) scale(1); box-shadow: 0 0 10px rgba(0,255,255,0.3); } 100% { transform: translateX(-50%) scale(1.05); box-shadow: 0 0 25px rgba(0,255,255,0.7); } }
+        #touch-prompt { position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); border: 2px solid #00ffff; color: #00ffff; padding: 15px 30px; font-size: clamp(1.2rem, 3.5vw, 1.8rem); font-weight: bold; border-radius: 30px; text-transform: uppercase; z-index: 40; pointer-events: none; text-align: center; animation: prompt-pulse 1s infinite alternate; display: none; white-space: nowrap; }
         
         @media (orientation: portrait) {
-            #joystick-zone { transform: scale(0.75); transform-origin: bottom left; }
-            #touch-actions { transform: scale(0.75); transform-origin: bottom right; }
+            #joystick-zone { transform: scale(1.6); transform-origin: bottom left; margin-bottom: 20px; margin-left: 10px; }
+            #touch-actions { transform: scale(1.6); transform-origin: bottom right; margin-bottom: 20px; margin-right: 10px; }
+            #touch-aux { transform: scale(1.3); transform-origin: top right; }
             #location-tag { font-size: 1.2rem; top: 15px; right: 15px; }
             #score-ui { font-size: 1.2rem; top: 40px; right: 15px; }
             #tip { width: 85%; text-align: center; padding: 10px 15px; font-size: 1.2rem; }
         }
         @media (min-width: 768px) and (orientation: landscape) {
-            #joystick-zone { transform: scale(1.3); transform-origin: bottom left; }
-            #touch-actions { transform: scale(1.2); transform-origin: bottom right; }
+            #joystick-zone { transform: scale(2.0); transform-origin: bottom left; }
+            #touch-actions { transform: scale(2.0); transform-origin: bottom right; }
             #tip { font-size: 2rem; padding: 20px 40px; }
         }
     </style>
@@ -59,6 +63,7 @@
     </div>
     <div id="tip">Press F or ENTER to Enter Passat</div>
     <div id="orientation-badge">🔄 Rotate device for best experience</div>
+    <div id="touch-prompt">👆 Tap Screen for Controls</div>
     <div id="location-tag">Sault Ste. Marie</div>
     <div id="score-ui">⭐ SCORE: 0</div>
     <a href="/" class="btn">Exit to Dashboard</a>
@@ -74,17 +79,17 @@
     </div>
     <div id="touch-actions" style="display: none;">
         <div class="t-row">
-            <div class="t-btn" id="t-h" style="display: none;">HONK</div>
-            <div class="t-btn" id="t-m">TUNE</div>
-            <div class="t-btn" id="t-r">DANCE</div>
-        </div>
-        <div class="t-row">
-            <div class="t-btn" id="t-shift">RUN</div>
             <div class="t-btn" id="t-jump">JUMP</div>
         </div>
         <div class="t-row">
             <div class="t-btn" id="t-e">USE</div>
             <div class="t-btn" id="t-f">RIDE</div>
+        </div>
+    </div>
+    <div id="touch-aux" style="display: none;">
+        <div class="t-btn" id="t-h" style="display: none;">HONK</div>
+        <div class="t-btn" id="t-m">TUNE</div>
+        <div class="t-btn" id="t-r">DANCE</div>
         </div>
     </div>
 
@@ -249,6 +254,13 @@
         carMesh.position.y = 1; carMesh.castShadow = true;
         carGroup.add(carMesh);
         
+        // The Passat Propeller
+        const propGroup = new THREE.Group();
+        const propShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1), new THREE.MeshLambertMaterial({color: 0x222222})); propShaft.rotation.x = Math.PI/2;
+        const propBlade = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 0.1), new THREE.MeshLambertMaterial({color: 0xcccccc}));
+        propGroup.add(propShaft); propGroup.add(propBlade); propGroup.position.set(0, -0.5, 4.5);
+        carGroup.add(propGroup);
+        
         // Exhaust System
         const exhaustGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         const exhaustMat = new THREE.MeshBasicMaterial({color: 0xaaaaaa, transparent: true, opacity: 0.4});
@@ -367,10 +379,11 @@
         const riverGeo = new THREE.PlaneGeometry(200, 2000);
         const riverMat = new THREE.MeshLambertMaterial({ color: 0x0000ff });
         const river = new THREE.Mesh(riverGeo, riverMat);
-        river.rotation.x = -Math.PI / 2; river.position.set(200, 0.1, 0); scene.add(river);
+        river.rotation.x = -Math.PI / 2; river.position.set(200, -2.5, 0); scene.add(river);
         
-        const bridgeDeck = new THREE.Mesh(new THREE.BoxGeometry(250, 0.5, 20), new THREE.MeshLambertMaterial({color: 0x444444}));
-        bridgeDeck.position.set(200, 0.25, 50); bridgeDeck.receiveShadow = true; scene.add(bridgeDeck); // Deck is not in 'platforms' so cars can drive over it smoothly!
+        const bridgeDeck = new THREE.Mesh(new THREE.BoxGeometry(250, 2, 20), new THREE.MeshLambertMaterial({color: 0x444444}));
+        bridgeDeck.position.set(200, 1, 50); bridgeDeck.receiveShadow = true; scene.add(bridgeDeck); 
+        platforms.push({ x: 200, z: 50, w: 250, h: 2, d: 20 });
         addSolidBox(0xaaaaaa, 8, 60, 6, 120, 36); // Tower 1 North Pillar
         addSolidBox(0xaaaaaa, 8, 60, 6, 120, 64); // Tower 1 South Pillar
         addSolidBox(0xaaaaaa, 8, 60, 6, 280, 36); // Tower 2 North Pillar
@@ -615,7 +628,8 @@
                 if (isDancing) { danceMove = (danceMove + 1) % 3; } else { isDancing = true; if (currentLoc === "Secret Rave Zone") playTrack(currentTrack); } 
             }
             if(k === 'm' && isDancing && currentLoc === "Secret Rave Zone") {
-                currentTrack = (currentTrack + 1) % 3; playTrack(currentTrack);
+                let numTracks = hasGuitar ? 4 : 3;
+                currentTrack = (currentTrack + 1) % numTracks; playTrack(currentTrack);
             }
             if(k === 'h' && inCar) {
                 honkUi.style.opacity = '1'; honkUi.style.transform = 'translate(-50%, -50%) scale(1.2)';
@@ -656,6 +670,34 @@
                 if(!inCar && playerGroup.position.distanceToSquared(kioskGroup.position) < 64) {
                     window.location.href = '/'; // Diegetic exit!
                     return;
+                }
+                if (currentLoc === "Crooked Music" && !inCar) {
+                    if (hasGuitar) {
+                        hasGuitar = false;
+                        guitarGroup.visible = false;
+                        score += 50;
+                        updateScoreUi();
+                        
+                        if (wowBox) {
+                            wowBox.innerText = "THANKS! HERE'S 50 COINS!";
+                            wowBox.style.display = 'block'; wowBox.style.transform = 'translate(-50%, -50%) scale(1.2)';
+                            setTimeout(() => { wowBox.style.display = 'none'; wowBox.style.transform = 'translate(-50%, -50%) scale(0.5)'; }, 2500);
+                        }
+                        if (isPlayingMusic && currentTrack === 3) stopTrack();
+                        return;
+                    } else if (score >= 50) {
+                        score -= 50;
+                        hasGuitar = true;
+                        guitarGroup.visible = true;
+                        updateScoreUi();
+                        
+                        if (wowBox) {
+                            wowBox.innerText = "SWEET AXE! YOU ROCK!";
+                            wowBox.style.display = 'block'; wowBox.style.transform = 'translate(-50%, -50%) scale(1.2)';
+                            setTimeout(() => { wowBox.style.display = 'none'; wowBox.style.transform = 'translate(-50%, -50%) scale(0.5)'; }, 2500);
+                        }
+                        return;
+                    }
                 }
                 // Check Anchor Interaction at the Bow of the Speer
                 const dAx = playerGroup.position.x - 180; const dAz = playerGroup.position.z + 184;
@@ -763,12 +805,18 @@
             touchActive = true;
             document.getElementById('joystick-zone').style.display = 'flex';
             document.getElementById('touch-actions').style.display = 'flex';
+            document.getElementById('touch-aux').style.display = 'flex';
+            document.getElementById('touch-prompt').style.display = 'none';
             document.getElementById('controls').style.display = 'none'; // Hide KB text
             document.querySelector('.btn').style.top = '20px'; // Shift exit btn up
             document.querySelector('.btn').style.bottom = 'auto'; 
             checkOrientationBadge();
         }, {passive: true});
         
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            document.getElementById('touch-prompt').style.display = 'block';
+        }
+
         const joyZone = document.getElementById('joystick-zone');
         const joyBase = document.getElementById('joystick-base');
         const joyStick = document.getElementById('joystick-stick');
@@ -777,14 +825,16 @@
 
         const updateJoy = (touch) => {
             const rect = joyBase.getBoundingClientRect();
-            const scale = rect.width / 120; // 120px is the raw CSS width. Detects dynamic @media scales!
+            const scale = rect.width / 160; // 160px is the raw CSS width. Detects dynamic @media scales!
             
             let dx = (touch.clientX - joyCenter.x) / scale;
             let dy = (touch.clientY - joyCenter.y) / scale;
-            const maxD = 40;
+            const maxD = 55;
             
             const dist = Math.sqrt(dx*dx + dy*dy);
             if(dist > maxD) { dx = (dx/dist)*maxD; dy = (dy/dist)*maxD; }
+            if(dist > maxD * 0.8) { keys.shift = true; } else { keys.shift = false; }
+            
             joyStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
             
             if(dist < 10) { keys.w = keys.a = keys.s = keys.d = false; return; }
@@ -816,7 +866,7 @@
             el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); keys[key] = false; }, {passive: false});
             el.addEventListener('touchcancel', (e) => { e.preventDefault(); e.stopPropagation(); keys[key] = false; }, {passive: false});
         };
-        bindTouch('t-jump', 'space'); bindTouch('t-shift', 'shift');
+        bindTouch('t-jump', 'space');
         bindTouch('t-r', 'r'); bindTouch('t-m', 'm'); bindTouch('t-h', 'h');
         bindTouch('t-f', 'f'); bindTouch('t-e', 'e');
         
@@ -925,12 +975,13 @@
             
             // Location Proximity
             let newLoc = "Sault Ste. Marie";
-            locations.forEach(loc => {
+            for (let i = 0; i < locations.length; i++) {
+                const loc = locations[i];
                 const dx = mover.position.x - loc.x; const dz = mover.position.z - loc.z;
                 if((dx*dx + dz*dz) < loc.r * loc.r) { // Opt: Fast squared distance check!
                     newLoc = loc.name;
                 }
-            });
+            }
             if (currentLoc !== newLoc) {
                 currentLoc = newLoc;
                 locUi.style.opacity = 0;
@@ -940,20 +991,22 @@
             // AABB Collision Engine
             let hitWall = false;
             let botHitWall = false;
-            let targetGround = 0;
+            let targetGround = (mover.position.x > 100 && mover.position.x < 300) ? -2.5 : 0;
             let radius = inCar ? 4 : 1.5;
-            let botBaseY = 0;
+            let botBaseY = (botGroup.position.x > 100 && botGroup.position.x < 300) ? -2.5 : 0;
+            const isWater = targetGround <= -2 && mover.position.y <= -1;
             
-            for(let p of platforms) {
+            for (let i = 0; i < platforms.length; i++) {
+                const p = platforms[i];
                 if(Math.abs(mover.position.x - p.x) < (p.w/2 + radius) && Math.abs(mover.position.z - p.z) < (p.d/2 + radius)) {
-                    if (!inCar && oldPos.y >= p.h - 0.2) {
+                    if (oldPos.y >= p.h - 2.5) {
                         targetGround = Math.max(targetGround, p.h); // We are jumping/falling onto it!
                     } else {
                         hitWall = true; // We crashed into the side of it!
                     }
                 }
                 if(!hasBot && Math.abs(botGroup.position.x - p.x) < (p.w/2 + 1.2) && Math.abs(botGroup.position.z - p.z) < (p.d/2 + 1.2)) {
-                    if (oldBotPos.y >= p.h - 0.2) {
+                    if (oldBotPos.y >= p.h - 2.5) {
                         botBaseY = Math.max(botBaseY, p.h); // Companion steps up!
                     } else {
                         botHitWall = true; // Companion hit a wall!
@@ -966,34 +1019,57 @@
             
             // Jump & Gravity for Player
             if (!inCar) {
-                if (keys.space && playerGroup.position.y <= targetGround + 0.05) {
-                    playerVy = 0.7; // Jump power!
-                    buddyModel.scale.set(0.7, 1.3, 0.7); // Stretch up!
+                if (isWater) {
+                    if (keys.space && playerGroup.position.y <= targetGround + 0.5) {
+                        playerVy = 0.3; // swim up
+                    }
+                    playerVy -= 0.01; // floaty gravity
+                } else {
+                    if (keys.space && playerGroup.position.y <= targetGround + 0.05) {
+                        playerVy = 0.7; // Jump power!
+                        buddyModel.scale.set(0.7, 1.3, 0.7); // Stretch up!
+                    }
+                    playerVy -= 0.04; // Gravity
                 }
-                playerVy -= 0.04; // Gravity
                 playerGroup.position.y += playerVy;
                 
                 if (playerGroup.position.y <= targetGround) {
-                    if (playerVy < -0.3) buddyModel.scale.set(1.4, 0.6, 1.4); // Squash on hard landing!
+                    if (playerVy < -0.3 && !isWater) buddyModel.scale.set(1.4, 0.6, 1.4); // Squash on hard landing!
                     playerGroup.position.y = targetGround; // Snap feet to floor
                     playerVy = 0;
                 }
-            } else { carGroup.position.y = 0; } // Keep car on the dirt
+            } else { 
+                carGroup.position.y += (targetGround - carGroup.position.y) * 0.15; 
+                propGroup.visible = isWater;
+                if (propGroup.visible) propBlade.rotation.z += carV * 0.5;
+            }
             
-            // Buddy Sprint Dust Engine (Moved below collision engine so 'targetGround' is defined!)
-            if (!inCar && keys.shift && (keys.w || keys.s || keys.a || keys.d) && playerGroup.position.y <= targetGround + 0.1) {
-                if (Math.random() > 0.5) {
+            // Unified Particle Engine (Dust, Exhaust, Wake)
+            const isMoving = inCar ? Math.abs(carV) > 0.1 : (keys.w || keys.s || keys.a || keys.d);
+            
+            if (isMoving && (isWater || (inCar && Math.abs(carV) > 0.5) || (!inCar && keys.shift && playerGroup.position.y <= targetGround + 0.1))) {
+                if (Math.random() > (isWater ? 0.3 : 0.5)) {
                     let p = puffPool[nextPuffIdx];
                     if (!p.active) {
                         p.mesh.position.copy(playerGroup.position);
-                        p.mesh.position.y = targetGround + 0.2; p.mesh.position.x += (Math.random() - 0.5); p.mesh.position.z += (Math.random() - 0.5);
+                        p.mesh.position.y = isWater ? -2.5 : (targetGround + 0.2);
+                        if (inCar) {
+                            p.mesh.position.x += Math.sin(carGroup.rotation.y) * 4; 
+                            p.mesh.position.z += Math.cos(carGroup.rotation.y) * 4;
+                            if (!isWater) p.mesh.position.y = 0.5;
+                        } else {
+                            p.mesh.position.x += (Math.random() - 0.5); 
+                            p.mesh.position.z += (Math.random() - 0.5);
+                        }
+                        p.mesh.material.color.setHex(isWater ? 0xffffff : 0xaaaaaa);
                         p.life = 1.0; p.active = true; p.mesh.visible = true;
                     }
                     nextPuffIdx = (nextPuffIdx + 1) % puffPool.length;
                 }
             }
             
-            for(let p of puffPool) {
+            for (let i = 0; i < puffPool.length; i++) {
+                const p = puffPool[i];
                 if (!p.active) continue;
                 p.life -= 0.02; p.mesh.position.y += 0.05;
                 p.mesh.scale.setScalar(1 + (1 - p.life));
@@ -1099,26 +1175,24 @@
             botModel.position.y = 0.75 + Math.cos(tAnim * 1.2) * 0.15;
             botAura.scale.setScalar(1 + Math.cos(tAnim * 1.2) * 0.1);
 
-            // Coin Animation & Collection (Opt: Cull math if far away!)
-            if (coinActive && (pX - 350)**2 + (pZ - 200)**2 < 40000) {
-                coin.rotation.z += 0.05;
-                coin.position.y = 10 + Math.sin(tAnim * 2) * 1.5;
-                if (playerGroup.position.distanceToSquared(coin.position) < 60) {
-                    coinActive = false; coin.visible = false;
-                    score += 100;
-                    const sUi = document.getElementById('score-ui');
-                    sUi.innerText = "⭐ SCORE: " + score;
-                    sUi.style.opacity = 1; sUi.style.transform = "scale(1.2)";
-                    setTimeout(() => sUi.style.transform = "scale(1)", 300);
-                    
-                    // Infinity Loop: Respawn the coin at a random landmark after 4 seconds!
-                    setTimeout(() => {
-                        if (locations.length > 0) {
-                            const rLoc = locations[Math.floor(Math.random() * locations.length)];
-                            coin.position.set(rLoc.x + (Math.random()-0.5)*30, 10, rLoc.z + (Math.random()-0.5)*30);
+            // Multi-Coin Animation & Frustum Shuffling
+            let updateFrustum = true;
+            for (let i = 0; i < coins.length; i++) {
+                const c = coins[i];
+                if (c.active) {
+                    c.mesh.rotation.z += 0.05; c.mesh.position.y = 10 + Math.sin(tAnim * 2 + c.mesh.position.x) * 1.5;
+                    const distSq = playerGroup.position.distanceToSquared(c.mesh.position);
+                    const carDistSq = inCar ? carGroup.position.distanceToSquared(c.mesh.position) : Infinity;
+                    if (distSq < 60 || carDistSq < 100) {
+                        c.active = false; c.mesh.visible = false; score += 10; updateScoreUi(); setTimeout(() => spawnCoin(c), 1500);
+                    } else {
+                        c.timer--;
+                        if (c.timer <= 0) {
+                            if (updateFrustum) { camera.updateMatrixWorld(); projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); frustum.setFromProjectionMatrix(projScreenMatrix); updateFrustum = false; }
+                            if (!frustum.containsPoint(c.mesh.position) && distSq > 10000) { c.active = false; c.mesh.visible = false; spawnCoin(c); } 
+                            else { c.timer = 300; } // Check again later
                         }
-                        coinActive = true; coin.visible = true;
-                    }, 4000);
+                    }
                 }
             }
 
@@ -1184,11 +1258,7 @@
                 // Compound Interactivity Easter Egg: Passive points for raving with the companion!
                 if (currentLoc === "Secret Rave Zone" && hasBot && Math.random() < 0.03) {
                     score += 2;
-                    const sUi = document.getElementById('score-ui');
-                    sUi.innerText = "⭐ SCORE: " + score;
-                    sUi.style.opacity = 1;
-                    sUi.style.transform = "scale(1.1)";
-                    setTimeout(() => sUi.style.transform = "scale(1)", 150);
+                    updateScoreUi();
                 }
                 
             } else {
@@ -1198,30 +1268,57 @@
 
             // Tooltips
             let showTip = false;
+            const tAct = (t) => touchActive ? 'Tap ' + t : 'Press ' + (t==='USE'?'E or ENTER':t==='RIDE'?'F or ENTER':t==='DANCE'?'R':t==='TUNE'?'M':t==='HONK'?'H':t);
             const dAx = playerGroup.position.x - 180; const dAz = playerGroup.position.z + 184;
             if(!inCar && playerGroup.position.distanceToSquared(kioskGroup.position) < 64) {
-                tipUi.innerText = "Press E or ENTER to Return to Dashboard";
+                tipUi.innerText = `${tAct('USE')} to Return to Dashboard`;
                 showTip = true;
             } else if(!inCar && (dAx*dAx + dAz*dAz) < 100) {
-                tipUi.innerText = anchorDown ? "Press E or ENTER to Raise Anchor" : "Press E or ENTER to Drop Anchor";
+                tipUi.innerText = anchorDown ? `${tAct('USE')} to Raise Anchor` : `${tAct('USE')} to Drop Anchor`;
                 showTip = true;
             } else if(!inCar && playerGroup.position.distanceToSquared(carGroup.position) < 100) {
-                tipUi.innerText = "Press F or ENTER to Enter Passat";
+                tipUi.innerText = `${tAct('RIDE')} to Enter Passat`;
                 showTip = true;
+            } else if(currentLoc === "Crooked Music" && !inCar) {
+                if (hasGuitar) {
+                    tipUi.innerText = `${tAct('USE')} to Sell Guitar (50 Coins)`;
+                } else if (score >= 50) {
+                    tipUi.innerText = `${tAct('USE')} to Buy Guitar (50 Coins)`;
+                } else {
+                    tipUi.innerText = "Guitars cost 50 Coins. Go find some!";
+                }
+                showTip = true;
+            } else if(currentLoc === "The Garage" && !inCar) {
+                if (!hasHorn && score >= 75) {
+                    tipUi.innerText = `${tAct('USE')} to Buy Freighter Horn (75 Coins)`;
+                } else if (score >= 25) {
+                    tipUi.innerText = `${tAct('USE')} to Repaint Passat (25 Coins)`;
+                } else {
+                    tipUi.innerText = "Horn: 75c | Paint: 25c. Need more coins!";
+                }
+                showTip = true;
+            } else if(currentLoc === "UP Trading Post" && !inCar) {
+                if (!hasKromer && score >= 100) { tipUi.innerText = `${tAct('USE')} to Buy Stormy Kromer (100 Coins)`; }
+                else if (!hasKromer) { tipUi.innerText = "Stormy Kromer costs 100 Coins!"; }
+                showTip = !hasKromer;
             } else if(!hasBot && playerGroup.position.distanceToSquared(botGroup.position) < 100) {
-                tipUi.innerText = "Press E or ENTER to Pick Up Companion";
+                tipUi.innerText = `${tAct('USE')} to Pick Up Companion`;
                 showTip = true;
             } else if(currentLoc === "Secret Rave Zone" && !isDancing && !inCar) {
-                tipUi.innerText = "Press R to Dance";
+                tipUi.innerText = `${tAct('DANCE')} to Dance`;
                 showTip = true;
             } else if(currentLoc === "Secret Rave Zone" && isDancing && !inCar) {
-                tipUi.innerText = "Press M to Change Track | R to Switch Moves";
+                if (hasGuitar && currentTrack === 3) {
+                    tipUi.innerText = `${tAct('TUNE')} to Change Track (Playing Guitar!) | ${tAct('DANCE')} to Switch Moves`;
+                } else {
+                    tipUi.innerText = `${tAct('TUNE')} to Change Track | ${tAct('DANCE')} to Switch Moves`;
+                }
                 showTip = true;
             } else if(hasBot && !inCar) {
-                tipUi.innerText = "Press E or ENTER to Drop Companion";
+                tipUi.innerText = `${tAct('USE')} to Drop Companion`;
                 showTip = true;
             } else if(inCar) {
-                tipUi.innerText = "Press F or ENTER to Exit Vehicle";
+                tipUi.innerText = `${tAct('RIDE')} to Exit Vehicle`;
                 showTip = true;
             }
             tipUi.style.opacity = showTip ? '1' : '0';
@@ -1230,7 +1327,6 @@
             const tH = document.getElementById('t-h'); if(tH) tH.style.display = inCar ? 'flex' : 'none';
             
             // Luigi's Fine Pasta Cinematic Interactions
-            const dialogBox = document.getElementById('dialog-box');
             if (currentLoc === "Luigi's Fine Pasta") {
                 let msg = "...I cannot eat.";
                 if (hasBot || botGroup.position.distanceToSquared(playerGroup.position) < 900) {
