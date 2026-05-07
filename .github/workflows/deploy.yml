@@ -22,9 +22,26 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Python Syntax Check
+      - name: Python Linter (Flake8)
+        run: |
+          pip install flake8
+          # F821 catches undefined variables in Python!
+          flake8 app.py --select=E9,F63,F7,F82 --show-source --statistics
+          
+      - name: Python Basic Syntax Check
         run: |
           python -m py_compile app.py
+          
+      - name: Jinja2 Template Validation
+        run: |
+          pip install Jinja2
+          python -c "
+          from jinja2 import Environment, FileSystemLoader
+          env = Environment(loader=FileSystemLoader('templates'))
+          for template in env.list_templates(extensions=['.html']):
+              print(f'Parsing {template}...')
+              env.get_template(template)
+          "
 
       - name: Validate required GitHub secrets
         env:
@@ -39,6 +56,51 @@ jobs:
             echo "Secret OPENWEATHERMAP_API_KEY is not configured." >&2
             exit 1
           fi
+
+      - name: Headless Browser JS Check (Puppeteer)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
+        run: |
+          # Start the Flask app in the background
+          pip install -r requirements.txt || pip install flask requests google-genai pytz python-dotenv
+          python app.py &
+          APP_PID=$!
+          
+          # Wait for Flask to boot
+          sleep 10
+          
+          # Install Puppeteer and test for ReferenceErrors in the console!
+          npm install puppeteer
+          node -e "
+          const puppeteer = require('puppeteer');
+          (async () => {
+            const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+            const page = await browser.newPage();
+            let errors = 0;
+            page.on('pageerror', error => { console.error('[PAGE ERROR]', error.message); errors++; });
+            page.on('console', msg => { 
+              if (msg.type() === 'error' && !msg.text().includes('favicon.ico')) { 
+                console.error('[CONSOLE ERROR]', msg.text()); errors++; 
+              } 
+            });
+            try {
+              console.log('Testing / ...');
+              await page.goto('http://127.0.0.1:5000/', {waitUntil: 'networkidle2', timeout: 30000});
+              console.log('Testing /rpg ...');
+              await page.goto('http://127.0.0.1:5000/rpg', {waitUntil: 'networkidle2', timeout: 30000});
+            } catch (e) {
+              console.error('Failed to load page:', e.message); errors++;
+            }
+            await browser.close();
+            if (errors > 0) {
+              console.error('❌ QA FAILED: Found ' + errors + ' JS console errors!');
+              process.exit(1);
+            }
+            console.log('✅ QA PASSED: No JS errors detected.');
+          })().catch(err => { console.error(err); process.exit(1); });
+          "
+          kill $APP_PID
 
       - name: Validate Docker Compose config
         run: docker compose -f docker-compose.yml config
@@ -90,16 +152,20 @@ jobs:
         run: |
           docker compose ps
           for i in $(seq 1 12); do
-            if curl --fail http://127.0.0.1:5000/ >/dev/null 2>&1; then
-              echo "Web service is healthy"
+            if curl --fail http://127.0.0.1:5000/ >/dev/null 2>&1 && curl --fail http://127.0.0.1:5000/rpg >/dev/null 2>&1; then
+              echo "Web services (Dashboard & RPG) are healthy"
               break
             fi
             echo "Waiting for web service to become available... ($i/12)"
             sleep 5
           done
           if ! curl --fail http://127.0.0.1:5000/ >/dev/null 2>&1; then
-            echo "Web service did not respond on http://127.0.0.1:5000 after 60 seconds." >&2
+            echo "Dashboard did not respond on http://127.0.0.1:5000 after 60 seconds." >&2
             docker compose logs --tail 80
+            exit 1
+          fi
+          if ! curl --fail http://127.0.0.1:5000/rpg >/dev/null 2>&1; then
+            echo "3D World did not respond on http://127.0.0.1:5000/rpg after 60 seconds." >&2
             exit 1
           fi
           echo "Web smoke test passed."
