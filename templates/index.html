@@ -233,10 +233,10 @@
     </div>
     <script>
         let currentStation = "{{ station }}";
-        let lastPulse = {{ pulse | tojson | safe }};
+        let lastPulse = JSON.parse(decodeURIComponent("{{ pulse | tojson | urlencode }}"));
         let lastInteraction = 0;
         let keyBuffer = "";
-        let pulseHistory = {{ pulse_history | default([]) | tojson | safe }};
+        let pulseHistory = JSON.parse(decodeURIComponent("{{ pulse_history | default([]) | tojson | urlencode }}"));
         const podOrder = ['coffee', 'office', 'gym', 'store', 'library', 'garage', 'park', 'kitchen'];
 
         function layoutPods() {
