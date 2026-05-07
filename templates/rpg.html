@@ -94,6 +94,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r17/Stats.min.js"></script>
     <script>
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x87CEEB, 0.0012); // Pushed back to reveal the horizon!
@@ -105,6 +106,14 @@
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Beautiful, smooth shadows!
         document.body.appendChild(renderer.domElement);
+
+        // WebGL Performance & Memory Tracker (stats.js)
+        const stats = new Stats();
+        stats.showPanel(0); // 0: fps, 1: ms, 2: mb (Click widget to toggle!)
+        stats.dom.style.position = 'absolute';
+        stats.dom.style.top = '150px';
+        stats.dom.style.left = '20px';
+        document.body.appendChild(stats.dom);
 
         // Lighting
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
@@ -924,6 +933,7 @@
         let nextPuffIdx = 0; // O(1) Ring Buffer index for particles
 
         function animate() {
+            stats.begin();
             requestAnimationFrame(animate);
             
             const nowMs = Date.now();
@@ -1411,8 +1421,33 @@
             }
 
             renderer.render(scene, camera);
+            stats.end();
         }
         animate();
+        
+        // Client-Side Telemetry (Phones home if the 3D world leaks memory)
+        let telemetrySent = false;
+        setInterval(() => {
+            if (telemetrySent || !performance || !performance.memory) return;
+            const mb = performance.memory.usedJSHeapSize / (1024 * 1024);
+            if (mb > 500) { // 500MB is the danger zone for WebGL
+                fetch('/api/telemetry/report', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        type: 'HIGH_MEMORY', 
+                        metric: Math.round(mb), 
+                        url: '/rpg',
+                        extra: { 
+                            domNodes: document.getElementsByTagName('*').length,
+                            three_geometries: renderer.info.memory.geometries,
+                            three_textures: renderer.info.memory.textures,
+                            three_programs: renderer.info.programs ? renderer.info.programs.length : 0
+                        }
+                    })
+                }).catch(e => {});
+                telemetrySent = true;
+            }
+        }, 60000); // Check every 60s
     </script>
 </body>
 </html>

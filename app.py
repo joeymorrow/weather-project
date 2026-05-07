@@ -4,13 +4,33 @@ import os, requests, threading, time, json, re, sqlite3
 import tracemalloc
 import fcntl
 from contextlib import closing
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 import google.genai as genai
 from google.genai import types
 import pytz
+
+def send_alert_email(subject, body):
+    try:
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = os.environ.get("SMTP_USER", "buddy-alerts@morrowedge.com")
+        msg['To'] = "joseph@morrowedge.com"
+        
+        smtp_server = os.environ.get("SMTP_SERVER", "localhost")
+        smtp_port = int(os.environ.get("SMTP_PORT", 587))
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            if os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASS"):
+                server.starttls()
+                server.login(os.environ.get("SMTP_USER"), os.environ.get("SMTP_PASS"))
+            server.send_message(msg)
+        log_system_event("EMAIL_SENT", f"Sent alert: {subject}")
+    except Exception as e:
+        print(f"[ERROR] Failed to send email: {e}", flush=True)
+
+client_alerts = {"last_sent": 0}
 
 app = Flask(__name__)
 TZ = pytz.timezone('America/Detroit')
@@ -268,19 +288,7 @@ def monitor_loop():
                         ai_eval = json.loads(resp.text[resp.text.find('{'):resp.text.rfind('}')+1])
                     
                         if ai_eval.get("critical"):
-                            msg = MIMEText(f"Reason: {ai_eval.get('reason')}\n\nPaste this into gemini to find the solution: \n{leak_details}\n\nPrompt Suggestion: \n{ai_eval.get('prompt_suggestion')} \n\n(Geared for your specific chat history context!)")
-                            msg['Subject'] = "[CRITICAL - BEACON BUDDY] - Memory Leak"
-                            msg['From'] = os.environ.get("SMTP_USER", "buddy-alerts@morrowedge.com")
-                            msg['To'] = "joseph@morrowedge.com"
-                            
-                            smtp_server = os.environ.get("SMTP_SERVER", "localhost")
-                            smtp_port = int(os.environ.get("SMTP_PORT", 587))
-                            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                                if os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASS"):
-                                    server.starttls()
-                                    server.login(os.environ.get("SMTP_USER"), os.environ.get("SMTP_PASS"))
-                                server.send_message(msg)
-                            log_system_event("EMAIL_SENT", "Sent critical memory leak email to joseph@morrowedge.com")
+                            send_alert_email("[CRITICAL - BEACON BUDDY] - Memory Leak", f"Reason: {ai_eval.get('reason')}\n\nPaste this into gemini to find the solution: \n{leak_details}\n\nPrompt Suggestion: \n{ai_eval.get('prompt_suggestion')} \n\n(Geared for your specific chat history context!)")
                             last_leak_email_time = current_time
                             last_leak_signature = current_sig
                             baseline_snapshot = current_snapshot # Reset baseline ONLY after alerting!
@@ -309,6 +317,30 @@ def get_system_logs():
             return jsonify(logs)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/telemetry/report', methods=['POST'])
+def telemetry_report():
+    global client_alerts
+    data = request.json
+    if not data: return jsonify(success=False), 400
+
+    issue_type = data.get("type", "UNKNOWN")
+    metric = data.get("metric", 0)
+    url = data.get("url", "unknown")
+    extra = data.get("extra", {})
+
+    log_system_event("CLIENT_ISSUE", f"Client reported {issue_type} on {url}", {"metric": metric, "extra": extra})
+
+    current_time = time.time()
+    if current_time - client_alerts["last_sent"] > 43200: # 12 hours global cooldown to strictly prevent spam!
+        if issue_type == "HIGH_MEMORY":
+            extra_str = json.dumps(extra, indent=2) if extra else "No extra diagnostics."
+            send_alert_email(
+                subject=f"[WARNING - BEACON BUDDY] - Client Memory Leak on {url}",
+                body=f"A user's browser reported massive memory usage.\n\nURL: {url}\nReported JS Heap: {metric} MB.\n\nDiagnostic Data:\n{extra_str}\n\nThis indicates a client-side memory leak. To prevent spam, this alert will not trigger again for 12 hours."
+            )
+            client_alerts["last_sent"] = current_time
+    return jsonify(success=True)
 
 @app.route('/rpg')
 def rpg():

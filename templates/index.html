@@ -762,6 +762,25 @@
 
         setInterval(updateClock, 1000); updateClock(); 
         syncBuddy(); window.addEventListener('resize', syncBuddy); fetchState();
+        
+        // Client-Side Telemetry (Phones home if the dashboard leaks memory)
+        let telemetrySent = false;
+        setInterval(() => {
+            if (telemetrySent || !performance || !performance.memory) return;
+            const mb = performance.memory.usedJSHeapSize / (1024 * 1024);
+            if (mb > 150) { // 150MB is highly unusual for the 2D dashboard
+                fetch('/api/telemetry/report', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        type: 'HIGH_MEMORY', 
+                        metric: Math.round(mb), 
+                        url: '/',
+                        extra: { domNodes: document.getElementsByTagName('*').length }
+                    })
+                }).catch(e => {});
+                telemetrySent = true;
+            }
+        }, 60000); // Check every 60 seconds
     </script>
 </body>
 </html>
