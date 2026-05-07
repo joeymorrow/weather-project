@@ -615,6 +615,7 @@
         let currentLoc = "Sault Ste. Marie";
         const keys = { w:false, a:false, s:false, d:false, space:false, shift:false, m:false, h:false, g:false, num4:false, num6:false, num8:false, num2:false, num5:false };
         let spacePressed = false;
+        let jumpCount = 0; let runSpeed = 0;
         
         // Camera Orbit Controls (Free-Look System)
         let camYaw = 0, camPitch = 0;
@@ -1200,7 +1201,6 @@
             if (botHitWall) { botGroup.position.x = oldBotPos.x; botGroup.position.z = oldBotPos.z; botWait = 0; }
             
             // Jump & Gravity for Player
-            let jumpCount = 0; let runSpeed = 0;
             if (!inCar) {
                 if (isWater) {
                     if (spacePressed && playerGroup.position.y <= targetGround + 0.5) {
