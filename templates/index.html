@@ -24,14 +24,23 @@
         gtag('config', 'G-R9N02W2P9M');
     </script>
     <style>
+        @property --bg { syntax: '<color>'; inherits: true; initial-value: #010103; }
+        @property --accent { syntax: '<color>'; inherits: true; initial-value: #00ffff; }
+        @property --dim { syntax: '<color>'; inherits: true; initial-value: rgba(0, 238, 255, 0.55); }
+        @property --buddy-blue { syntax: '<color>'; inherits: true; initial-value: #1a73e8; }
+        @property --text-main { syntax: '<color>'; inherits: true; initial-value: #fff; }
+        @property --pod-border { syntax: '<color>'; inherits: true; initial-value: rgba(0,255,255,0.15); }
+        @property --pod-bg { syntax: '<color>'; inherits: true; initial-value: rgba(0,255,255,0.03); }
+        @property --pod-hover-glow { syntax: '<color>'; inherits: true; initial-value: rgba(0, 255, 255, 0.3); }
+        @property --pod-active-bg { syntax: '<color>'; inherits: true; initial-value: rgba(0,255,255,0.15); }
         :root { color-scheme: dark; --accent: #00ffff; --bg: #010103; --dim: rgba(0, 238, 255, 0.55); --buddy-blue: #1a73e8; --text-main: #fff; --pod-border: rgba(0,255,255,0.15); --pod-bg: rgba(0,255,255,0.03); --pod-hover-glow: rgba(0, 255, 255, 0.3); --pod-active-bg: rgba(0,255,255,0.15); }
         body.day-mode { color-scheme: light; --bg: #eaf0f6; --accent: #006064; --dim: rgba(0, 96, 100, 0.7); --buddy-blue: #00838f; --text-main: #002b36; --pod-border: rgba(0,96,100,0.15); --pod-bg: rgba(0,96,100,0.05); --pod-hover-glow: rgba(0, 96, 100, 0.2); --pod-active-bg: rgba(0,96,100,0.1); }
         body.day-mode .suggestion { background: rgba(0, 96, 100, 0.05); border-color: rgba(0, 96, 100, 0.2); }
         body.day-mode .buddy-body { box-shadow: inset -5px -10px 15px rgba(0,0,0,0.1), 0 8px 20px rgba(0,0,0,0.2), 0 0 15px rgba(0,96,100,0.2); }
-        body.golden-mode { color-scheme: dark; --bg: #1a0b12; --accent: #ff8c42; --dim: rgba(255, 140, 66, 0.7); --buddy-blue: #d84b20; --text-main: #ffe0b2; --pod-border: rgba(255,140,66,0.15); --pod-bg: rgba(255,140,66,0.05); --pod-hover-glow: rgba(255, 140, 66, 0.2); --pod-active-bg: rgba(255,140,66,0.1); }
-        body.golden-mode .suggestion { background: rgba(255, 140, 66, 0.05); border-color: rgba(255, 140, 66, 0.2); }
-        body.golden-mode .buddy-body { box-shadow: inset -5px -10px 15px rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.3), 0 0 15px rgba(255,140,66,0.2); }
-        body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100dvh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: background 5s ease, color 5s ease; }
+        body.golden-mode { color-scheme: dark; --bg: #1d1411; --accent: #e09b6b; --dim: rgba(224, 155, 107, 0.7); --buddy-blue: #b8603a; --text-main: #ebd6c5; --pod-border: rgba(224,155,107,0.15); --pod-bg: rgba(224,155,107,0.05); --pod-hover-glow: rgba(224, 155, 107, 0.2); --pod-active-bg: rgba(224,155,107,0.1); }
+        body.golden-mode .suggestion { background: rgba(224, 155, 107, 0.05); border-color: rgba(224, 155, 107, 0.2); }
+        body.golden-mode .buddy-body { box-shadow: inset -5px -10px 15px rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.3), 0 0 15px rgba(224,155,107,0.2); }
+        body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100dvh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: --bg 120s ease, --accent 120s ease, --dim 120s ease, --buddy-blue 120s ease, --text-main 120s ease, --pod-border 120s ease, --pod-bg 120s ease, --pod-hover-glow 120s ease, --pod-active-bg 120s ease, background 120s ease, color 120s ease; }
         #header-container { display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 20; pointer-events: none; }
         #header { font-size: clamp(1rem, 1.8vw, 2rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.8; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; }
         #location { font-size: clamp(1rem, 1.5vw, 1.8rem); opacity: 0.4; letter-spacing: 2px; margin-bottom: 2vh; text-align: center; }
@@ -54,7 +63,7 @@
         #center-info { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 65vw; max-width: 900px; pointer-events: none; z-index: 10; }
         .date-line { font-size: clamp(0.9rem, 1.2vw, 1.5rem); color: var(--accent); opacity: 0.6; margin-bottom: 2vh; text-align: center; }
         .clock { font-size: clamp(2.5rem, 5vw, 4.5rem); color: var(--accent); margin-bottom: -5px; } .temp { font-size: clamp(5rem, 12vw, 11rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; }
-        .suggestion { font-size: clamp(0.9rem, 1.8vw, 1.4rem); color: var(--accent); font-weight: bold; margin: 8px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 6px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); }
+        .suggestion { font-size: clamp(0.9rem, 1.8vw, 1.4rem); color: var(--accent); font-weight: bold; margin: 8px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 6px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; }
         .forecast-line { font-size: clamp(0.85rem, 1.4vw, 1.1rem); color: var(--accent); opacity: 0.9; margin: 8px auto; width: fit-content; max-width: clamp(280px, 75%, 700px); line-height: 1.5; font-style: italic; background: rgba(0,0,0,0.3); padding: clamp(8px, 1.5vh, 12px) clamp(16px, 3vw, 40px); border-radius: 8px; }
         .pulse-line { font-size: clamp(0.8rem, 1.3vw, 1.1rem); color: var(--accent); opacity: 0.85; margin: 12px auto 0; font-style: italic; font-weight: normal; border: 1px solid var(--pod-border); background: var(--pod-bg); padding: clamp(12px, 2vh, 16px) clamp(16px, 3vw, 24px); width: fit-content; max-width: clamp(280px, 85%, 650px); line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .pulse-line::after { content: ' ▤'; font-size: 0.8em; opacity: 0.4; vertical-align: top; margin-left: 6px; }
@@ -78,7 +87,7 @@
         .date-line, .clock, .temp, #ui-icon, #ui-desc, .forecast-line, .suggestion, .pulse-line { transition: opacity 0.8s ease-in-out; }
         #buddy-float { width: 100%; height: 100%; position: relative; animation: float 6s ease-in-out infinite; }
         .buddy-aura { position: absolute; width: 140px; height: 140px; left: -20px; top: -10px; background: radial-gradient(circle, var(--dim) 0%, transparent 65%); border-radius: 50%; z-index: -1; animation: pulse-aura 3s infinite alternate; pointer-events: none; }
-        .buddy-body { width: 54px; height: 72px; background: var(--buddy-blue); border-radius: 45%; position: absolute; left: 23px; top: 22px; box-shadow: inset -5px -10px 15px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.5), 0 0 15px rgba(0,255,255,0.3); transition: transform 0.3s ease; }
+        .buddy-body { width: 54px; height: 72px; background: var(--buddy-blue); border-radius: 45%; position: absolute; left: 23px; top: 22px; box-shadow: inset -5px -10px 15px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.5), 0 0 15px rgba(0,255,255,0.3); transition: transform 0.3s ease, box-shadow 120s ease; }
         #buddy-container:active .buddy-body { transform: scale(0.92) translateY(4px); transition: transform 0.1s ease; }
         .visor { width: 44px; height: 22px; background: #000; border-radius: 12px; position: absolute; top: 15px; left: 5px; display: flex; align-items: center; justify-content: space-around; overflow: hidden; box-shadow: inset 0 3px 6px rgba(255,255,255,0.2); }
         .eye { width: 8px; height: 5px; background: var(--accent); border-radius: 50%; animation: blink 6s infinite; box-shadow: 0 0 8px var(--accent); transition: all 0.3s ease; }

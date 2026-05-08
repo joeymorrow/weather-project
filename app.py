@@ -134,8 +134,12 @@ def run_sync():
         sunrise = w['sys']['sunrise']
         sunset = w['sys']['sunset']
         now_ts = now.timestamp()
-        is_golden = (sunrise - 900 <= now_ts < sunrise + 2700) or (sunset - 2700 <= now_ts < sunset + 900)
-        is_day = (sunrise + 2700) <= now_ts < (sunset - 2700)
+        clouds = w.get('clouds', {}).get('all', 0)
+        
+        is_morning_golden = (sunrise - 900 <= now_ts < sunrise + 2700)
+        is_evening_golden = (sunset - 2700 <= now_ts < sunset + 900)
+        is_golden = (is_morning_golden or is_evening_golden) and (clouds < 75)
+        is_day = (sunrise <= now_ts < sunset) and not is_golden
         pop = int(f['list'][0].get('pop', 0) * 100)
         
         # Calculate tomorrow's forecast (Skipping today's remaining blocks)
@@ -164,6 +168,8 @@ def run_sync():
             
         is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22)
 
+        buddy_task = "Task 1 (Buddy): 3-5 word unique greeting observing the beautiful sunrise." if (is_morning_golden and clouds < 75) else "Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding)."
+
         global manual_override
         if manual_override and time.time() < override_expiry:
             st_id = manual_override
@@ -181,7 +187,7 @@ def run_sync():
 
         prompt = f"""
         Sault MI. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
-        Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding).
+        {buddy_task}
         {pulse_task}
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
         Task 4 (Attire): 2-4 word practical clothing/gear suggestion based on the forecast. Factor in current season ({now.strftime('%B')}).
