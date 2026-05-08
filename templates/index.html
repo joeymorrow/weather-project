@@ -347,13 +347,50 @@
             setTimeout(() => { location.href = 'https://morrowedge.com'; }, 1000);
         }
 
+        const alienChars = 'ⴷⴹⴺⴻⴽⴾⵀⵁⵂⵃⵄⵉⵊⵋⵌⵍⵎⵏⵐⵑⵓⵔⵕⵙⵚⵛⵠⵡⵢ';
         function softUpdate(id, val, isImg = false) {
             const el = document.getElementById(id);
             if (!el) return;
-            const current = isImg ? el.src : el.innerText;
-            if (String(current) !== String(val) && val) {
-                el.classList.add('fade-out');
-                setTimeout(() => { if (isImg) el.src = val; else el.innerText = val; el.classList.remove('fade-out'); }, 800);
+            
+            if (isImg) {
+                if (el.src !== val && val) {
+                    el.classList.add('fade-out');
+                    setTimeout(() => { el.src = val; el.classList.remove('fade-out'); }, 800);
+                }
+                return;
+            }
+            
+            const strVal = String(val);
+            if (el.dataset.targetText === strVal) return;
+            el.dataset.targetText = strVal;
+            
+            const isDefault = ["Initializing", "Syncing...", "Loading forecast", "Anchoring Sault"].some(d => strVal.includes(d)) || 
+                              (id === 'ui-temp' && val == 0) || (id === 'ui-date' && val === "") || 
+                              (id === 'ui-hl-desc' && strVal.includes("H: 0° L: 0° | 💧 0%"));
+            
+            clearInterval(el.scrambleTimer);
+            el.classList.remove('fade-out');
+            
+            const strArr = [...strVal];
+            if (isDefault) {
+                el.scrambleTimer = setInterval(() => {
+                    let s = ''; const len = strArr.length > 3 ? strArr.length : 8;
+                    for(let i=0; i<len; i++) s += (strArr[i] === ' ' || strArr[i] === '|' || strArr[i] === '\n') ? strArr[i] : alienChars[Math.floor(Math.random() * alienChars.length)];
+                    el.innerText = s;
+                }, 70);
+            } else {
+                let iteration = 0; const maxIterations = 20;
+                el.scrambleTimer = setInterval(() => {
+                    let s = '';
+                    for(let i=0; i<strArr.length; i++) {
+                        if (strArr[i] === ' ' || strArr[i] === '|' || strArr[i] === '\n') s += strArr[i];
+                        else if (i < (iteration / maxIterations) * strArr.length) s += strArr[i];
+                        else s += alienChars[Math.floor(Math.random() * alienChars.length)];
+                    }
+                    el.innerText = s;
+                    iteration++;
+                    if (iteration > maxIterations) { clearInterval(el.scrambleTimer); el.innerText = strVal; }
+                }, 40);
             }
         }
 
@@ -660,12 +697,13 @@
                 const tEl = document.getElementById('ui-desc-tomorrow');
                 if (s.is_late_night && tEl) {
                     tEl.style.display = 'block';
-                    if (tEl.innerText.indexOf(s.t_desc) === -1) { tEl.innerHTML = `Tomorrow: ${s.t_desc} | H: ${s.t_high}° L: ${s.t_low}° | 💧 ${s.t_pop}%`; }
+                    const newT = `Tomorrow: ${s.t_desc} | H: ${s.t_high}° L: ${s.t_low}° | 💧 ${s.t_pop}%`;
+                    if (tEl.dataset.targetText !== newT) softUpdate('ui-desc-tomorrow', newT);
                 } else if (tEl) {
                     tEl.style.display = 'none';
                 }
                 
-                if (s.weekly_summary) document.getElementById('ui-weekly-summary').innerText = s.weekly_summary;
+                if (s.weekly_summary) softUpdate('ui-weekly-summary', s.weekly_summary);
                 if (s.weekly_list) {
                     document.getElementById('weekly-days').innerHTML = s.weekly_list.map(d => `
                         <div style="background: var(--pod-bg); border: 1px solid var(--pod-border); padding: 15px; border-radius: 15px; text-align: center; min-width: 100px;">
@@ -836,7 +874,20 @@
         if ('{{ is_sleeping }}' === 'True') document.getElementById('ui-zzz').style.animation = 'drift-zzz 4s infinite';
 
         setInterval(updateClock, 1000); updateClock(); 
-        syncBuddy(); window.addEventListener('resize', syncBuddy); fetchState();
+        syncBuddy(); window.addEventListener('resize', syncBuddy); 
+        
+        // Kickoff ancient decryption scramble for initial load values
+        ['ui-date', 'ui-temp', 'ui-desc', 'ui-hl-desc', 'ui-forecast', 'ui-pulse', 'ui-sugg'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                let val = el.innerText;
+                if (id === 'ui-temp') val = parseInt(val) || 0;
+                el.innerText = ''; 
+                softUpdate(id, val);
+            }
+        });
+
+        fetchState();
         
         // Client-Side Telemetry (Phones home if the dashboard leaks memory)
         let telemetrySent = false;
