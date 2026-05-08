@@ -90,13 +90,19 @@ jobs:
                 console.error('[CONSOLE ERROR]', msg.text()); errors++; 
               } 
             });
+            
+            // 1. Dashboard Load
             try {
               console.log('Testing / ...');
               await page.goto('http://127.0.0.1:5000/', {waitUntil: 'domcontentloaded', timeout: 15000});
               await new Promise(r => setTimeout(r, 1000));
+            } catch (e) {
+              console.error('[QA PAGE ERROR] Dashboard load failed:', e.message); errors++;
+            }
               
-              // Function to run clash checks across time-of-day scenarios
-              const runClashCheck = async (scenario) => {
+            // 2. Clash Checks
+            const runClashCheck = async (scenario) => {
+              try {
                 const layoutErrors = await page.evaluate((scenarioName) => {
                   const issues = [];
                   const checkClash = (sel1, sel2) => {
@@ -123,8 +129,12 @@ jobs:
                   return issues;
                 }, scenario);
                 layoutErrors.forEach(err => { console.error('[QA ERROR]', err); errors++; });
-              };
+              } catch(e) {
+                console.error('[QA SCENARIO ERROR] Clash check crashed:', e.message); errors++;
+              }
+            };
 
+            try {
               console.log('Testing Scenario: Initial Load Time...');
               await runClashCheck('Initial Load');
               
@@ -139,25 +149,33 @@ jobs:
               await page.evaluate(() => window.moveBuddy('store'));
               await new Promise(r => setTimeout(r, 2000)); // Wait for flight animation
               await runClashCheck('Active Day');
+            } catch (e) {
+              console.error('[QA SCENARIO ERROR] Time travel failed:', e.message); errors++;
+            }
 
               console.log('Testing Modalities...');
               try {
                 await page.click('#weekly-trigger');
                 if (!(await page.evaluate(() => document.getElementById('weekly-modal').style.display === 'flex'))) { console.error('[QA MODAL ERROR] Weekly modal failed!'); errors++; }
                 await page.evaluate(() => document.getElementById('weekly-modal').style.display = 'none');
+              } catch (e) {
+                console.error('[QA MODAL ERROR] Weekly Interaction failed:', e.message); errors++;
+              }
                 
+              try {
                 await page.click('#ui-pulse');
                 if (!(await page.evaluate(() => document.getElementById('pulse-modal').style.display === 'flex'))) { console.error('[QA MODAL ERROR] Pulse modal failed!'); errors++; }
                 await page.evaluate(() => document.getElementById('pulse-modal').style.display = 'none');
               } catch (e) {
-                console.error('[QA MODAL ERROR] Interaction failed:', e.message); errors++;
+                console.error('[QA MODAL ERROR] Pulse Interaction failed:', e.message); errors++;
               }
 
+            try {
               console.log('Testing /rpg ...');
               await page.goto('http://127.0.0.1:5000/rpg', {waitUntil: 'domcontentloaded', timeout: 15000});
               await new Promise(r => setTimeout(r, 1000));
             } catch (e) {
-              console.error('Failed to load page:', e.message); errors++;
+              console.error('[QA PAGE ERROR] RPG load failed:', e.message); errors++;
             }
             await browser.close();
             if (errors > 0) {
