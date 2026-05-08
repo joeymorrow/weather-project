@@ -150,6 +150,15 @@ def run_sync():
         t_desc = t_items[min(4, len(t_items)-1)]['weather'][0]['description'].title() if t_items else "..."
         t_pop = int(max([i.get('pop', 0) for i in t_items[:8]]) * 100) if t_items else 0
         
+        # Calculate today's high/low accurately instead of overlapping with tomorrow
+        today_items = [i for i in f['list'] if i['dt_txt'].split(' ')[0] == now_str]
+        if today_items:
+            today_high = int(max(w['main']['temp_max'], max([i['main']['temp_max'] for i in today_items])))
+            today_low = int(min(w['main']['temp_min'], min([i['main']['temp_min'] for i in today_items])))
+        else:
+            today_high = int(w['main']['temp_max'])
+            today_low = int(w['main']['temp_min'])
+        
         # Calculate 5-Day Outlook
         daily_forecasts = {}
         for item in f['list']:
@@ -238,8 +247,8 @@ def run_sync():
         suffix = 'th' if 11 <= day <= 13 else {1:'st', 2:'nd', 3:'rd'}.get(day % 10, 'th')
         with state_lock:
             state.update({
-                "temp": int(w['main']['temp']), "high": int(max([i['main']['temp_max'] for i in f['list'][:8]])), 
-                "low": int(min([i['main']['temp_min'] for i in f['list'][:8]])),
+                "temp": int(w['main']['temp']), "high": today_high, 
+                "low": today_low,
                 "desc": w['weather'][0]['description'].title(), "icon": w['weather'][0]['icon'],
                 "date": now.strftime(f"%A, %B {day}{suffix}, %Y"), "time": now.strftime('%I:%M %p'), 
                 "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6), 
