@@ -369,28 +369,21 @@
                               (id === 'ui-hl-desc' && strVal.includes("H: 0° L: 0° | 💧 0%"));
             
             clearInterval(el.scrambleTimer);
-            el.classList.remove('fade-out');
             
             const strArr = [...strVal];
+            let targetText = strVal;
+            
             if (isDefault) {
-                el.scrambleTimer = setInterval(() => {
-                    let s = ''; const len = strArr.length > 3 ? strArr.length : 8;
-                    for(let i=0; i<len; i++) s += (strArr[i] === ' ' || strArr[i] === '|' || strArr[i] === '\n') ? strArr[i] : alienChars[Math.floor(Math.random() * alienChars.length)];
-                    el.innerText = s;
-                }, 70);
+                targetText = ''; const len = strArr.length > 3 ? strArr.length : 8;
+                for(let i=0; i<len; i++) targetText += (strArr[i] === ' ' || strArr[i] === '|' || strArr[i] === '\n') ? strArr[i] : alienChars[Math.floor(Math.random() * alienChars.length)];
+            }
+            
+            if (el.innerText === '') {
+                el.innerText = targetText;
+                el.classList.remove('fade-out');
             } else {
-                let iteration = 0; const maxIterations = 20;
-                el.scrambleTimer = setInterval(() => {
-                    let s = '';
-                    for(let i=0; i<strArr.length; i++) {
-                        if (strArr[i] === ' ' || strArr[i] === '|' || strArr[i] === '\n') s += strArr[i];
-                        else if (i < (iteration / maxIterations) * strArr.length) s += strArr[i];
-                        else s += alienChars[Math.floor(Math.random() * alienChars.length)];
-                    }
-                    el.innerText = s;
-                    iteration++;
-                    if (iteration > maxIterations) { clearInterval(el.scrambleTimer); el.innerText = strVal; }
-                }, 40);
+                el.classList.add('fade-out');
+                setTimeout(() => { el.innerText = targetText; el.classList.remove('fade-out'); }, 800);
             }
         }
 
