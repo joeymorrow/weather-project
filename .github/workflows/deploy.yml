@@ -67,8 +67,13 @@ jobs:
           python app.py &
           APP_PID=$!
           
-          # Wait for Flask to boot
-          sleep 10
+          # Wait for Flask to boot dynamically instead of a hard 10s sleep
+          for i in {1..20}; do
+            if curl -s http://127.0.0.1:5000/ >/dev/null; then
+              break
+            fi
+            sleep 0.5
+          done
           
           # Install Puppeteer and test for ReferenceErrors in the console!
           npm install puppeteer
@@ -88,30 +93,69 @@ jobs:
             try {
               console.log('Testing / ...');
               await page.goto('http://127.0.0.1:5000/', {waitUntil: 'domcontentloaded', timeout: 15000});
-              await new Promise(r => setTimeout(r, 2000));
+              await new Promise(r => setTimeout(r, 1000));
               
-              // Dynamic Layout Clash Check
-              const layoutErrors = await page.evaluate(() => {
-                const issues = [];
-                const checkClash = (sel1, sel2) => {
-                  const el1 = document.querySelector(sel1);
-                  const el2 = document.querySelector(sel2);
-                  if (el1 && el2) {
-                    const b1 = el1.getBoundingClientRect(); const b2 = el2.getBoundingClientRect();
-                    if (b1.width === 0 || b1.height === 0 || b2.width === 0 || b2.height === 0) return; // Ignore hidden elements
-                    const overlaps = !(b1.right <= b2.left || b1.left >= b2.right || b1.bottom <= b2.top || b1.top >= b2.bottom);
-                    if (overlaps) issues.push('Layout Clash: ' + sel1 + ' is overlapping ' + sel2 + '!');
+              // Function to run clash checks across time-of-day scenarios
+              const runClashCheck = async (scenario) => {
+                const layoutErrors = await page.evaluate((scenarioName) => {
+                  const issues = [];
+                  const checkClash = (sel1, sel2) => {
+                    const el1 = document.querySelector(sel1);
+                    const el2 = document.querySelector(sel2);
+                    if (el1 && el2) {
+                      const b1 = el1.getBoundingClientRect(); const b2 = el2.getBoundingClientRect();
+                      if (b1.width === 0 || b1.height === 0 || b2.width === 0 || b2.height === 0) return; // Ignore hidden elements
+                      const overlaps = !(b1.right <= b2.left || b1.left >= b2.right || b1.bottom <= b2.top || b1.top >= b2.bottom);
+                      if (overlaps) issues.push('[' + scenarioName + '] Layout Clash: ' + sel1 + ' is overlapping ' + sel2 + '!');
+                    }
+                  };
+                  checkClash('#buddy-container', '#center-info');
+                  checkClash('#header-container', '#center-info');
+                  checkClash('#center-info', '.pods');
+                  checkClash('#buddy-container', '#header-container');
+                  
+                  if (document.documentElement.scrollWidth > window.innerWidth) {
+                    issues.push('[' + scenarioName + '] Anti-Vibe: Horizontal scrollbar detected!');
                   }
-                };
-                checkClash('#buddy-container', '#center-info');
-                checkClash('#header-container', '#center-info');
-                return issues;
-              });
-              layoutErrors.forEach(err => { console.error('[QA CLASH ERROR]', err); errors++; });
+                  if (document.body.innerText.includes('{{') || document.body.innerText.includes('{%')) {
+                    issues.push('[' + scenarioName + '] Anti-Vibe: Raw Jinja tags leaked!');
+                  }
+                  return issues;
+                }, scenario);
+                layoutErrors.forEach(err => { console.error('[QA ERROR]', err); errors++; });
+              };
+
+              console.log('Testing Scenario: Initial Load Time...');
+              await runClashCheck('Initial Load');
+              
+              console.log('Testing Scenario: Late Night (Max Vertical Stack)...');
+              await page.evaluate(() => { const el = document.getElementById('ui-desc-tomorrow'); if(el) el.style.display = 'block'; });
+              await page.evaluate(() => window.moveBuddy('bed'));
+              await new Promise(r => setTimeout(r, 2000)); // Wait for flight animation
+              await runClashCheck('Late Night');
+              
+              console.log('Testing Scenario: Active Day (Max Horizontal Width)...');
+              await page.evaluate(() => { const el = document.getElementById('ui-desc-tomorrow'); if(el) el.style.display = 'none'; });
+              await page.evaluate(() => window.moveBuddy('store'));
+              await new Promise(r => setTimeout(r, 2000)); // Wait for flight animation
+              await runClashCheck('Active Day');
+
+              console.log('Testing Modalities...');
+              try {
+                await page.click('#weekly-trigger');
+                if (!(await page.evaluate(() => document.getElementById('weekly-modal').style.display === 'flex'))) { console.error('[QA MODAL ERROR] Weekly modal failed!'); errors++; }
+                await page.evaluate(() => document.getElementById('weekly-modal').style.display = 'none');
+                
+                await page.click('#ui-pulse');
+                if (!(await page.evaluate(() => document.getElementById('pulse-modal').style.display === 'flex'))) { console.error('[QA MODAL ERROR] Pulse modal failed!'); errors++; }
+                await page.evaluate(() => document.getElementById('pulse-modal').style.display = 'none');
+              } catch (e) {
+                console.error('[QA MODAL ERROR] Interaction failed:', e.message); errors++;
+              }
 
               console.log('Testing /rpg ...');
               await page.goto('http://127.0.0.1:5000/rpg', {waitUntil: 'domcontentloaded', timeout: 15000});
-              await new Promise(r => setTimeout(r, 2000));
+              await new Promise(r => setTimeout(r, 1000));
             } catch (e) {
               console.error('Failed to load page:', e.message); errors++;
             }

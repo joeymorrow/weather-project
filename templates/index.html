@@ -57,15 +57,15 @@
         .pod.active::after { inset: 0; border: 2px solid var(--accent); animation: ripple-elemental 3s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; opacity: 0.6; }
         #pos-coffee { left: 4vw; top: 15vh; } #pos-office { left: 4vw; top: 40vh; } #pos-gym { left: 4vw; top: 65vh; } #pos-store { left: 8vw; top: 85vh; }
         #pos-library { right: 4vw; top: 15vh; } #pos-garage { right: 4vw; top: 40vh; } #pos-park { right: 4vw; top: 65vh; } #pos-kitchen { right: 8vw; top: 85vh; }
-        #pos-bed { position: absolute; left: 50%; bottom: 4vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 200px); height: clamp(60px, 8vmin, 100px); border-radius: 20px; border: 2px solid var(--pod-border); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 4rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+        #pos-bed { position: absolute; left: 50%; bottom: 2vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 200px); height: clamp(60px, 8vmin, 100px); border-radius: 20px; border: 2px solid var(--pod-border); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 4rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
         #pos-bed:hover { filter: grayscale(0%) opacity(1); transform: translateX(-50%) scale(1.05); border-color: var(--accent); box-shadow: 0 0 20px var(--pod-hover-glow); z-index: 100; }
         #pos-bed.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); pointer-events: none; z-index: 6; }
-        #center-info { position: absolute; top: 51%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 58vw; max-width: 800px; pointer-events: none; z-index: 10; }
+        #center-info { position: absolute; top: 49.5%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 58vw; max-width: 800px; pointer-events: none; z-index: 10; }
         .date-line { font-size: clamp(0.9rem, 1.2vw, 1.5rem); color: var(--accent); opacity: 0.6; margin-bottom: 1vh; text-align: center; }
         .clock { font-size: clamp(2.5rem, 5vw, 4.5rem); color: var(--accent); margin-bottom: -5px; } .temp { font-size: clamp(5rem, 12vw, 11rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; }
-        .suggestion { font-size: clamp(0.9rem, 1.8vw, 1.4rem); color: var(--accent); font-weight: bold; margin: 4px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 6px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; }
-        .forecast-line { font-size: clamp(0.85rem, 1.4vw, 1.1rem); color: var(--accent); opacity: 0.9; margin: 4px auto; width: fit-content; max-width: clamp(280px, 75%, 700px); line-height: 1.5; font-style: italic; background: rgba(0,0,0,0.3); padding: clamp(6px, 1.2vh, 10px) clamp(16px, 3vw, 40px); border-radius: 8px; }
-        .pulse-line { font-size: clamp(0.8rem, 1.3vw, 1.1rem); color: var(--accent); opacity: 0.85; margin: 12px auto 0; font-style: italic; font-weight: normal; border: 1px solid var(--pod-border); background: var(--pod-bg); padding: clamp(12px, 2vh, 16px) clamp(16px, 3vw, 24px); width: fit-content; max-width: clamp(280px, 85%, 650px); line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .suggestion { font-size: clamp(0.9rem, 1.8vw, 1.4rem); color: var(--accent); font-weight: bold; margin: 2px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 6px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; }
+        .forecast-line { font-size: clamp(0.85rem, 1.4vw, 1.1rem); color: var(--accent); opacity: 0.9; margin: 2px auto; width: fit-content; max-width: clamp(280px, 75%, 700px); line-height: 1.5; font-style: italic; background: rgba(0,0,0,0.3); padding: clamp(6px, 1.2vh, 10px) clamp(16px, 3vw, 40px); border-radius: 8px; }
+        .pulse-line { font-size: clamp(0.8rem, 1.3vw, 1.1rem); color: var(--accent); opacity: 0.85; margin: 6px auto 0; font-style: italic; font-weight: normal; border: 1px solid var(--pod-border); background: var(--pod-bg); padding: clamp(12px, 2vh, 16px) clamp(16px, 3vw, 24px); width: fit-content; max-width: clamp(280px, 85%, 650px); line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .pulse-line::after { content: ' ▤'; font-size: 0.8em; opacity: 0.4; vertical-align: top; margin-left: 6px; }
         .pulse-line:hover, .pulse-line:focus { opacity: 1; outline: none; background: var(--pod-bg); text-shadow: 0 0 10px var(--accent); box-shadow: 0 -10px 10px var(--pod-bg); }
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: pointer; }
@@ -242,7 +242,7 @@
     </div>
     <div id="center-info">
         <div class="clock" id="ui-clock">--:-- --</div>
-        <div style="display:flex; justify-content:center; align-items:center; gap: clamp(10px, 3vw, 30px); margin-bottom: 10px; flex-wrap: wrap;">
+        <div style="display:flex; justify-content:center; align-items:center; gap: clamp(10px, 3vw, 30px); margin-bottom: 2px; flex-wrap: wrap;">
             <div class="temp-row" style="display:flex; justify-content:center; align-items:center;">
                 <img id="ui-icon" src="https://openweathermap.org/img/wn/{{ icon }}@4x.png" style="width: clamp(80px, 10vw, 150px);">
                 <div class="temp"><span id="ui-temp">{{ temp }}</span>°</div>
@@ -254,7 +254,7 @@
         </div>
         <div class="forecast-line" id="ui-forecast">{{ forecast }}</div>
         <div class="suggestion" id="ui-sugg">{% if 'Initializing' in suggestion %}{{ suggestion }}{% else %}🧥 Suggested Attire: {{ suggestion }}{% endif %}</div>
-        <div id="ui-desc-tomorrow" style="font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.8; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 4px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center;">Tomorrow: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
+        <div id="ui-desc-tomorrow" style="font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.8; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center;">Tomorrow: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
         <div class="pulse-line" id="ui-pulse" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse }}</div>
     </div>
     <div id="buddy-container" onclick="leaveForMorrowEdge()" class="{% if is_sleeping %}sleeping{% endif %}">
@@ -843,7 +843,8 @@
                     if (currentStation !== 'bed') {
                         xOffset = b.dataset.orbitSide === 'left' ? -55 : 55;
                     }
-                    b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2) + xOffset) + 'px'; b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - 10) + 'px';
+                    b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2) + xOffset) + 'px'; 
+                    b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - (currentStation === 'bed' ? 0 : 10)) + 'px';
                     rLeft = r.left + xOffset; 
                 }
                 
