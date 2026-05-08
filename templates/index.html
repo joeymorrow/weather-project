@@ -611,6 +611,7 @@
             }
             const wasSleeping = currentStation === 'bed';
             currentStation = station;
+            if (station === 'bed') document.getElementById('pos-bed').style.display = 'flex';
             document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
             const t = document.getElementById(`pos-${station}`); if(t) t.classList.add('active');
             const bbl = document.getElementById('ui-bbl');
