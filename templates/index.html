@@ -887,7 +887,7 @@
 
         // 🕺 EASTER EGG: Rave Mode
         window.activateRaveMode = function() {
-            if (window.onDate || window.isKaiju) return "Buddy is busy!";
+            if (window.onDate || window.isKaiju || window.isRaving) return "Buddy is busy!";
             window.isRaving = true;
             document.body.classList.add('rave-bg');
             document.querySelectorAll('.pod').forEach(p => p.classList.add('active'));
@@ -1241,6 +1241,11 @@
                     }
                 }
 
+                // Synchronize Admin Signage Slides
+                if (s.slides) signageSlides = s.slides;
+                else signageSlides = [];
+                if (!activeSlideTimer) runSignageLoop();
+
                 // Handle Emergency Flare Mode
                 if (s.emergency && s.emergency.active) {
                     document.body.style.setProperty('--flare-color', s.emergency.color);
@@ -1402,6 +1407,7 @@
                     }
                 }
                 lastPulse = s.pulse;
+                setTimeout(() => window.fitBubble(), 150);
             } catch(e) {}
             stateTimer = setTimeout(() => fetchState(), 30000);
         }

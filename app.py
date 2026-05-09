@@ -503,6 +503,11 @@ def monitor_loop():
 def index():
     with state_lock: return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state.copy())
 
+@app.route('/index')
+@app.route('/index.html')
+def index_redirect():
+    return redirect('/')
+
 @app.route('/sault_weather.html')
 @app.route('/sault-weather')
 def sault_weather_redirect():
@@ -512,6 +517,7 @@ def sault_weather_redirect():
 def sault_schools():
     with state_lock: return render_template('sault_schools.html', **state.copy())
 
+@app.route('/sault_schools')
 @app.route('/sault_schools.html')
 @app.route('/sault_schools.html/')
 def sault_schools_redirect():
@@ -520,6 +526,12 @@ def sault_schools_redirect():
 @app.route('/pickford-schools')
 def pickford_schools():
     with state_lock: return render_template('pickford_schools.html', **state.copy())
+
+@app.route('/pickford_schools')
+@app.route('/pickford_schools.html')
+@app.route('/pickford_schools.html/')
+def pickford_schools_redirect():
+    return redirect('/pickford-schools')
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
