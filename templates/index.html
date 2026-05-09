@@ -42,26 +42,6 @@
         body.golden-mode .suggestion { background: rgba(224, 155, 107, 0.05); border-color: rgba(224, 155, 107, 0.2); }
         body.golden-mode .buddy-body { box-shadow: inset -5px -10px 15px rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.3), 0 0 15px rgba(224,155,107,0.2); }
         
-        /* 🖥️ High-End Monitor Enhancements (Dell U2721DE - Wide Color Gamut) */
-        @media (color-gamut: p3) {
-            :root {
-                --accent: color(display-p3 0 1 1); /* P3 Cyan - Unlocks hardware vibrancy! */
-                --buddy-blue: color(display-p3 0.102 0.451 0.91); /* Richer, deeper P3 Blue */
-                --shadow-color: rgba(0,0,0,0.6); /* Softer shadows (IPS panel handles natural contrast well) */
-            }
-        }
-        
-        /* 📺 Smart TV Enhancements (TCL Budget Panel - Anti-Bleed & Contrast Boost) */
-        @media (hover: none) and (pointer: coarse), (hover: none) and (pointer: none) {
-            :root {
-                --bg: #000000; /* Pure black to combat milky-gray backlighting */
-                --shadow-color: rgba(0,0,0,1); /* Maximum shadow opacity to separate neon text from bloom */
-                --pod-border: rgba(0,255,255,0.4); /* Thicker borders to survive VA-panel smearing */
-            }
-            /* Aggressive anti-bloom drop shadows carve the text out from the backlight bleed */
-            #header, #location, .clock, .temp { text-shadow: 0 4px 20px #000, 0 0 40px #000, 0 0 60px #000; } 
-        }
-
         body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100dvh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: --bg 120s ease, --accent 120s ease, --dim 120s ease, --buddy-blue 120s ease, --text-main 120s ease, --pod-border 120s ease, --pod-bg 120s ease, --pod-hover-glow 120s ease, --pod-active-bg 120s ease, --shadow-color 120s ease, background 120s ease, color 120s ease; }
         #header-container { display: flex; flex-direction: column; align-items: center; width: fit-content; max-width: 100%; margin: 0 auto; z-index: 20; pointer-events: none; }
         #header { font-size: clamp(1rem, 1.8vw, 3.5rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.65; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); }
