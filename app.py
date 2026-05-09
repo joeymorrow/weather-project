@@ -525,6 +525,32 @@ def monitor_loop():
             except Exception as e:
                 print(f"[ERROR] AI Leak eval/email failed: {e}", flush=True)
 
+def hallucination_cleanup_loop():
+    # Prevent multiple workers from running redundant loops
+    lock_file = open(os.path.join(DATA_DIR, "cleanup_loop.lock"), "a")
+    try:
+        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        return # Another worker is running
+
+    import subprocess
+    while True:
+        now = datetime.now(TZ)
+        next_hour = ((now.hour // 3) + 1) * 3
+        if next_hour >= 24:
+            next_run = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            next_run = now.replace(hour=next_hour, minute=0, second=0, microsecond=0)
+        
+        sleep_seconds = (next_run - now).total_seconds()
+        if sleep_seconds > 0:
+            time.sleep(sleep_seconds)
+            
+        try:
+            subprocess.run(["python", "cleanup_hallucinations.py", "--run-auto"], check=False)
+        except Exception as e:
+            print(f"[ERROR] Hallucination cleanup loop: {e}", flush=True)
+
 @app.before_request
 def check_disabled_pages():
     if request.path.startswith('/joeyadmin') or request.path.startswith('/admin') or request.path.startswith('/static') or request.path.startswith('/api/'):
@@ -587,6 +613,8 @@ def joeyadmin():
     if not auth or auth.password != admin_password:
         return "Overlord Access Denied", 401, {'WWW-Authenticate': 'Basic realm="JoeyAdmin Login Required"'}
         
+    cleanup_summary = None
+
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'delete_pulse':
@@ -646,6 +674,14 @@ def joeyadmin():
                 return "<body style='background:#010103; color:#ff0000; font-family:monospace; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0;'><h2>[ SYSTEM OFFLINE ]</h2><p style='color:#fff; opacity:0.5;'>The server is shutting down.</p></body>", 200
             else:
                 return "Invalid credentials.", 403
+                
+        elif action == 'run_cleanup':
+            import subprocess
+            try:
+                res = subprocess.run(["python", "cleanup_hallucinations.py"], capture_output=True, text=True, check=False)
+                cleanup_summary = res.stdout
+            except Exception as e:
+                cleanup_summary = f"Error running cleanup: {e}"
         
     import subprocess
     services_to_check = ['docker', 'cloudflared', 'cron', 'systemd-journald']
@@ -675,8 +711,16 @@ def joeyadmin():
         current_pulse = state.get('pulse', '')
         pulse_history = state.get('pulse_history', [])
         disabled_pages = state.get('disabled_pages', [])
+
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, retrieved_at, date, text, reason FROM hallucinations_log ORDER BY retrieved_at DESC")
+            hallucinations = [{"id": r[0], "retrieved_at": r[1], "date": r[2], "text": r[3], "reason": r[4]} for r in c.fetchall()]
+    except:
+        hallucinations = []
         
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary)
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
@@ -881,8 +925,10 @@ def move_buddy(station):
 if __name__ != '__main__':
     threading.Thread(target=sync_loop, daemon=True).start()
     threading.Thread(target=monitor_loop, daemon=True).start()
+    threading.Thread(target=hallucination_cleanup_loop, daemon=True).start()
 
 if __name__ == '__main__':
     threading.Thread(target=sync_loop, daemon=True).start()
     threading.Thread(target=monitor_loop, daemon=True).start()
+    threading.Thread(target=hallucination_cleanup_loop, daemon=True).start()
     app.run(host='0.0.0.0', port=5000, debug=False)
