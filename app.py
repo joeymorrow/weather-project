@@ -520,20 +520,69 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 "hourly_list": hourly_list,
                 "sunrise": sunrise_str, "sunset": sunset_str,
                 "weekly_list": weekly_list,
+                "suggestion": ai.get("tip"), "bubble": ai.get("say", ai.get("bubble", "...")), 
+                "pulse": new_pulse, "acc_css": "zzz" if is_sleep else ai.get("acc", "none"),
+                "forecast": ai.get("forecast", "Weather data processing..."), 
+                "weekly_summary": ai.get("weekly_summary", "Weekly pattern steady."),
+                "pulse_history": hist,
                 "school_closings": {"sault_closed": sault_closed, "other_closings": other_closings}
-            }
-            with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+        }
+
+        with state_lock:
+            if slug == "main":
+                state.update(update_dict)
+            else:
+                if 'tenants' not in state: state['tenants'] = {}
+                if slug not in state['tenants']: state['tenants'][slug] = {}
+                state['tenants'][slug].update(update_dict)
+            try:
+                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+            except: pass
+
     except Exception as e: 
-        print(f"[ERROR] {e}", flush=True)
+        print(f"[ERROR] sync_for_location {slug}: {e}", flush=True)
         with state_lock: 
-            state.update({
+            err_dict = {
                 "bubble": "I'm having trouble seeing the sky right now, but stay safe!",
                 "desc": "Data unavailable",
                 "temp": "--", "high": "--", "low": "--", "pop": "--",
                 "suggestion": "Stay safe.",
                 "forecast": "Weather data currently offline.",
-                "pulse": "Our connection to the Sault skies is temporarily interrupted."
-            })
+                "pulse": f"Our connection to {loc_name} skies is temporarily interrupted."
+            }
+            if slug == "main":
+                state.update(err_dict)
+            else:
+                if 'tenants' not in state: state['tenants'] = {}
+                if slug not in state['tenants']: state['tenants'][slug] = {}
+                state['tenants'][slug].update(err_dict)
+
+def run_sync():
+    # Scrape closings once globally
+    now = datetime.now(TZ)
+    sault_closed = False
+    other_closings = []
+    if now.month in [10, 11, 12, 1, 2, 3, 4]:
+        sault_closed, other_closings = scrape_closings()
+        
+    with state_lock:
+        state['school_closings'] = {"sault_closed": sault_closed, "other_closings": other_closings}
+
+    # Gather all locations to sync
+    locations = []
+    with state_lock:
+        main_loc = state.get("main_config", {}).get("location", "Sault Ste. Marie, Michigan")
+        main_query = state.get("main_config", {}).get("query", "Sault+Ste.+Marie,MI,US")
+    locations.append({"slug": "main", "location": main_loc, "query": main_query})
+    locations.append({"slug": "sault-schools", "location": "Sault Ste. Marie, Michigan", "query": "Sault+Ste.+Marie,MI,US"})
+    locations.append({"slug": "pickford-schools", "location": "Pickford, Michigan", "query": "Pickford,MI,US"})
+    
+    for p in get_beacon_pages():
+        locations.append({"slug": p["slug"], "location": p["title"], "query": p["zipcode"]})
+        
+    for loc in locations:
+        sync_for_location(loc['slug'], loc['location'], loc['query'])
+        time.sleep(2) # Avoid aggressive rate-limiting from OpenWeather/Gemini
 
 def record_telemetry():
     try:
