@@ -1459,9 +1459,9 @@
                     botGroup.position.y = botBaseY + Math.abs(Math.cos(danceTime * 2)) * 0.8;
                 }
                 
-                // Compound Interactivity Easter Egg: Passive points for raving with the companion!
-                if (currentLoc === "Secret Rave Zone" && hasBot && Math.random() < 0.03) {
-                    score += 2;
+                // Compound Interactivity Easter Egg: Passive points for raving!
+                if (currentLoc === "Secret Rave Zone" && Math.random() < 0.03) {
+                    score += hasBot ? 5 : 2; // Bonus points if raving with companion!
                     updateScoreUi();
                 }
                 
