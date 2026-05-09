@@ -185,8 +185,9 @@
                 width: 95vw !important;
                 display: flex !important;
                 flex-direction: column !important;
-                margin: 30px auto 10px auto !important;
+                margin: 5px auto 10px auto !important;
             }
+            .clock { font-size: clamp(3.5rem, 15vw, 6rem) !important; margin-bottom: -5px !important; }
             
             /* 4. Anchor Buddy securely below the text, pushing him down using auto margin */
             #buddy-container {
@@ -204,7 +205,7 @@
             .kaiju-mode { transform: scale(3.5) !important; }
             
             /* Move the speech bubble safely above Buddy's head */
-            .bubble { bottom: 120% !important; left: 50% !important; transform: translateX(-50%) !important; z-index: 100 !important; margin-bottom: 10px !important; }
+            .bubble { bottom: 105% !important; left: 50% !important; transform: translateX(-50%) !important; z-index: 100 !important; margin-bottom: 5px !important; }
             
             /* 5. Force the pods into a static, single row at the very bottom */
             .pods { order: 4; display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; justify-content: center !important; width: 100% !important; position: relative !important; z-index: 60 !important; }
@@ -412,7 +413,7 @@
             }
             
             // 2. Vertical check: Drop it closer, or below Buddy if dangerously near top of viewport
-            bbl.style.setProperty('bottom', isMobile ? '120%' : '130%', 'important');
+            bbl.style.setProperty('bottom', isMobile ? '105%' : '130%', 'important');
             bbl.style.setProperty('top', 'auto', 'important');
             if (bY < 120) {
                 bbl.style.setProperty('bottom', '100%', 'important');
