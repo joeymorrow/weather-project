@@ -138,7 +138,8 @@ state = {
     "managed_theme": "",
     "school_closings": {"sault_closed": False, "other_closings": []},
     "school_alerts": {},
-    "agenda_votes": {}
+    "agenda_votes": {},
+    "disabled_pages": []
 }
 
 if os.path.exists(STATE_FILE):
@@ -524,6 +525,15 @@ def monitor_loop():
             except Exception as e:
                 print(f"[ERROR] AI Leak eval/email failed: {e}", flush=True)
 
+@app.before_request
+def check_disabled_pages():
+    if request.path.startswith('/joeyadmin') or request.path.startswith('/admin') or request.path.startswith('/static') or request.path.startswith('/api/'):
+        return
+    with state_lock:
+        disabled = state.get("disabled_pages", [])
+    if request.path in disabled or (request.path != '/' and request.path.rstrip('/') in disabled):
+        return "<body style='background:#010103; color:#00ffff; font-family:monospace; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0;'><h2>[ SYSTEM OFFLINE ]</h2><p style='color:#fff; opacity:0.5;'>This page has been temporarily disabled.</p></body>", 503
+
 @app.route('/')
 def index():
     with state_lock: return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state.copy())
@@ -603,6 +613,39 @@ def joeyadmin():
                 if trigger_sync:
                     threading.Thread(target=run_sync).start()
             return redirect('/joeyadmin')
+            
+        elif action == 'toggle_page':
+            page_route = request.form.get('page_route')
+            if page_route:
+                with state_lock:
+                    if 'disabled_pages' not in state:
+                        state['disabled_pages'] = []
+                    if page_route in state['disabled_pages']:
+                        state['disabled_pages'].remove(page_route)
+                    else:
+                        state['disabled_pages'].append(page_route)
+                    try:
+                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                    except: pass
+            return redirect('/joeyadmin')
+            
+        elif action == 'shutdown':
+            confirm_user = request.form.get('username')
+            confirm_pass = request.form.get('password')
+            if auth and confirm_user == auth.username and confirm_pass == admin_password:
+                import signal
+                log_system_event("SHUTDOWN", "Nuclear option invoked by overlord.")
+                def kill_server():
+                    time.sleep(1)
+                    if 'gunicorn' in os.environ.get('SERVER_SOFTWARE', '').lower():
+                        try:
+                            os.kill(os.getppid(), signal.SIGTERM)
+                        except: pass
+                    os.kill(os.getpid(), signal.SIGTERM)
+                threading.Thread(target=kill_server).start()
+                return "<body style='background:#010103; color:#ff0000; font-family:monospace; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0;'><h2>[ SYSTEM OFFLINE ]</h2><p style='color:#fff; opacity:0.5;'>The server is shutting down.</p></body>", 200
+            else:
+                return "Invalid credentials.", 403
         
     import subprocess
     services_to_check = ['docker', 'cloudflared', 'cron', 'systemd-journald']
@@ -631,8 +674,9 @@ def joeyadmin():
     with state_lock:
         current_pulse = state.get('pulse', '')
         pulse_history = state.get('pulse_history', [])
+        disabled_pages = state.get('disabled_pages', [])
         
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), current_pulse=current_pulse, pulse_history=pulse_history)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages)
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():

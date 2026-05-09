@@ -65,6 +65,11 @@
                     <span style="font-size: 0.8rem; color: #ccc;">Route: /</span>
                 </div>
                 <div style="display:flex; gap:10px;">
+                    {% if '/' in disabled_pages %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/"><button type="submit" class="manage-btn" style="background:#00ff00; color:#000;">Enable</button></form>
+                    {% else %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/"><button type="submit" class="danger-btn">Disable</button></form>
+                    {% endif %}
                     <a href="/" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
                     <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
                 </div>
@@ -75,6 +80,11 @@
                     <span style="font-size: 0.8rem; color: #ccc;">Route: /sault-schools</span>
                 </div>
                 <div style="display:flex; gap:10px;">
+                    {% if '/sault-schools' in disabled_pages %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/sault-schools"><button type="submit" class="manage-btn" style="background:#00ff00; color:#000;">Enable</button></form>
+                    {% else %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/sault-schools"><button type="submit" class="danger-btn">Disable</button></form>
+                    {% endif %}
                     <a href="/sault-schools" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
                     <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
                 </div>
@@ -85,6 +95,11 @@
                     <span style="font-size: 0.8rem; color: #ccc;">Route: /pickford-schools</span>
                 </div>
                 <div style="display:flex; gap:10px;">
+                    {% if '/pickford-schools' in disabled_pages %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/pickford-schools"><button type="submit" class="manage-btn" style="background:#00ff00; color:#000;">Enable</button></form>
+                    {% else %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/pickford-schools"><button type="submit" class="danger-btn">Disable</button></form>
+                    {% endif %}
                     <a href="/pickford-schools" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
                     <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
                 </div>
@@ -95,6 +110,11 @@
                     <span style="font-size: 0.8rem; color: #ccc;">Route: /rpg</span>
                 </div>
                 <div style="display:flex; gap:10px;">
+                    {% if '/rpg' in disabled_pages %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/rpg"><button type="submit" class="manage-btn" style="background:#00ff00; color:#000;">Enable</button></form>
+                    {% else %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/rpg"><button type="submit" class="danger-btn">Disable</button></form>
+                    {% endif %}
                     <a href="/rpg" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
                 </div>
             </div>
@@ -106,6 +126,12 @@
                     <span style="font-size: 0.8rem; color: #ccc;">Route: /schools/{{ page.slug }}</span>
                 </div>
                 <div style="display:flex; gap:10px;">
+                    {% set pr = '/schools/' ~ page.slug %}
+                    {% if pr in disabled_pages %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="{{ pr }}"><button type="submit" class="manage-btn" style="background:#00ff00; color:#000;">Enable</button></form>
+                    {% else %}
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="{{ pr }}"><button type="submit" class="danger-btn">Disable</button></form>
+                    {% endif %}
                     <a href="/schools/{{ page.slug }}" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
                     <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
                 </div>
@@ -157,6 +183,24 @@
                     {% endfor %}
                 </div>
             </div>
+        </div>
+
+        <!-- Nuclear Option -->
+        <div class="card" style="border-color: #ff0000; box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);">
+            <h2 style="color: #ff0000; border-bottom-color: #ff0000;">☢️ Nuclear Option</h2>
+            <p style="font-size: 0.9rem; color: #aaa;">Completely shuts down the application server process. You will need host access to restart it.</p>
+            <form method="POST" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;" onsubmit="return confirm('WARNING: Are you absolutely sure you want to shut down the server?');">
+                <input type="hidden" name="action" value="shutdown">
+                <div>
+                    <label style="color: #ff4444;">Confirm Username:</label>
+                    <input type="text" name="username" required style="background: rgba(255,0,0,0.05); border-color: #ff4444; margin-bottom: 0;">
+                </div>
+                <div>
+                    <label style="color: #ff4444;">Confirm Password:</label>
+                    <input type="password" name="password" required style="background: rgba(255,0,0,0.05); border-color: #ff4444; margin-bottom: 0;">
+                </div>
+                <button type="submit" class="danger-btn" style="margin-top: 10px; padding: 10px; font-size: 1rem; border-width: 2px;">SHUT DOWN SERVER</button>
+            </form>
         </div>
 
         <!-- Telemetry Graphs -->
