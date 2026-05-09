@@ -46,8 +46,8 @@
         #header { font-size: clamp(1rem, 1.8vw, 3.5rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.65; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); }
         #location { font-size: clamp(1rem, 1.5vw, 3rem); opacity: 0.35; letter-spacing: 2px; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
         #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: help; color: var(--accent); transition: transform 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
-        .lore-box { position: absolute; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 3500; line-height: 1.4; }
-        #lore-trigger:hover + .lore-box, #lore-trigger:focus + .lore-box { opacity: 1; pointer-events: all; }
+        .lore-box { position: absolute; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 3500; line-height: 1.4; }
+        #lore-trigger:hover + .lore-box, #lore-trigger:focus + .lore-box, .lore-box:hover { opacity: 1; pointer-events: auto; }
         #weekly-trigger { position: absolute; top: 20px; left: 55px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; }
         #weekly-trigger:hover, #weekly-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         #agenda-trigger { position: absolute; top: 20px; left: 90px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; }
@@ -584,7 +584,7 @@
             if (groovyBtn) groovyBtn.innerHTML = (tp === 'groovy-mode' ? '✓ ' : '') + 'Groovy';
             if (contrastBtn) contrastBtn.innerHTML = (hc ? '✓ ' : '') + 'High Contrast';
             if (fullBtn) fullBtn.innerHTML = (document.fullscreenElement ? '✓ ' : '') + 'Fullscreen';
-            if (standardBtn) standardBtn.innerHTML = ((!tp || tp === '') && !hc ? '✓ ' : '') + 'Standard';
+            if (standardBtn) standardBtn.innerHTML = ((!tp || tp === '') && !hc ? '✓ ' : '') + 'Reset Theme';
         };
 
         window.toggleContrast = function() {
@@ -1113,8 +1113,8 @@
                 const cx = padX + i * stepX;
                 if (d.pop > 0) {
                     const popH = Math.max(4, (d.pop / 100) * (trackH * 0.6)); 
-                    ctx.strokeStyle = d.desc.includes('snow') ? '#ffffff' : accent;
-                    ctx.globalAlpha = d.desc.includes('snow') ? 0.7 : 0.4;
+                ctx.strokeStyle = d.desc.includes('snow') ? textMain : accent;
+                ctx.globalAlpha = d.desc.includes('snow') ? 0.5 : 0.4;
                     ctx.lineWidth = 4; ctx.lineCap = 'round';
                     ctx.beginPath();
                     ctx.moveTo(cx, t3_bot - (trackH * 0.15));

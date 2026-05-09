@@ -158,5 +158,13 @@
     <div style="text-align: center; margin-top: 30px;">
         <a href="/" style="color: #00ffff; text-decoration: none; font-weight: bold;">← Back to Dashboard</a>
     </div>
+    
+    <script>
+        function applyTemplate(msg, color, activeState) {
+            document.querySelector('textarea[name="message"]').value = msg;
+            document.querySelector('input[name="color"]').value = color;
+            document.querySelector('select[name="flare_active"]').value = activeState;
+        }
+    </script>
 </body>
 </html>
