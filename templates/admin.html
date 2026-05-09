@@ -53,7 +53,7 @@
                 <input type="hidden" name="action" value="update_branding">
                 <label>Admin Password:</label> <input type="password" name="password" required>
                 <label>Branding Text:</label>
-                <input type="text" name="branding_text" value="{{ branding.text | default('POWERED BY THE CITY OF SAULT STE. MARIE') }}">
+                <input type="text" name="branding_text" value="{{ branding.text | default('Morrow Edge, LLC. (R) All Rights Reserved. 2026') }}">
                 <label>Text Color:</label>
                 <input type="color" name="branding_color" value="{{ branding.color | default('#00ffff') }}">
                 <button type="submit">Update Branding</button>

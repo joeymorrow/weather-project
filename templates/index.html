@@ -321,7 +321,7 @@
         </div>
         <div class="egg-btn" tabindex="0" onclick="document.getElementById('cast-modal').style.display='none'" style="margin-top:clamp(10px, 2vh, 15px); border-color:gray; color:gray;">Close</div>
     </div>
-    <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: {{ branding.color | default('var(--accent)') }}; opacity: 0; z-index: 3500; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease;">{{ branding.text | default('POWERED BY THE CITY OF SAULT STE. MARIE') }}</div>
+    <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: {{ branding.color | default('var(--accent)') }}; opacity: 0; z-index: 3500; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease;">{{ branding.text | default('YOOPER TECH FTW!') }}</div>
     <div id="signage-overlay" style="display:none; position:fixed; inset:0; z-index:9000; background:#000; opacity:0; transition: opacity 1s ease;"></div>
     <div id="center-info">
         <div class="clock" id="ui-clock" aria-live="polite">--:-- --</div>
