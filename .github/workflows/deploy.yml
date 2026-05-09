@@ -61,6 +61,8 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENWEATHERMAP_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           # Start the Flask app in the background
           pip install -r requirements.txt || pip install flask requests google-genai pytz python-dotenv
@@ -206,6 +208,9 @@ jobs:
 
           try {
             console.log('Testing /joeyadmin ...');
+            const adminUser = process.env.ADMIN_USERNAME || 'admin';
+            const adminPass = process.env.ADMIN_PASSWORD || 'changeme';
+            await page.authenticate({ username: adminUser, password: adminPass });
             await page.goto('http://127.0.0.1:5000/joeyadmin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
           } catch (e) {
@@ -264,6 +269,12 @@ jobs:
           fi
           if [ -n "${{ secrets.DASHBOARD_URL }}" ]; then
             echo "DASHBOARD_URL=${{ secrets.DASHBOARD_URL }}" >> .env
+          fi
+          if [ -n "${{ secrets.ADMIN_USERNAME }}" ]; then
+            echo "ADMIN_USERNAME=${{ secrets.ADMIN_USERNAME }}" >> .env
+          fi
+          if [ -n "${{ secrets.ADMIN_PASSWORD }}" ]; then
+            echo "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" >> .env
           fi
           if [ -n "${{ secrets.SMTP_SERVER }}" ]; then
             echo "SMTP_SERVER=${{ secrets.SMTP_SERVER }}" >> .env

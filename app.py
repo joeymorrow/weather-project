@@ -54,6 +54,7 @@ LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 manual_override = None
 override_expiry = 0
 state_lock = threading.Lock()
+admin_username = os.environ.get("ADMIN_USERNAME", "admin")
 admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
 DENYLIST = ["profanity", "badword", "controversial", "inappropriate"]
 
@@ -517,6 +518,25 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 "pulse": "Our connection to the Sault skies is temporarily interrupted."
             })
 
+def record_telemetry():
+    try:
+        load_avg = os.getloadavg()[0] if hasattr(os, 'getloadavg') else 0.0
+        mem_used = 0; cached = 0
+        if os.path.exists('/proc/meminfo'):
+            with open('/proc/meminfo', 'r') as f:
+                lines = f.readlines()
+            mt = 0; ma = 0
+            for line in lines:
+                if line.startswith('MemTotal:'): mt = int(line.split()[1]) / 1024
+                elif line.startswith('MemAvailable:'): ma = int(line.split()[1]) / 1024
+                elif line.startswith('Cached:'): cached = int(line.split()[1]) / 1024
+            mem_used = mt - ma if mt else 0
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            with conn:
+                conn.execute("INSERT INTO metrics (load_avg, mem_used_mb, cache_mb) VALUES (?, ?, ?)", (load_avg, mem_used, cached))
+    except Exception as e:
+        print(f"[ERROR] Telemetry: {e}", flush=True)
+
 def sync_loop():
     # Prevent multiple Gunicorn workers from spawning redundant background threads!
     lock_file = open(os.path.join(DATA_DIR, "sync_loop.lock"), "a")
@@ -546,7 +566,9 @@ def monitor_loop():
     last_leak_signature = ""
 
     while True:
-        time.sleep(1800) # Run every 30 minutes
+        time.sleep(300) # Run every 5 minutes
+        
+        record_telemetry()
 
         # 1. Thread Count Check
         current_threads = threading.enumerate()
@@ -682,7 +704,7 @@ def dynamic_school(slug):
 @app.route('/joeyadmin', methods=['GET', 'POST'])
 def joeyadmin():
     auth = request.authorization
-    if not auth or auth.password != admin_password:
+    if not auth or auth.username != admin_username or auth.password != admin_password:
         return "Overlord Access Denied", 401, {'WWW-Authenticate': 'Basic realm="JoeyAdmin Login Required"'}
         
     cleanup_summary = None
@@ -732,7 +754,7 @@ def joeyadmin():
         elif action == 'shutdown':
             confirm_user = request.form.get('username')
             confirm_pass = request.form.get('password')
-            if auth and confirm_user == auth.username and confirm_pass == admin_password:
+            if auth and confirm_user == admin_username and confirm_pass == admin_password:
                 import signal
                 log_system_event("SHUTDOWN", "Nuclear option invoked by overlord.")
                 def kill_server():
@@ -758,15 +780,19 @@ def joeyadmin():
     import subprocess
     services_to_check = ['docker', 'cloudflared', 'cron', 'systemd-journald']
     service_status = []
+    sys_env = os.environ.copy()
+    sys_env['DBUS_SYSTEM_BUS_ADDRESS'] = 'unix:path=/var/run/dbus/system_bus_socket'
+    
     for s in services_to_check:
         try:
-            res = subprocess.run(['systemctl', 'is-active', s], capture_output=True, text=True, timeout=2)
+            res = subprocess.run(['systemctl', 'is-active', s], capture_output=True, text=True, timeout=2, env=sys_env)
             status_text = res.stdout.strip()
             is_active = (status_text == 'active')
             context = ""
             if not is_active:
-                status_res = subprocess.run(['systemctl', 'status', s], capture_output=True, text=True, timeout=2)
-                context = status_res.stdout.strip()[:300] + "..." if status_res.stdout else "No context available."
+                status_res = subprocess.run(['systemctl', 'status', s], capture_output=True, text=True, timeout=2, env=sys_env)
+                full_ctx = f"{status_res.stdout.strip()}\n{status_res.stderr.strip()}".strip()
+                context = full_ctx[:300] + "..." if full_ctx else "No context available."
             service_status.append({"name": s, "active": is_active, "status": status_text, "context": context})
         except Exception as e:
             service_status.append({"name": s, "active": False, "status": "isolated", "context": f"Container isolation or systemctl unavailable: {e}"})

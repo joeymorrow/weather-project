@@ -28,8 +28,14 @@ def forward(source, destination):
 
 def handle_client(client_socket):
     try:
-        # Peek at the first chunk of data for our novelty checks
-        request = client_socket.recv(4096)
+        request = b""
+        # TCP is a streaming protocol. We must buffer until the full HTTP header arrives!
+        while b"\r\n\r\n" not in request and len(request) < 8192:
+            chunk = client_socket.recv(4096)
+            if not chunk:
+                break
+            request += chunk
+            
         if not request:
             client_socket.close()
             return

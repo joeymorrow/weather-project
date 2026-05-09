@@ -28,6 +28,13 @@
         .danger-btn:hover { background: #ff4444; color: #fff; box-shadow: 0 0 10px #ff4444; }
         .nav-home { display: block; text-align: center; margin-top: 30px; color: #00ffff; text-decoration: none; font-weight: bold; font-size: 1.2rem; transition: 0.3s; }
         .nav-home:hover { text-shadow: 0 0 10px #00ffff; }
+        
+        /* Custom Select Dropdown Styling */
+        select {
+            -webkit-appearance: none; appearance: none; cursor: pointer;
+            background-image: url("data:image/svg+xml;utf8,<svg fill='%2300ffff' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+            background-repeat: no-repeat; background-position: right 8px center; padding-right: 28px !important;
+        }
     </style>
 </head>
 <body>
@@ -208,7 +215,23 @@
 
         <!-- Telemetry Graphs -->
         <div class="card" style="grid-column: 1 / -1;">
-            <h2>📈 7-Day Resource Telemetry</h2>
+            <h2 style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <span>📈 Resource Telemetry</span>
+                <div style="font-size: 0.9rem;">
+                    <label style="color: var(--accent); margin-right: 5px;">Range:</label>
+                    <select id="telemetryFilter" onchange="applyTelemetryFilter()" style="background-color: rgba(0,255,255,0.1); color: #00ffff; border: 1px solid rgba(0,255,255,0.3); padding: 3px 8px; border-radius: 4px; font-family: monospace; outline: none;">
+                        <option value="0.5">30 Minutes</option>
+                        <option value="1">1 Hour</option>
+                        <option value="2">2 Hours</option>
+                        <option value="6">6 Hours</option>
+                        <option value="12">12 Hours</option>
+                        <option value="24">1 Day</option>
+                        <option value="48">2 Days</option>
+                        <option value="72">3 Days</option>
+                        <option value="168" selected>7 Days</option>
+                    </select>
+                </div>
+            </h2>
             <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
                 <div style="flex: 1; min-width: 300px; max-width: 600px;">
                     <canvas id="memChart"></canvas>
@@ -223,33 +246,49 @@
     <a href="/" class="nav-home">← Return to Base</a>
 
     <script>
-        const metrics = {{ metrics | tojson | safe }};
-        // The database stores records in UTC; appending " UTC" forces JS Date objects to adapt the time perfectly to Joey's local time zone!
-        const labels = metrics.map(m => new Date(m.time + " UTC").toLocaleString('en-US', {weekday:'short', hour:'numeric'}));
-        const memData = metrics.map(m => m.mem);
-        const cacheData = metrics.map(m => m.cache);
-        const loadData = metrics.map(m => m.load);
+        const allMetrics = {{ metrics | tojson | safe }};
+        let memChart, loadChart;
 
         Chart.defaults.color = '#00ffff';
         Chart.defaults.font.family = 'Courier New';
 
-        new Chart(document.getElementById('memChart'), {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    { label: 'Used Memory (MB)', data: memData, borderColor: '#ff00ff', backgroundColor: 'rgba(255, 0, 255, 0.1)', fill: true, tension: 0.4, pointRadius: 0 },
-                    { label: 'Cache Size (MB)', data: cacheData, borderColor: '#00ffff', backgroundColor: 'rgba(0, 255, 255, 0.1)', fill: true, tension: 0.4, pointRadius: 0 }
-                ]
-            },
-            options: { responsive: true, scales: { x: { grid: { color: 'rgba(0,255,255,0.1)' } }, y: { grid: { color: 'rgba(0,255,255,0.1)' }, beginAtZero: true } }, plugins: { legend: { position: 'top' } } }
-        });
+        function initCharts() {
+            memChart = new Chart(document.getElementById('memChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [
+                    { label: 'Used Memory (MB)', data: [], borderColor: '#ff00ff', backgroundColor: 'rgba(255, 0, 255, 0.1)', fill: true, tension: 0.4, pointRadius: 0 },
+                    { label: 'Cache Size (MB)', data: [], borderColor: '#00ffff', backgroundColor: 'rgba(0, 255, 255, 0.1)', fill: true, tension: 0.4, pointRadius: 0 }
+                ]},
+                options: { responsive: true, scales: { x: { grid: { color: 'rgba(0,255,255,0.1)' } }, y: { grid: { color: 'rgba(0,255,255,0.1)' }, beginAtZero: true } }, plugins: { legend: { position: 'top' } } }
+            });
 
-        new Chart(document.getElementById('loadChart'), {
-            type: 'line',
-            data: { labels: labels, datasets: [ { label: 'System Load (1m Avg)', data: loadData, borderColor: '#ffff00', backgroundColor: 'rgba(255, 255, 0, 0.1)', fill: true, tension: 0.4, pointRadius: 0 } ] },
-            options: { responsive: true, scales: { x: { grid: { color: 'rgba(0,255,255,0.1)' } }, y: { grid: { color: 'rgba(0,255,255,0.1)' }, beginAtZero: true } } }
-        });
+            loadChart = new Chart(document.getElementById('loadChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [ { label: 'System Load (1m Avg)', data: [], borderColor: '#ffff00', backgroundColor: 'rgba(255, 255, 0, 0.1)', fill: true, tension: 0.4, pointRadius: 0 } ] },
+                options: { responsive: true, scales: { x: { grid: { color: 'rgba(0,255,255,0.1)' } }, y: { grid: { color: 'rgba(0,255,255,0.1)' }, beginAtZero: true } } }
+            });
+        }
+
+        window.applyTelemetryFilter = function() {
+            const hours = parseFloat(document.getElementById('telemetryFilter').value);
+            const cutoff = new Date(Date.now() - hours * 3600 * 1000);
+            
+            const filtered = allMetrics.filter(m => new Date(m.time + " UTC") >= cutoff);
+            
+            const labels = filtered.map(m => new Date(m.time + " UTC").toLocaleString('en-US', {weekday:'short', hour:'numeric', minute:'2-digit'}));
+            
+            memChart.data.labels = labels;
+            memChart.data.datasets[0].data = filtered.map(m => m.mem);
+            memChart.data.datasets[1].data = filtered.map(m => m.cache);
+            memChart.update();
+            
+            loadChart.data.labels = labels;
+            loadChart.data.datasets[0].data = filtered.map(m => m.load);
+            loadChart.update();
+        };
+
+        initCharts();
+        applyTelemetryFilter();
     </script>
 </body>
 </html>
