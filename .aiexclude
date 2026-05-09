@@ -1,0 +1,24 @@
+# -------------------------------------------------------------------------
+# Gemini Code Assist Exclusion File
+# -------------------------------------------------------------------------
+
+# 1. Databases & Large Data (Heaviest impact on AI context windows)
+data/*.db
+data/*.db-journal
+*.sqlite3
+
+# 2. Environment & Secrets (Security first!)
+.env
+.env.*
+
+# 3. Third-Party Dependencies (Noise reduction)
+venv/
+env/
+node_modules/
+
+# 4. Cache & Compiled Code (Irrelevant to AI reasoning)
+__pycache__/
+*.pyc
+
+# 5. User Uploads & Media (AI doesn't need to read user-uploaded images)
+static/uploads/

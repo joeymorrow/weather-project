@@ -380,7 +380,7 @@ def sync_for_location(slug, loc_name, query):
 
         buddy_task = "Task 1 (Buddy): 3-5 word unique greeting observing the beautiful sunrise." if (is_morning_golden and clouds < 75) else "Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding)."
 
-        global manual_override, override_expiry
+        global manual_override
         if manual_override and time.time() < override_expiry:
             st_id = manual_override
             is_sleep = (st_id == "bed")
