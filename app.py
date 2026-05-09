@@ -166,7 +166,8 @@ state = {
     "clouds": 0, "humidity": 0, "wind": "0 mph N", "uv_index": "0 (low)",
     "weekly_list": [], "weekly_summary": "Analyzing weekly patterns...",
     "emergency": {"active": False, "message": "", "color": "#ff0000"},
-    "branding": {"text": "POWERED BY THE CITY OF SAULT STE. MARIE", "color": "#00ffff"},
+    "branding": {"text": "", "color": "#00ffff"},
+    "main_config": {"header": "MORROW EDGE | BEACON Buddy", "location": "SAULT STE. MARIE, MICHIGAN", "query": "Sault+Ste.+Marie,MI,US"},
     "slides": [],
     "managed_theme": "",
     "school_closings": {"sault_closed": False, "other_closings": []},
@@ -244,8 +245,9 @@ def scrape_closings():
 
 def run_sync():
     try:
-        w = http_session.get(f"https://api.openweathermap.org/data/2.5/weather?q=Sault+Ste.+Marie,MI,US&appid={OWM_KEY}&units=imperial", timeout=10).json()
-        f = http_session.get(f"https://api.openweathermap.org/data/2.5/forecast?q=Sault+Ste.+Marie,MI,US&appid={OWM_KEY}&units=imperial", timeout=10).json()
+        query = state.get("main_config", {}).get("query", "Sault+Ste.+Marie,MI,US")
+        w = http_session.get(f"https://api.openweathermap.org/data/2.5/weather?q={query}&appid={OWM_KEY}&units=imperial", timeout=10).json()
+        f = http_session.get(f"https://api.openweathermap.org/data/2.5/forecast?q={query}&appid={OWM_KEY}&units=imperial", timeout=10).json()
         now = datetime.now(TZ)
         h = now.hour
         is_sleep = (h >= 22 or h < 6)
@@ -386,8 +388,9 @@ def run_sync():
             "ANTI-HALLUCINATION PROTOCOL (SAC): 1. SEARCH for a verifiable event happening TODAY in Sault Ste. Marie, MI. 2. If no specific event is found with a source, DO NOT invent one; instead, describe a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i> or <i>park activity</i>). 3. CONTENT: Provide a 2-sentence update weaving the current weather into the activity. 4. TRUTH BOUNDARY: For scheduled events, include start/end times in <i> tags only if verified. If the city is quiet, describe the quiet with dignity—never use 'filler' events like fake workshops. 5. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid saccharine words like 'sanctuary'. Set 'is_news' to true ONLY if a specific verified event is shared; otherwise, set to false."
         )
 
+        loc_name = state.get("main_config", {}).get("location", "Sault Ste. Marie, Michigan")
         prompt = f"""
-        Sault Ste. Marie, Michigan. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
+        {loc_name}. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         PREVIOUS PULSE: "{last_pulse_topic}" -> Provide a completely different topic/event.
         {buddy_task}
         {pulse_task}
@@ -841,6 +844,12 @@ def admin():
                         "text": request.form.get('branding_text', '').strip(),
                         "color": request.form.get('branding_color', '#00ffff')
                     }
+            elif action == 'update_main_config':
+                state['main_config'] = {
+                    "header": request.form.get('header_text', 'MORROW EDGE | BEACON Buddy').strip(),
+                    "location": request.form.get('location_text', 'SAULT STE. MARIE, MICHIGAN').strip(),
+                    "query": request.form.get('query_text', 'Sault+Ste.+Marie,MI,US').strip()
+                }
                 elif action == 'update_theme':
                     state['managed_theme'] = request.form.get('managed_theme', '')
                 elif action == 'add_text_slide':
@@ -918,7 +927,7 @@ def admin():
             return "Settings Updated. <a href='/admin' style='color:#00ffff;'>Go Back</a>"
         return "Unauthorized", 401
     with state_lock:
-        return render_template('admin.html', emergency=state.get('emergency', {}), branding=state.get('branding', {}), slides=state.get('slides', []), managed_theme=state.get('managed_theme', ''), beacon_pages=get_beacon_pages(), school_alerts=state.get('school_alerts', {}))
+    return render_template('admin.html', emergency=state.get('emergency', {}), branding=state.get('branding', {}), main_config=state.get('main_config', {}), slides=state.get('slides', []), managed_theme=state.get('managed_theme', ''), beacon_pages=get_beacon_pages(), school_alerts=state.get('school_alerts', {}))
 @app.route('/api/state')
 def get_state(): 
     with state_lock:

@@ -69,10 +69,27 @@
                 <input type="hidden" name="action" value="update_branding">
                 <label>Admin Password:</label> <input type="password" name="password" required>
                 <label>Branding Text:</label>
-                <input type="text" name="branding_text" value="{{ branding.text | default('Morrow Edge, LLC. (R) All Rights Reserved. 2026') }}">
+                <input type="text" name="branding_text" value="{{ branding.text }}" placeholder="Leave blank to hide">
                 <label>Text Color:</label>
                 <input type="color" name="branding_color" value="{{ branding.color | default('#00ffff') }}">
                 <button type="submit">Update Branding</button>
+            </form>
+        </div>
+
+        <!-- Main Config -->
+        <div class="card">
+            <h2>🌍 Main Dashboard Config</h2>
+            <p style="font-size: 0.9rem; color: #888;">Customize the text and weather query for the primary dashboard root (/).</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="update_main_config">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <label>Header Title:</label>
+                <input type="text" name="header_text" value="{{ main_config.header | default('MORROW EDGE | BEACON Buddy') }}" required>
+                <label>Location Subtitle:</label>
+                <input type="text" name="location_text" value="{{ main_config.location | default('SAULT STE. MARIE, MICHIGAN') }}" required>
+                <label>OpenWeatherMap Query (City, State, Country):</label>
+                <input type="text" name="query_text" value="{{ main_config.query | default('Sault+Ste.+Marie,MI,US') }}" required>
+                <button type="submit">Update Dashboard Setup</button>
             </form>
         </div>
 
