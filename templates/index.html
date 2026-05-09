@@ -43,12 +43,12 @@
         body.golden-mode .buddy-body { box-shadow: inset -5px -10px 15px rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.3), 0 0 15px rgba(224,155,107,0.2); }
         body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100dvh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: --bg 120s ease, --accent 120s ease, --dim 120s ease, --buddy-blue 120s ease, --text-main 120s ease, --pod-border 120s ease, --pod-bg 120s ease, --pod-hover-glow 120s ease, --pod-active-bg 120s ease, --shadow-color 120s ease, background 120s ease, color 120s ease; }
         #header-container { display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 20; pointer-events: none; }
-        #header { font-size: clamp(1rem, 1.8vw, 2rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.8; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); }
-        #location { font-size: clamp(1rem, 1.5vw, 1.8rem); opacity: 0.4; letter-spacing: 2px; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
+        #header { font-size: clamp(1rem, 1.8vw, 2rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.75; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); }
+        #location { font-size: clamp(1rem, 1.5vw, 1.8rem); opacity: 0.35; letter-spacing: 2px; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
         #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
         .lore-box { position: absolute; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
         #lore-trigger:hover + .lore-box, #lore-trigger:focus + .lore-box { opacity: 1; pointer-events: all; }
-        #weekly-trigger { position: absolute; top: 20px; left: 55px; font-size: 1.2rem; opacity: 0.6; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; }
+        #weekly-trigger { position: absolute; top: 20px; left: 55px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; }
         #weekly-trigger:hover, #weekly-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         .pod { position: absolute; width: clamp(60px, 8vmin, 100px); height: clamp(60px, 8vmin, 100px); border-radius: 50%; border: 1px solid var(--pod-border); background: var(--pod-bg); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 2.5rem); filter: grayscale(80%) opacity(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
         .pod:hover { filter: grayscale(0%) opacity(1); transform: scale(1.1); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100 !important; }
@@ -62,11 +62,11 @@
         #pos-bed:hover { filter: grayscale(0%) opacity(1); transform: translateX(-50%) scale(1.05); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100; }
         #pos-bed.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); pointer-events: none; z-index: 6; }
         #center-info { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 60vw; max-width: 760px; pointer-events: none; z-index: 10; }
-        .date-line { font-size: clamp(0.9rem, 1.2vw, 1.5rem); color: var(--accent); opacity: 0.6; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
-        .clock { font-size: clamp(2rem, 4vw, 3.5rem); color: var(--accent); margin-bottom: -5px; text-shadow: 0 4px 20px var(--shadow-color), 0 0 40px var(--shadow-color); } .temp { font-size: clamp(4rem, 8vw, 8rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; text-shadow: 0 6px 30px var(--shadow-color), 0 0 60px var(--shadow-color); }
+        .date-line { font-size: clamp(0.9rem, 1.2vw, 1.5rem); color: var(--accent); opacity: 0.55; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
+        .clock { font-size: clamp(2rem, 4vw, 3.5rem); color: var(--accent); margin-bottom: -5px; opacity: 0.95; text-shadow: 0 4px 20px var(--shadow-color), 0 0 40px var(--shadow-color); } .temp { font-size: clamp(4rem, 8vw, 8rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; opacity: 0.95; text-shadow: 0 6px 30px var(--shadow-color), 0 0 60px var(--shadow-color); }
         .suggestion { font-size: clamp(0.9rem, 1.4vw, 1.2rem); color: var(--accent); font-weight: bold; margin: 2px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 4px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); }
-        .forecast-line { font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.9; margin: 2px auto; width: fit-content; max-width: clamp(280px, 75%, 700px); line-height: 1.5; font-style: italic; background: rgba(0,0,0,0.3); padding: clamp(4px, 1vh, 8px) clamp(16px, 3vw, 40px); border-radius: 8px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); }
-        .pulse-line { font-size: clamp(0.8rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.85; margin: 4px auto 0; font-style: italic; font-weight: normal; border: 1px solid var(--pod-border); background: var(--pod-bg); padding: clamp(8px, 1.5vh, 12px) clamp(16px, 3vw, 24px); width: fit-content; max-width: clamp(280px, 85%, 650px); line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; pointer-events: auto; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 8px 25px var(--shadow-color); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        .forecast-line { font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.85; margin: 2px auto; width: fit-content; max-width: clamp(280px, 75%, 700px); line-height: 1.5; font-style: italic; background: rgba(0,0,0,0.3); padding: clamp(4px, 1vh, 8px) clamp(16px, 3vw, 40px); border-radius: 8px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); }
+        .pulse-line { font-size: clamp(0.8rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.8; margin: 4px auto 0; font-style: italic; font-weight: normal; border: 1px solid var(--pod-border); background: var(--pod-bg); padding: clamp(8px, 1.5vh, 12px) clamp(16px, 3vw, 24px); width: fit-content; max-width: clamp(280px, 85%, 650px); line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; pointer-events: auto; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 8px 25px var(--shadow-color); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
         .pulse-line::after { content: ' ▤'; font-size: 0.8em; opacity: 0.4; vertical-align: top; margin-left: 6px; }
         .pulse-line:hover, .pulse-line:focus { opacity: 1; outline: none; background: var(--pod-bg); text-shadow: 0 0 10px var(--accent); box-shadow: 0 -10px 10px var(--pod-bg); }
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: pointer; }
@@ -202,7 +202,7 @@
     </style>
 </head>
 <body class="{% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
-    <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: 1; pointer-events: none; opacity: 0.4; transition: opacity 1s ease;">
+    <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: 1; pointer-events: none; opacity: 0.33; transition: opacity 1s ease;">
         <canvas id="hourly-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
     </div>
     <div id="header-container">
@@ -213,7 +213,7 @@
     <div id="lore-trigger" tabindex="0">i</div>
     <div class="lore-box">Hi I'm Buddy! Integrated Model Discovery 6.0 Active. Click my body to meet my creators!<br><br><span style="opacity:0.5; font-size:0.8em; font-style:italic;">Forecast generated by Gemini API using OpenWeather data</span></div>
     <div id="weekly-trigger" role="button" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('weekly-modal').style.display='flex'" title="5-Day Outlook">📅</div>
-    <div id="build-stamp" role="button" tabindex="0" onclick="handleSecretTap()" onkeydown="if(event.key==='Enter')handleSecretTap()">BUILD: {{ build_timestamp }}</div>
+    <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
     <div class="pods"><div class="pod" role="button" id="pos-coffee" tabindex="0" onclick="moveBuddy('coffee')" onkeydown="if(event.key==='Enter')moveBuddy('coffee')">☕</div><div class="pod" role="button" tabindex="0" id="pos-office" onclick="moveBuddy('office')" onkeydown="if(event.key==='Enter')moveBuddy('office')">💻</div><div class="pod" role="button" tabindex="0" id="pos-gym" onclick="moveBuddy('gym')" onkeydown="if(event.key==='Enter')moveBuddy('gym')">💪</div><div class="pod" role="button" tabindex="0" id="pos-store" onclick="moveBuddy('store')" onkeydown="if(event.key==='Enter')moveBuddy('store')">🛍️</div><div class="pod" role="button" tabindex="0" id="pos-library" onclick="moveBuddy('library')" onkeydown="if(event.key==='Enter')moveBuddy('library')">📖</div><div class="pod" role="button" tabindex="0" id="pos-garage" onclick="moveBuddy('garage')" onkeydown="if(event.key==='Enter')moveBuddy('garage')">🔧</div><div class="pod" role="button" tabindex="0" id="pos-park" onclick="moveBuddy('park')" onkeydown="if(event.key==='Enter')moveBuddy('park')">🚲</div><div class="pod" role="button" tabindex="0" id="pos-kitchen" onclick="moveBuddy('kitchen')" onkeydown="if(event.key==='Enter')moveBuddy('kitchen')">🍳</div><div id="pos-bed" role="button" tabindex="0" onclick="moveBuddy('bed')" onkeydown="if(event.key==='Enter')moveBuddy('bed')">🛏️</div></div>
     <div id="egg-modal" onclick="if(event.target === this) triggerEgg('close')">
         <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 10px;">SECRET MENU</h2>
@@ -245,6 +245,15 @@
         </div>
         <div class="egg-btn" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='none'" style="margin-top:30px; border-color:gray; color:gray;">Close</div>
     </div>
+    <div id="cast-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; pointer-events: auto; padding: 5vh 5vw;" onclick="if(event.target === this) this.style.display='none'">
+        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 2.5rem); text-transform: uppercase;">Cast to TV</h2>
+        <div style="color: var(--text-main); font-size: clamp(1rem, 1.5vw, 1.2rem); text-align: left; max-width: 500px; opacity: 0.9; margin-bottom: 20px; line-height: 1.6; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 1px solid var(--pod-border); box-shadow: 0 4px 15px var(--shadow-color); backdrop-filter: blur(8px);">
+            To display BEACON on your TV or Smart Display:<br><br>
+            <strong>🍎 Apple / iOS:</strong><br>Open Control Center and tap <strong>Screen Mirroring</strong>.<br><br>
+            <strong>🤖 Android / Samsung:</strong><br>Swipe down from the top of your screen and tap <strong>Smart View</strong>, <strong>Cast</strong>, or <strong>Screen Cast</strong>.
+        </div>
+        <div class="egg-btn" tabindex="0" onclick="document.getElementById('cast-modal').style.display='none'" style="margin-top:10px; border-color:gray; color:gray;">Close</div>
+    </div>
     <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: var(--accent); opacity: 0; z-index: 2000; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease;">POWERED BY THE CITY OF SAULT STE. MARIE</div>
     <div id="center-info">
         <div class="clock" id="ui-clock" aria-live="polite">--:-- --</div>
@@ -254,14 +263,14 @@
                 <div class="temp" aria-live="polite"><span id="ui-temp">{{ temp }}</span>°</div>
             </div>
             <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 8px 16px; border-radius: 15px; text-align: center; min-width: 180px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">
-                <div id="ui-desc" aria-live="polite" style="font-size: clamp(1rem, 1.2vw, 1.2rem); opacity: 0.8; font-weight: bold; color: var(--accent);">{{ desc }}</div>
-                <div id="ui-hl-desc" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); opacity: 0.7;">H: {{ high }}° L: {{ low }}° | 💧 {{ pop }}% | 🌅 {{ sunrise }} 🌇 {{ sunset }}</div>
+                <div id="ui-desc" aria-live="polite" style="font-size: clamp(1rem, 1.2vw, 1.2rem); opacity: 0.75; font-weight: bold; color: var(--accent);">{{ desc }}</div>
+                <div id="ui-hl-desc" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); opacity: 0.65;">H: {{ high }}° L: {{ low }}° | 💧 {{ pop }}% | 🌅 {{ sunrise }} 🌇 {{ sunset }}</div>
             </div>
         </div>
         <div class="forecast-line" id="ui-forecast" aria-live="polite">{{ forecast }}</div>
         <div class="suggestion" id="ui-sugg" aria-live="polite">{% if 'Initializing' in suggestion %}{{ suggestion }}{% else %}🧥 Suggested Attire: {{ suggestion }}{% endif %}</div>
         
-        <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.8; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">Tomorrow: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
+        <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.75; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">Tomorrow: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
         <div class="pulse-line" id="ui-pulse" role="button" aria-live="polite" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse | safe }}</div>
     </div>
     <div id="buddy-container" onclick="leaveForMorrowEdge()" class="{% if is_sleeping %}sleeping{% endif %}">
@@ -395,11 +404,22 @@
             }
         }
 
-        let buildTapCount = 0; let buildTapTimer = null;
+        let headerTapCount = 0; let headerTapTimer = null;
         window.handleSecretTap = function() {
+            headerTapCount++; clearTimeout(headerTapTimer);
+            if (headerTapCount >= 5) {
+                document.getElementById('egg-modal').style.display = 'flex';
+                headerTapCount = 0;
+            } else {
+                headerTapTimer = setTimeout(() => headerTapCount = 0, 2000);
+            }
+        };
+
+        let buildTapCount = 0; let buildTapTimer = null;
+        window.handleCastTap = function() {
             buildTapCount++; clearTimeout(buildTapTimer);
             if (buildTapCount >= 5) {
-                document.getElementById('egg-modal').style.display = 'flex';
+                startCast();
                 buildTapCount = 0;
             } else {
                 buildTapTimer = setTimeout(() => buildTapCount = 0, 2000);
@@ -448,6 +468,23 @@
         window.closePulseHistory = function() {
             document.getElementById('pulse-modal').style.display = 'none';
         };
+
+    window.startCast = function() {
+        if (navigator.presentation && navigator.presentation.receiver === null) {
+            try {
+                let request = new PresentationRequest([window.location.href]);
+                request.start().catch(error => {
+                    if (error.name !== 'NotAllowedError') {
+                        document.getElementById('cast-modal').style.display = 'flex';
+                    }
+                });
+                return;
+            } catch(e) {
+                console.log("Presentation API error", e);
+            }
+        }
+        document.getElementById('cast-modal').style.display = 'flex';
+    };
 
         window.activateSpinMode = function() {
             const b = document.getElementById('buddy-container');
