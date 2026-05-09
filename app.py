@@ -521,7 +521,7 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 "sunrise": sunrise_str, "sunset": sunset_str,
                 "weekly_list": weekly_list,
                 "school_closings": {"sault_closed": sault_closed, "other_closings": other_closings}
-            })
+            }
             with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
     except Exception as e: 
         print(f"[ERROR] {e}", flush=True)
@@ -954,12 +954,12 @@ def admin():
                         "text": request.form.get('branding_text', '').strip(),
                         "color": request.form.get('branding_color', '#00ffff')
                     }
-            elif action == 'update_main_config':
-                state['main_config'] = {
-                    "header": request.form.get('header_text', 'MORROW EDGE | BEACON Buddy').strip(),
-                    "location": request.form.get('location_text', 'SAULT STE. MARIE, MICHIGAN').strip(),
-                    "query": request.form.get('query_text', 'Sault+Ste.+Marie,MI,US').strip()
-                }
+                elif action == 'update_main_config':
+                    state['main_config'] = {
+                        "header": request.form.get('header_text', 'MORROW EDGE | BEACON Buddy').strip(),
+                        "location": request.form.get('location_text', 'SAULT STE. MARIE, MICHIGAN').strip(),
+                        "query": request.form.get('query_text', 'Sault+Ste.+Marie,MI,US').strip()
+                    }
                 elif action == 'update_theme':
                     state['managed_theme'] = request.form.get('managed_theme', '')
                 elif action == 'add_text_slide':
@@ -1052,7 +1052,7 @@ def admin():
             return "Settings Updated. <a href='/admin' style='color:#00ffff;'>Go Back</a>"
         return "Unauthorized", 401
     with state_lock:
-    return render_template('admin.html', emergency=state.get('emergency', {}), branding=state.get('branding', {}), main_config=state.get('main_config', {}), slides=state.get('slides', []), managed_theme=state.get('managed_theme', ''), beacon_pages=get_beacon_pages(), school_alerts=state.get('school_alerts', {}))
+        return render_template('admin.html', emergency=state.get('emergency', {}), branding=state.get('branding', {}), main_config=state.get('main_config', {}), slides=state.get('slides', []), managed_theme=state.get('managed_theme', ''), beacon_pages=get_beacon_pages(), school_alerts=state.get('school_alerts', {}))
 @app.route('/api/state')
 def get_state(): 
     with state_lock:
