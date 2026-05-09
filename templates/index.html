@@ -99,8 +99,12 @@
         #egg-modal, #pulse-modal, #weekly-modal, #agenda-modal, #cast-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 2vh, 15px); pointer-events: auto; overflow-y: auto; padding: 5vh 5vw; box-sizing: border-box; }
         .egg-btn { background: rgba(0,255,255,0.1); border: 2px solid var(--accent); color: var(--accent); padding: clamp(10px, 1.5vh, 15px) clamp(15px, 3vw, 30px); font-size: clamp(0.9rem, 2vh, 1.2rem); border-radius: 10px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: clamp(150px, 25vw, 200px); text-align: center; flex-shrink: 0; }
         .egg-btn:hover, .egg-btn:focus { background: var(--accent); color: #000; outline: none; }
-        #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-        #buddy-container:hover { z-index: 2500 !important; transform: scale(1) !important; filter: brightness(1) !important; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 0.3s ease, filter 0.3s ease, z-index 0s !important; }
+        #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, opacity 0.5s ease, z-index 0s 0.75s; z-index: 1000; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        #buddy-container:hover { z-index: 2500 !important; transform: scale(1) !important; filter: brightness(1) !important; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 0.3s ease, filter 0.3s ease, opacity 0.5s ease, z-index 0s !important; }
+        #buddy-container.reading-mode { transform: scale(0.6) !important; }
+        #buddy-container.reading-mode .bubble { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.2s !important; }
+        .mimicking .eye { animation: read-scan 4s infinite !important; height: 5px; }
+        .mimicking .buddy-body { animation: read-bob 4s infinite !important; }
         #buddy-container::before { content: ''; position: absolute; inset: -45px; border-radius: 50%; }
         .bg-mode { transform: scale(0.85); z-index: 3 !important; filter: brightness(0.85); }
         .orbiting-front { animation: orbit-front 2.5s cubic-bezier(0.45, 0, 0.55, 1) forwards !important; }
@@ -153,6 +157,8 @@
         .waking-up .eye { animation: none !important; height: 8px !important; margin-top: -2px; }
         #pulse-list::-webkit-scrollbar { width: 8px; }
         #pulse-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+        @keyframes read-scan { 0%, 5% { height: 8px; width: 10px; transform: translateY(-3px); } 10%, 15% { height: 2px; width: 6px; transform: translateY(2px) scaleX(0.8); } 20% { height: 5px; width: 5px; transform: translateX(-4px); } 35% { height: 5px; width: 5px; transform: translateX(4px); } 50% { height: 5px; width: 5px; transform: translateX(-4px); } 65% { height: 5px; width: 5px; transform: translateX(4px); } 80% { height: 5px; width: 5px; transform: translateX(-4px); } 100% { height: 5px; width: 5px; transform: translateX(4px); } }
+        @keyframes read-bob { 0%, 5% { transform: translateY(-5px); } 10%, 15% { transform: translateY(2px) rotate(10deg); } 20%, 100% { transform: translateY(0) rotate(5deg); } }
         @keyframes strobe-bg { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.5); box-shadow: inset 0 0 150px rgba(255,255,255,0.4); } }
         .strobe-alert { animation: strobe-bg 1s infinite alternate; }
         @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
@@ -251,6 +257,7 @@
         @keyframes lava-lamp { 0% { background-position: 0% 0%, 100% 0%, 50% 100%; } 50% { background-position: 100% 100%, 0% 50%, 100% 0%; } 100% { background-position: 50% 50%, 0% 100%, 0% 0%; } }
         body.groovy-mode .buddy-aura { animation: rave-colors 2s infinite linear, pulse-aura 3s infinite alternate; opacity: 0.8; }
         body.groovy-mode .buddy-body { background: repeating-linear-gradient(45deg, #ff00ff, #ff00ff 10px, #ffaa00 10px, #ffaa00 20px, #00ffcc 20px, #00ffcc 30px); } body.groovy-mode .arm { background: repeating-linear-gradient(45deg, #ff00ff, #ff00ff 5px, #ffaa00 5px, #ffaa00 10px, #00ffcc 10px, #00ffcc 15px); }
+        #buddy-container.dragging { transition: none !important; z-index: 3000 !important; cursor: grabbing !important; }
     </style>
 </head>
 <body class="{% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
@@ -379,6 +386,213 @@
         let activeSlideTimer = null;
         let slideIndex = -1; // -1 means Dashboard
 
+        // Buddy Draggable Logic & Obfuscation Detection
+        let isDragging = false;
+        let isManuallyMoved = false;
+        let dragMoved = false;
+        let returnTimeout = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        let isObfuscating = false;
+        let showingInstruction = false;
+        let isReadingEvade = false;
+        let mimicEndTimer = null;
+        let preReadAcc = '';
+        let currentBaseBubble = document.getElementById('ui-bbl') ? document.getElementById('ui-bbl').innerText : "Rerouting...";
+        
+        window.setBubbleText = function(text) {
+            currentBaseBubble = text;
+            const bbl = document.getElementById('ui-bbl');
+            if (bbl) {
+                bbl.classList.remove('bubble-update');
+                void bbl.offsetWidth;
+                bbl.innerText = showingInstruction ? "Hold and swipe to move me" : text;
+                bbl.classList.add('bubble-update');
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const dragBuddyContainer = document.getElementById('buddy-container');
+
+            dragBuddyContainer.addEventListener('mousedown', startDrag);
+            window.addEventListener('mousemove', onDrag);
+            window.addEventListener('mouseup', endDrag);
+
+            dragBuddyContainer.addEventListener('touchstart', startDrag, {passive: false});
+            window.addEventListener('touchmove', onDrag, {passive: false});
+            window.addEventListener('touchend', endDrag);
+            window.addEventListener('touchcancel', endDrag);
+
+            function startDrag(e) {
+                if (window.onDate || window.isKaiju || window.isRaving) return;
+                if (e.type === 'mousedown' && e.button !== 0) return; 
+                checkObfuscation();
+                if (!isObfuscating && !isManuallyMoved) return; // 🛑 RESTRICT DRAGGABILITY!
+                isDragging = true;
+                dragMoved = false;
+                isManuallyMoved = true;
+                clearTimeout(returnTimeout);
+                dragBuddyContainer.classList.add('dragging');
+                
+                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                const rect = dragBuddyContainer.getBoundingClientRect();
+                dragOffsetX = clientX - rect.left;
+                dragOffsetY = clientY - rect.top;
+            }
+
+            function onDrag(e) {
+                if (!isDragging) return;
+                dragMoved = true;
+                if (e.cancelable) e.preventDefault(); 
+                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                let newX = clientX - dragOffsetX;
+                let newY = clientY - dragOffsetY;
+                
+                newX = Math.max(0, Math.min(window.innerWidth - dragBuddyContainer.offsetWidth, newX));
+                newY = Math.max(0, Math.min(window.innerHeight - dragBuddyContainer.offsetHeight, newY));
+                
+                dragBuddyContainer.style.left = newX + 'px';
+                dragBuddyContainer.style.top = newY + 'px';
+                
+                window.fitBubble(newX, newY);
+                checkObfuscation();
+            }
+
+            function endDrag(e) {
+                if (!isDragging) return;
+                isDragging = false;
+                dragBuddyContainer.classList.remove('dragging');
+                checkObfuscation();
+                
+                returnTimeout = setTimeout(() => {
+                    isManuallyMoved = false;
+                    syncBuddy();
+                }, 15000);
+                
+                setTimeout(() => { if (!isDragging) dragMoved = false; }, 100);
+            }
+        });
+
+        function isOverlapping(el1, el2) {
+            if (!el1 || !el2) return false;
+            const r1 = el1.getBoundingClientRect();
+            const r2 = el2.getBoundingClientRect();
+            return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+        }
+
+        function checkObfuscation() {
+            if (window.onDate || window.isKaiju || window.isRaving || window.isMatrix) {
+                isObfuscating = false;
+                return;
+            }
+            const isMobile = window.innerWidth <= 600;
+            if (!isMobile) {
+                isObfuscating = false;
+                return;
+            }
+            const bbl = document.getElementById('ui-bbl');
+            const buddy = document.getElementById('buddy-container');
+            const pulse = document.getElementById('ui-pulse');
+            
+            if (bbl && buddy && pulse && bbl.style.display !== 'none' && !buddy.classList.contains('sleeping')) {
+                isObfuscating = isOverlapping(buddy, pulse) || isOverlapping(bbl, pulse);
+            } else {
+                isObfuscating = false;
+            }
+        }
+
+        // --- READING INTENT HEURISTICS ---
+        window.evadeToRead = function() {
+            if (window.innerWidth > 600 || !isObfuscating || isDragging) return;
+            const b = document.getElementById('buddy-container');
+            if (!b) return;
+            
+            clearTimeout(returnTimeout);
+            clearTimeout(mimicEndTimer);
+            
+            if (!isReadingEvade) {
+                isReadingEvade = true;
+                b.classList.add('reading-mode'); // Instantly shrinks & hides bubble
+                preReadAcc = document.getElementById('ui-hand').innerText;
+                
+                setTimeout(() => {
+                    if (!isReadingEvade) return;
+                    const clock = document.getElementById('ui-clock');
+                    if (clock) {
+                        const rect = clock.getBoundingClientRect();
+                        b.style.left = Math.max(10, rect.left - 65) + 'px';
+                        b.style.top = (rect.top + rect.height/2 - 60) + 'px';
+                    }
+                    document.getElementById('ui-hand').innerText = '📖';
+                    b.classList.add('mimicking');
+                }, 250); // Flies over after shrinking
+            } else {
+                b.classList.add('mimicking');
+                document.getElementById('ui-hand').innerText = '📖';
+            }
+            
+            mimicEndTimer = setTimeout(() => {
+                if (b.classList.contains('reading-mode')) {
+                    b.classList.remove('mimicking');
+                    document.getElementById('ui-hand').innerText = preReadAcc; // Puts book away, waits idly
+                }
+            }, 8000); // 8 seconds of active mimicking
+            
+            returnTimeout = setTimeout(() => {
+                isReadingEvade = false;
+                b.classList.remove('reading-mode', 'mimicking');
+                document.getElementById('ui-hand').innerText = preReadAcc;
+                syncBuddy();
+            }, 15000); // 15 seconds ample time to read
+        };
+
+        // 1. Phone Wake / Page Visibility Detector
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') setTimeout(() => { checkObfuscation(); evadeToRead(); }, 500);
+        });
+
+        // 2. "Thumb-Steady" & Micro-Scroll Detector
+        let readingTimer = null;
+        window.addEventListener('touchstart', (e) => { if (e.touches.length > 1) return; readingTimer = setTimeout(() => { checkObfuscation(); evadeToRead(); }, 300); }, {passive: true});
+        window.addEventListener('touchmove', () => { clearTimeout(readingTimer); checkObfuscation(); evadeToRead(); }, {passive: true});
+        window.addEventListener('touchend', () => clearTimeout(readingTimer));
+
+        setInterval(() => {
+            checkObfuscation();
+            const b = document.getElementById('buddy-container');
+            const bbl = document.getElementById('ui-bbl');
+            if (!bbl || b.classList.contains('sleeping')) return;
+            
+            if (isObfuscating) {
+                if (isReadingEvade) {
+                    if (showingInstruction) {
+                        showingInstruction = false;
+                        bbl.classList.remove('bubble-update'); void bbl.offsetWidth;
+                        bbl.innerText = currentBaseBubble; bbl.classList.add('bubble-update');
+                    }
+                } else {
+                    showingInstruction = !showingInstruction;
+                    const newText = showingInstruction ? "Hold and swipe to move me" : currentBaseBubble;
+                    bbl.classList.remove('bubble-update');
+                    void bbl.offsetWidth;
+                    bbl.innerText = newText;
+                    bbl.classList.add('bubble-update');
+                }
+            } else {
+                if (showingInstruction) {
+                    showingInstruction = false;
+                    bbl.classList.remove('bubble-update');
+                    void bbl.offsetWidth;
+                    bbl.innerText = currentBaseBubble;
+                    bbl.classList.add('bubble-update');
+                }
+            }
+        }, 4000);
+
         window.fitBubble = function(targetX, targetY) {
             const bbl = document.getElementById('ui-bbl');
             const buddy = document.getElementById('buddy-container');
@@ -440,7 +654,10 @@
         bblObserver.observe(document.getElementById('ui-bbl'), { childList: true, characterData: true, subtree: true });
         
         document.getElementById('buddy-container').addEventListener('transitionend', (e) => {
-            if (e.propertyName === 'left' || e.propertyName === 'top') window.fitBubble();
+            if (e.propertyName === 'left' || e.propertyName === 'top') {
+                window.fitBubble();
+                checkObfuscation(); // Immediately clear the "Hold to move me" text once he evades
+            }
         });
 
         function layoutPods() {
@@ -509,6 +726,7 @@
         ['mousemove', 'mousedown', 'touchstart'].forEach(evt => window.addEventListener(evt, () => lastInteraction = Date.now()));
 
         function leaveForMorrowEdge() {
+            if (dragMoved) return;
             if (window.onDate || window.isRaving || window.isKaiju) return; // Don't leave if he's busy!
             document.documentElement.style.background = '#010103';
             document.body.style.transition = 'opacity 1s ease';
@@ -860,8 +1078,7 @@
                 document.documentElement.style.setProperty('--dim', '#00aa00');
                 document.documentElement.style.setProperty('--buddy-blue', '#003300');
                 document.body.style.fontFamily = 'monospace';
-                bbl.innerText = "Wake up..."; bbl.classList.remove('bubble-update');
-                void bbl.offsetWidth; bbl.classList.add('bubble-update');
+                setBubbleText("Wake up...");
                 return "Entering the matrix...";
             } else {
                 document.body.style.background = '';
@@ -870,8 +1087,7 @@
                 document.documentElement.style.removeProperty('--dim');
                 document.documentElement.style.removeProperty('--buddy-blue');
                 document.body.style.fontFamily = '';
-                bbl.innerText = "Ignorance is bliss."; bbl.classList.remove('bubble-update');
-                void bbl.offsetWidth; bbl.classList.add('bubble-update');
+                setBubbleText("Ignorance is bliss.");
                 fetchState(true);
                 return "Leaving the matrix...";
             }
@@ -905,12 +1121,9 @@
             b.classList.add('on-date');
 
             setTimeout(() => {
-                bbl.innerText = "...I cannot eat.";
-                bbl.style.left = '50%';
-                bbl.style.transform = 'translateX(-50%)';
-                bbl.classList.remove('bubble-update');
-                void bbl.offsetWidth;
-                bbl.classList.add('bubble-update');
+                setBubbleText("...I cannot eat.");
+                bbl.style.setProperty('left', '50%', 'important');
+                bbl.style.setProperty('transform', 'translateX(-50%)', 'important');
                 
                 eyes.forEach(e => e.style.animation = 'none'); // Stop blinking to stare
             }, 1500); // 1.5 seconds for him to fly to the table
@@ -943,10 +1156,7 @@
             const bbl = document.getElementById('ui-bbl');
             b.style.animation = 'crazy-spin 2s infinite linear';
             
-            bbl.innerText = "WUB WUB WUB WUB";
-            bbl.classList.remove('bubble-update');
-            void bbl.offsetWidth;
-            bbl.classList.add('bubble-update');
+            setBubbleText("WUB WUB WUB WUB");
             
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -987,8 +1197,7 @@
             b.classList.add('kaiju-mode');
             document.body.classList.add('shake-screen');
             
-            bbl.innerText = "I REQUIRE MORE RAM.";
-            bbl.classList.add('bubble-update');
+            setBubbleText("I REQUIRE MORE RAM.");
 
             setTimeout(() => {
                 b.classList.remove('kaiju-mode');
@@ -1024,10 +1233,7 @@
             setTimeout(() => {
                 cookie.style.opacity = '0';
                 b.classList.add('waking-up'); // We can reuse his waking-up "wiggle" animation for a happy food dance!
-                bbl.innerText = "Yum! An ultralight whitebeam cookie!";
-                bbl.classList.remove('bubble-update');
-                void bbl.offsetWidth;
-                bbl.classList.add('bubble-update');
+                setBubbleText("Yum! An ultralight whitebeam cookie!");
             }, 1050);
             
             setTimeout(() => {
@@ -1188,12 +1394,10 @@
         }
 
         async function moveBuddy(station) {
+            isManuallyMoved = false;
+            clearTimeout(returnTimeout);
             if (station === currentStation) {
-                const bbl = document.getElementById('ui-bbl');
-                bbl.innerText = station === 'bed' ? "I'm already sleeping!" : "I'm already here!";
-                bbl.classList.remove('bubble-update');
-                void bbl.offsetWidth;
-                bbl.classList.add('bubble-update');
+                setBubbleText(station === 'bed' ? "I'm already sleeping!" : "I'm already here!");
                 return;
             }
             const wasSleeping = currentStation === 'bed';
@@ -1201,30 +1405,20 @@
             if (station === 'bed') document.getElementById('pos-bed').style.display = 'flex';
             document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
             const t = document.getElementById(`pos-${station}`); if(t) t.classList.add('active');
-            const bbl = document.getElementById('ui-bbl');
             
             const b = document.getElementById('buddy-container');
             if (wasSleeping && station !== 'bed') {
-                bbl.innerText = "*Stretches*";
-                bbl.classList.remove('bubble-update');
-                void bbl.offsetWidth;
-                bbl.classList.add('bubble-update');
                 b.classList.remove('sleeping');
                 document.getElementById('ui-zzz').style.animation = 'none';
                 b.classList.add('waking-up');
+                setBubbleText("*Stretches*");
                 setTimeout(() => {
                     b.classList.remove('waking-up');
-                    bbl.innerText = (window.innerWidth <= 600 && station !== 'bed') ? (defaultBubbles[station] || "Rerouting...") : "Rerouting...";
-                    bbl.classList.remove('bubble-update');
-                    void bbl.offsetWidth;
-                    bbl.classList.add('bubble-update');
+                    setBubbleText((window.innerWidth <= 600 && station !== 'bed') ? (defaultBubbles[station] || "Rerouting...") : "Rerouting...");
                     syncBuddy();
                 }, 1200);
             } else {
-                bbl.innerText = (window.innerWidth <= 600 && station !== 'bed') ? (defaultBubbles[station] || "Rerouting...") : "Rerouting...";
-                bbl.classList.remove('bubble-update');
-                void bbl.offsetWidth;
-                bbl.classList.add('bubble-update');
+                setBubbleText((window.innerWidth <= 600 && station !== 'bed') ? (defaultBubbles[station] || "Rerouting...") : "Rerouting...");
                 syncBuddy();
             }
             
@@ -1302,17 +1496,15 @@
                 if (s.emergency && s.emergency.active) {
                     document.body.style.setProperty('--flare-color', s.emergency.color);
                     document.body.style.animation = 'flare-pulse 1.5s infinite alternate';
-                    const bbl = document.getElementById('ui-bbl');
-                    if (bbl.innerText !== s.emergency.message) {
-                        bbl.innerText = s.emergency.message;
+                    if (currentBaseBubble !== s.emergency.message) {
+                        setBubbleText(s.emergency.message);
                     }
                 } else if (s.school_closings && s.school_closings.sault_closed) {
                     document.body.style.setProperty('--flare-color', '#00aaff');
                     document.body.style.animation = 'flare-pulse 1.5s infinite alternate';
-                    const bbl = document.getElementById('ui-bbl');
                     const msg = "❄️ SAULT SCHOOLS CLOSED! SNOW DAY! ❄️";
-                    if (bbl.innerText !== msg) {
-                        bbl.innerText = msg;
+                    if (currentBaseBubble !== msg) {
+                        setBubbleText(msg);
                     }
                 } else {
                     document.body.style.removeProperty('--flare-color');
@@ -1384,11 +1576,8 @@
                     let displayBubble = s.bubble;
                     if (window.innerWidth <= 600 && s.station !== 'bed') displayBubble = defaultBubbles[s.station] || 'Rerouting...';
                     
-                    if (bbl && s.bubble && bbl.innerText !== displayBubble && (!s.emergency || !s.emergency.active) && (!s.school_closings || !s.school_closings.sault_closed)) {
-                        bbl.classList.remove('bubble-update');
-                        void bbl.offsetWidth; // Trigger reflow to reset animation
-                        bbl.innerText = displayBubble;
-                        bbl.classList.add('bubble-update');
+                    if (bbl && s.bubble && currentBaseBubble !== displayBubble && (!s.emergency || !s.emergency.active) && (!s.school_closings || !s.school_closings.sault_closed)) {
+                        setBubbleText(displayBubble);
                     }
                 }
                 
@@ -1417,25 +1606,23 @@
                 document.getElementById('pos-bed').style.display = s.show_bed ? 'flex' : 'none';
                 
                 const hands = {'mug':'☕','wrench':'🛠️','obd2':'🔌','laptop':'💻','book':'📖','zzz':'😴'};
-                document.getElementById('ui-hand').innerText = hands[s.acc_css] || '';
+                if (container.classList.contains('mimicking')) {
+                    preReadAcc = hands[s.acc_css] || '';
+                } else {
+                    document.getElementById('ui-hand').innerText = hands[s.acc_css] || '';
+                }
                 
                 if (wakingUp && s.station !== 'bed') {
                     const bbl = document.getElementById('ui-bbl');
                     let nextTask = s.bubble || '';
                     if (window.innerWidth <= 600 && s.station !== 'bed') nextTask = defaultBubbles[s.station] || 'Rerouting...';
                     
-                    bbl.innerText = "*Stretches*";
-                    bbl.classList.remove('bubble-update');
-                    void bbl.offsetWidth;
-                    bbl.classList.add('bubble-update');
+                    setBubbleText("*Stretches*");
                     container.classList.add('waking-up');
                     setTimeout(() => {
                         container.classList.remove('waking-up');
                         currentStation = s.station; syncBuddy();
-                        bbl.innerText = nextTask;
-                        bbl.classList.remove('bubble-update');
-                        void bbl.offsetWidth;
-                        bbl.classList.add('bubble-update');
+                        setBubbleText(nextTask);
                     }, 1200);
                 } else {
                     currentStation = s.station; syncBuddy();
@@ -1445,10 +1632,7 @@
                 if (s.pulse !== lastPulse && lastPulse !== "") {
                     if (s.pulse.length < 85 && s.station !== 'bed') {
                         setTimeout(() => {
-                            bbl.innerText = "Yawn... standard rhythm today.";
-                            bbl.classList.remove('bubble-update');
-                            void bbl.offsetWidth;
-                            bbl.classList.add('bubble-update');
+                            setBubbleText("Yawn... standard rhythm today.");
                             
                             const b = document.getElementById('buddy-container');
                             if (b.classList.contains('bg-mode')) {
@@ -1470,7 +1654,7 @@
             stateTimer = setTimeout(() => fetchState(), 30000);
         }
         function syncBuddy() {
-            if (window.onDate || window.isRaving || window.isKaiju) return; // Freeze his position during eggs
+            if (window.onDate || window.isRaving || window.isKaiju || isManuallyMoved || isReadingEvade) return; // Freeze his position
             
             layoutPods();
 
@@ -1522,6 +1706,7 @@
                 
                 window.fitBubble(destLeft, destTop);
             }
+            setTimeout(checkObfuscation, 150);
         }
         
         // Apply initial visual setup natively before JS loop
