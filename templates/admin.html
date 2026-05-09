@@ -3,36 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emergency Override Dashboard</title>
+    <title>Morrow Edge | Buddy Control Panel</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 2rem; max-width: 600px; margin: auto; }
-        input, textarea, button { width: 100%; margin-bottom: 1rem; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; }
-        button { background: #00ffff; color: #000; font-weight: bold; cursor: pointer; }
-        button:hover { background: #00cccc; }
-        label { display: block; margin-bottom: 0.5rem; color: #aaa; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: 2rem; }
+        h1 { color: #00ffff; text-align: center; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2rem; }
+        .container { max-width: 1200px; margin: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .card { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .card h2 { margin-top: 0; color: #00ffff; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        input, select, textarea, button { width: 100%; margin-bottom: 15px; padding: 12px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; font-family: inherit; }
+        button { background: #00ffff; color: #000; font-weight: bold; cursor: pointer; border: none; font-size: 1rem; text-transform: uppercase; transition: 0.2s; }
+        button:hover { background: #00cccc; box-shadow: 0 0 10px #00ffff; }
+        button.danger { background: #ff4444; color: #fff; }
+        button.danger:hover { background: #cc0000; box-shadow: 0 0 10px #ff4444; }
+        label { display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9rem; }
+        .slide-item { background: #222; padding: 15px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #00ffff; display: flex; justify-content: space-between; align-items: center; gap: 15px; }
+        .slide-info { flex-grow: 1; word-break: break-word; }
+        .color-preview { display: inline-block; width: 15px; height: 15px; border-radius: 50%; vertical-align: middle; }
     </style>
 </head>
 <body>
-    <h2>Emergency Override Dashboard</h2>
-    <p>Current Status: <strong>{{ "Active" if emergency.active else "Inactive" }}</strong></p>
-    <form method="POST">
-        <label>Admin Password:</label>
-        <input type="password" name="password" required>
-        
-        <label>Action:</label>
-        <select name="action" style="width: 100%; margin-bottom: 1rem; padding: 10px; background: #222; color: #fff; border: 1px solid #444;">
-            <option value="enable">Enable Override (Beacon Flare)</option>
-            <option value="disable">Disable Override</option>
-        </select>
-        
-        <label>Emergency Message:</label>
-        <textarea name="message" rows="4">{{ emergency.message }}</textarea>
-        
-        <label>Beacon Flare Color (Hex or Name):</label>
-        <input type="color" name="color" value="{{ emergency.color }}">
-        
-        <button type="submit">Update System</button>
-    </form>
-    <br><a href="/" style="color: #00ffff;">Back to Dashboard</a>
+    <h1>Buddy Control Panel</h1>
+    
+    <div class="container">
+        <!-- 1. Beacon Flare -->
+        <div class="card">
+            <h2>🚨 Beacon Flare (Immediate Override)</h2>
+            <p style="font-size: 0.9rem; color: #888;">Instantly overrides Buddy's text and strobes the dashboard outline. Great for severe weather warnings.</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="update_flare">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <label>Status:</label>
+                <select name="flare_active">
+                    <option value="yes" {% if emergency.active %}selected{% endif %}>Active</option>
+                    <option value="no" {% if not emergency.active %}selected{% endif %}>Inactive</option>
+                </select>
+                <label>Alert Message:</label>
+                <textarea name="message" rows="3" placeholder="e.g. SNOW EMERGENCY DECLARED">{{ emergency.message }}</textarea>
+                <label>Pulse Color:</label>
+                <input type="color" name="color" value="{{ emergency.color | default('#ff0000') }}">
+                <button type="submit">Update Flare</button>
+            </form>
+        </div>
+
+        <!-- 2. Municipal Branding -->
+        <div class="card">
+            <h2>🏛️ Global Branding</h2>
+            <p style="font-size: 0.9rem; color: #888;">Customize the text that appears at the bottom left of the dashboard.</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="update_branding">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <label>Branding Text:</label>
+                <input type="text" name="branding_text" value="{{ branding.text | default('POWERED BY THE CITY OF SAULT STE. MARIE') }}">
+                <label>Text Color:</label>
+                <input type="color" name="branding_color" value="{{ branding.color | default('#00ffff') }}">
+                <button type="submit">Update Branding</button>
+            </form>
+        </div>
+
+        <!-- Global Theme Pack -->
+        <div class="card">
+            <h2>🎨 Global Themepack</h2>
+            <p style="font-size: 0.9rem; color: #888;">Push a themepack to all connected displays. Users can manually overwrite it.</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="update_theme">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <label>Select Theme:</label>
+                <select name="managed_theme">
+                    <option value="">None (Dynamic Time-of-Day)</option>
+                    <option value="ocean-mode" {% if managed_theme == 'ocean-mode' %}selected{% endif %}>Deep Sea</option>
+                    <option value="groovy-mode" {% if managed_theme == 'groovy-mode' %}selected{% endif %}>Groovy</option>
+                    <option value="high-contrast-mode" {% if managed_theme == 'high-contrast-mode' %}selected{% endif %}>High Contrast</option>
+                </select>
+                <button type="submit">Push Theme</button>
+            </form>
+        </div>
+
+        <!-- 3. Add Text Signage -->
+        <div class="card">
+            <h2>📝 Add Text Billboard Slide</h2>
+            <p style="font-size: 0.9rem; color: #888;">Creates a full-screen text slide (e.g. "Mackinac Bridge Closed", "Welcome Governor").</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="add_text_slide">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <label>Message:</label>
+                <textarea name="text" rows="3" required placeholder="BLIZZARD WARNING"></textarea>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;"><label>Background Color:</label><input type="color" name="bg_color" value="#ff0000"></div>
+                    <div style="flex: 1;"><label>Text Color:</label><input type="color" name="text_color" value="#ffffff"></div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                </div>
+                <label>Strobe Effect (High Urgency):</label>
+                <select name="strobe"><option value="no">No</option><option value="yes">Yes</option></select>
+                <label>Duration (Seconds):</label>
+                <input type="number" name="duration" value="15" min="5" max="300" required>
+                <button type="submit">Add Billboard Slide</button>
+            </form>
+        </div>
+
+        <!-- 4. Add Image Signage -->
+        <div class="card">
+            <h2>🖼️ Add Image Slide</h2>
+            <p style="font-size: 0.9rem; color: #888;">Upload a 16:9 image or flyer to display in the slideshow rotation.</p>
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="add_image_slide">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <label>Image File (.jpg, .png):</label>
+                <input type="file" name="image" accept="image/*" required style="background: transparent; border: none; padding: 0;">
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                </div>
+                <label>Duration (Seconds):</label>
+                <input type="number" name="duration" value="15" min="5" max="300" required>
+                <button type="submit">Upload Image Slide</button>
+            </form>
+        </div>
+
+        <!-- 5. Active Slideshow -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>🎞️ Active Signage Playlist</h2>
+            <p style="font-size: 0.9rem; color: #888;">The dashboard will automatically alternate between Buddy and these slides. Slideshow disables entirely if empty.</p>
+            {% if slides %}
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for slide in slides %}
+                    <div class="slide-item">
+                        <div class="slide-info">
+                            {% if slide.type == 'text' %}
+                                <strong>TEXT ({{ slide.duration }}s)</strong>: "{{ slide.text }}"
+                                <br><span class="color-preview" style="background: {{ slide.bg_color }};"></span> BG | <span class="color-preview" style="background: {{ slide.text_color }};"></span> Text | Strobe: {{ "Yes" if slide.strobe else "No" }}
+                            {% else %}
+                                <strong>IMAGE ({{ slide.duration }}s)</strong>: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View File</a>
+                            {% endif %}
+                            {% if slide.start_time %} <br><span style="font-size:0.85rem; color:#888;">Starts: {{ slide.start_time }}</span> {% endif %}
+                            {% if slide.end_time %} <span style="font-size:0.85rem; color:#888;">Ends: {{ slide.end_time }}</span> {% endif %}
+                        </div>
+                        <form method="POST" style="margin:0; display:flex; align-items:center;">
+                            <input type="hidden" name="action" value="delete_slide">
+                            <input type="hidden" name="slide_id" value="{{ slide.id }}">
+                            <input type="password" name="password" placeholder="Admin Pass" required style="width:120px; margin:0 10px 0 0; padding:8px;">
+                            <button type="submit" class="danger" style="width: auto; margin:0; padding:8px 15px;">Delete</button>
+                        </form>
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: #666; font-style: italic;">No active slides. The dashboard will show Buddy 100% of the time.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <a href="/" style="color: #00ffff; text-decoration: none; font-weight: bold;">← Back to Dashboard</a>
+    </div>
 </body>
 </html>

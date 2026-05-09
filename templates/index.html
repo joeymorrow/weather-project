@@ -43,14 +43,14 @@
         body.golden-mode .buddy-body { box-shadow: inset -5px -10px 15px rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.3), 0 0 15px rgba(224,155,107,0.2); }
         body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100dvh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: --bg 120s ease, --accent 120s ease, --dim 120s ease, --buddy-blue 120s ease, --text-main 120s ease, --pod-border 120s ease, --pod-bg 120s ease, --pod-hover-glow 120s ease, --pod-active-bg 120s ease, --shadow-color 120s ease, background 120s ease, color 120s ease; }
         #header-container { display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 20; pointer-events: none; }
-        #header { font-size: clamp(1rem, 1.8vw, 2rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.75; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); }
-        #location { font-size: clamp(1rem, 1.5vw, 1.8rem); opacity: 0.35; letter-spacing: 2px; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
-        #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); }
+        #header { font-size: clamp(1rem, 1.8vw, 3.5rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.65; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); }
+        #location { font-size: clamp(1rem, 1.5vw, 3rem); opacity: 0.35; letter-spacing: 2px; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
+        #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); transition: transform 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
         .lore-box { position: absolute; top: 55px; left: 20px; width: 280px; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: 18px; border-radius: 18px; font-size: 0.9rem; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000; line-height: 1.4; }
         #lore-trigger:hover + .lore-box, #lore-trigger:focus + .lore-box { opacity: 1; pointer-events: all; }
         #weekly-trigger { position: absolute; top: 20px; left: 55px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; }
         #weekly-trigger:hover, #weekly-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
-        .pod { position: absolute; width: clamp(60px, 8vmin, 100px); height: clamp(60px, 8vmin, 100px); border-radius: 50%; border: 1px solid var(--pod-border); background: var(--pod-bg); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 2.5rem); filter: grayscale(80%) opacity(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
+        .pod { position: absolute; width: clamp(60px, 8vmin, 180px); height: clamp(60px, 8vmin, 180px); border-radius: 50%; border: 1px solid var(--pod-border); background: var(--pod-bg); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 5rem); filter: grayscale(80%) opacity(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
         .pod:hover { filter: grayscale(0%) opacity(1); transform: scale(1.1); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100 !important; }
         .pod.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); z-index: 6; pointer-events: none; }
         .pod::before, .pod::after { content: ''; position: absolute; border-radius: 50%; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
@@ -58,15 +58,15 @@
         .pod.active::after { inset: 0; border: 2px solid var(--accent); animation: ripple-elemental 3s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; opacity: 0.6; }
         #pos-coffee { left: 4vw; top: 15vh; } #pos-office { left: 4vw; top: 40vh; } #pos-gym { left: 4vw; top: 65vh; } #pos-store { left: 5vw; top: 85vh; }
         #pos-library { right: 4vw; top: 15vh; } #pos-garage { right: 4vw; top: 40vh; } #pos-park { right: 4vw; top: 65vh; } #pos-kitchen { right: 5vw; top: 85vh; }
-        #pos-bed { position: absolute; left: 50%; bottom: 2vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 200px); height: clamp(60px, 8vmin, 100px); border-radius: 20px; border: 2px solid var(--pod-border); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 4rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
+        #pos-bed { position: absolute; left: 50%; bottom: 2vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 300px); height: clamp(60px, 8vmin, 180px); border-radius: 20px; border: 2px solid var(--pod-border); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 7rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
         #pos-bed:hover { filter: grayscale(0%) opacity(1); transform: translateX(-50%) scale(1.05); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100; }
         #pos-bed.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); pointer-events: none; z-index: 6; }
-        #center-info { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 60vw; max-width: 760px; pointer-events: none; z-index: 10; }
-        .date-line { font-size: clamp(0.9rem, 1.2vw, 1.5rem); color: var(--accent); opacity: 0.55; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
-        .clock { font-size: clamp(2rem, 4vw, 3.5rem); color: var(--accent); margin-bottom: -5px; opacity: 0.95; text-shadow: 0 4px 20px var(--shadow-color), 0 0 40px var(--shadow-color); } .temp { font-size: clamp(4rem, 8vw, 8rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; opacity: 0.95; text-shadow: 0 6px 30px var(--shadow-color), 0 0 60px var(--shadow-color); }
-        .suggestion { font-size: clamp(0.9rem, 1.4vw, 1.2rem); color: var(--accent); font-weight: bold; margin: 2px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 4px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); }
-        .forecast-line { font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.85; margin: 2px auto; width: fit-content; max-width: clamp(280px, 75%, 700px); line-height: 1.5; font-style: italic; background: rgba(0,0,0,0.3); padding: clamp(4px, 1vh, 8px) clamp(16px, 3vw, 40px); border-radius: 8px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); }
-        .pulse-line { font-size: clamp(0.8rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.8; margin: 4px auto 0; font-style: italic; font-weight: normal; border: 1px solid var(--pod-border); background: var(--pod-bg); padding: clamp(8px, 1.5vh, 12px) clamp(16px, 3vw, 24px); width: fit-content; max-width: clamp(280px, 85%, 650px); line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; pointer-events: auto; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 8px 25px var(--shadow-color); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        #center-info { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 60vw; max-width: 1400px; pointer-events: none; z-index: 10; }
+        .date-line { font-size: clamp(0.9rem, 1.2vw, 2.5rem); color: var(--accent); opacity: 0.45; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
+        .clock { font-size: clamp(2rem, 4vw, 6rem); color: var(--accent); margin-bottom: -5px; opacity: 0.85; text-shadow: 0 4px 20px var(--shadow-color), 0 0 40px var(--shadow-color); } .temp { font-size: clamp(4rem, 8vw, 14rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; opacity: 0.85; text-shadow: 0 6px 30px var(--shadow-color), 0 0 60px var(--shadow-color); }
+        .suggestion { font-size: clamp(0.9rem, 1.4vw, 2rem); color: var(--accent); font-weight: bold; margin: 2px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 4px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); }
+        .forecast-line { font-size: clamp(0.85rem, 1.2vw, 1.8rem); color: var(--accent); opacity: 0.75; margin: 2px auto; width: fit-content; max-width: clamp(280px, 75%, 1200px); line-height: 1.5; font-style: italic; background: rgba(0,0,0,0.3); padding: clamp(4px, 1vh, 8px) clamp(16px, 3vw, 40px); border-radius: 8px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); }
+        .pulse-line { font-size: clamp(0.8rem, 1.2vw, 1.8rem); color: var(--accent); opacity: 0.7; margin: 4px auto 0; font-style: italic; font-weight: normal; border: 1px solid var(--pod-border); background: var(--pod-bg); padding: clamp(8px, 1.5vh, 12px) clamp(16px, 3vw, 24px); width: fit-content; max-width: clamp(280px, 85%, 1100px); line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; pointer-events: auto; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 8px 25px var(--shadow-color); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
         .pulse-line::after { content: ' ▤'; font-size: 0.8em; opacity: 0.4; vertical-align: top; margin-left: 6px; }
         .pulse-line:hover, .pulse-line:focus { opacity: 1; outline: none; background: var(--pod-bg); text-shadow: 0 0 10px var(--accent); box-shadow: 0 -10px 10px var(--pod-bg); }
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: pointer; }
@@ -128,6 +128,10 @@
         .waking-up .eye { animation: none !important; height: 8px !important; margin-top: -2px; }
         #pulse-list::-webkit-scrollbar { width: 8px; }
         #pulse-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+        @keyframes strobe-bg { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.5); box-shadow: inset 0 0 150px rgba(255,255,255,0.4); } }
+        .strobe-alert { animation: strobe-bg 1s infinite alternate; }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+        @keyframes flare-pulse { 0%, 100% { box-shadow: inset 0 0 30px var(--flare-color); } 50% { box-shadow: inset 0 0 120px var(--flare-color); } }
         @media (max-width: 600px) {
             /* 1. Force the body into a safe vertical flex stack */
             body {
@@ -199,10 +203,28 @@
             .pod, #pos-bed { margin: -2px 0 !important; transform: scale(0.65) !important; }
             #buddy-container:not(.kaiju-mode):not(.on-date) { transform: scale(0.8) !important; margin-top: -10px !important; margin-bottom: -30px !important; }
         }
+        
+        /* High Contrast Theme Override */
+        body.high-contrast-mode { --bg: #000000 !important; --accent: #00ffff !important; --dim: #ffffff !important; --text-main: #ffffff !important; --pod-border: #00ffff !important; --pod-bg: rgba(0,255,255,0.15) !important; --shadow-color: rgba(0,0,0,1) !important; }
+        body.high-contrast-mode #header, body.high-contrast-mode .clock, body.high-contrast-mode .temp, body.high-contrast-mode #ui-desc, body.high-contrast-mode .date-line, body.high-contrast-mode .forecast-line, body.high-contrast-mode .pulse-line, body.high-contrast-mode #location, body.high-contrast-mode #ui-hl-desc, body.high-contrast-mode #ui-desc-tomorrow { opacity: 1 !important; text-shadow: 0 4px 20px #000; font-weight: bold; }
+        body.high-contrast-mode .suggestion { background: rgba(0,255,255,0.2) !important; border: 2px solid #00ffff !important; opacity: 1 !important; }
+
+        /* Deep Sea Sponge Theme */
+        body.ocean-mode { --bg: #004d80; --accent: #ffff00; --dim: #87ceeb; --buddy-blue: #ffff00; --text-main: #ffffff; --pod-border: #ffff00; --pod-bg: rgba(255,255,0,0.05); --pod-hover-glow: rgba(255,255,0,0.3); --shadow-color: rgba(0,0,0,0.6); }
+        body.ocean-mode::before { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0; background-image: radial-gradient(circle at 10% 10%, rgba(255,255,255,0.3) 3px, transparent 4px), radial-gradient(circle at 30% 60%, rgba(255,255,255,0.2) 6px, transparent 7px), radial-gradient(circle at 70% 30%, rgba(255,255,255,0.4) 4px, transparent 5px), radial-gradient(circle at 90% 80%, rgba(255,255,255,0.1) 8px, transparent 9px); background-size: 100% 300px; animation: rise-bubbles 8s linear infinite; }
+        @keyframes rise-bubbles { 0% { background-position: 0 300px, 0 300px, 0 300px, 0 300px; } 100% { background-position: 0 0, 0 0, 0 0, 0 0; } }
+        body.ocean-mode .buddy-body { background-color: var(--buddy-blue); background-image: radial-gradient(rgba(180,150,0,0.5) 20%, transparent 20%), radial-gradient(rgba(180,150,0,0.5) 20%, transparent 20%); background-size: 14px 14px; background-position: 0 0, 7px 7px; border-radius: 10px; } body.ocean-mode .arm { border-radius: 10px; }
+        
+        /* Groovy Spy Theme */
+        body.groovy-mode { --bg: #2a004d; --accent: #ff00ff; --dim: #ffaa00; --buddy-blue: #ff00ff; --text-main: #00ffcc; --pod-border: #ff00ff; --pod-bg: rgba(255,0,255,0.05); --pod-hover-glow: rgba(255,0,255,0.3); --shadow-color: rgba(0,0,0,0.6); }
+        body.groovy-mode::before { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0; background-image: radial-gradient(circle at 30% 30%, rgba(255, 0, 255, 0.15) 0%, transparent 50%), radial-gradient(circle at 70% 60%, rgba(255, 170, 0, 0.15) 0%, transparent 50%), radial-gradient(circle at 40% 80%, rgba(0, 255, 204, 0.15) 0%, transparent 50%); background-size: 200% 200%; animation: lava-lamp 15s ease-in-out infinite alternate; }
+        @keyframes lava-lamp { 0% { background-position: 0% 0%, 100% 0%, 50% 100%; } 50% { background-position: 100% 100%, 0% 50%, 100% 0%; } 100% { background-position: 50% 50%, 0% 100%, 0% 0%; } }
+        body.groovy-mode .buddy-aura { animation: rave-colors 2s infinite linear, pulse-aura 3s infinite alternate; opacity: 0.8; }
+        body.groovy-mode .buddy-body { background: repeating-linear-gradient(45deg, #ff00ff, #ff00ff 10px, #ffaa00 10px, #ffaa00 20px, #00ffcc 20px, #00ffcc 30px); } body.groovy-mode .arm { background: repeating-linear-gradient(45deg, #ff00ff, #ff00ff 5px, #ffaa00 5px, #ffaa00 10px, #00ffcc 10px, #00ffcc 15px); }
     </style>
 </head>
 <body class="{% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
-    <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: 1; pointer-events: none; opacity: 0.33; transition: opacity 1s ease;">
+    <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: 1; pointer-events: none; opacity: 0.45; transition: opacity 1s ease;">
         <canvas id="hourly-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
     </div>
     <div id="header-container">
@@ -211,20 +233,27 @@
         <div id="location">SAULT STE. MARIE, MICHIGAN</div>
     </div>
     <div id="lore-trigger" tabindex="0">i</div>
-    <div class="lore-box">Hi I'm Buddy! Integrated Model Discovery 6.0 Active. Click my body to meet my creators!<br><br><span style="opacity:0.5; font-size:0.8em; font-style:italic;">Forecast generated by Gemini API using OpenWeather data</span></div>
+    <div class="lore-box">Hi I'm Buddy! Integrated Model Discovery 6.0 Active. Click my body to meet my creators!<br><br><span style="opacity:0.5; font-size:0.8em; font-style:italic;">Forecast generated by Gemini API using OpenWeather data</span>
+        <div id="managed-theme-link" onclick="acceptManagedTheme()" style="display:none; margin-top: 15px; color: #ff4444; font-weight: bold; cursor: pointer; border: 1px solid #ff4444; padding: 8px; border-radius: 8px; text-align: center; transition: 0.2s;">Overwrite my theme with Managed Theme</div>
+    </div>
     <div id="weekly-trigger" role="button" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('weekly-modal').style.display='flex'" title="5-Day Outlook">📅</div>
     <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
     <div class="pods"><div class="pod" role="button" id="pos-coffee" tabindex="0" onclick="moveBuddy('coffee')" onkeydown="if(event.key==='Enter')moveBuddy('coffee')">☕</div><div class="pod" role="button" tabindex="0" id="pos-office" onclick="moveBuddy('office')" onkeydown="if(event.key==='Enter')moveBuddy('office')">💻</div><div class="pod" role="button" tabindex="0" id="pos-gym" onclick="moveBuddy('gym')" onkeydown="if(event.key==='Enter')moveBuddy('gym')">💪</div><div class="pod" role="button" tabindex="0" id="pos-store" onclick="moveBuddy('store')" onkeydown="if(event.key==='Enter')moveBuddy('store')">🛍️</div><div class="pod" role="button" tabindex="0" id="pos-library" onclick="moveBuddy('library')" onkeydown="if(event.key==='Enter')moveBuddy('library')">📖</div><div class="pod" role="button" tabindex="0" id="pos-garage" onclick="moveBuddy('garage')" onkeydown="if(event.key==='Enter')moveBuddy('garage')">🔧</div><div class="pod" role="button" tabindex="0" id="pos-park" onclick="moveBuddy('park')" onkeydown="if(event.key==='Enter')moveBuddy('park')">🚲</div><div class="pod" role="button" tabindex="0" id="pos-kitchen" onclick="moveBuddy('kitchen')" onkeydown="if(event.key==='Enter')moveBuddy('kitchen')">🍳</div><div id="pos-bed" role="button" tabindex="0" onclick="moveBuddy('bed')" onkeydown="if(event.key==='Enter')moveBuddy('bed')">🛏️</div></div>
     <div id="egg-modal" onclick="if(event.target === this) triggerEgg('close')">
         <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 10px;">SECRET MENU</h2>
-        <div class="egg-btn" role="button" tabindex="0" onclick="triggerEgg('spin')" onkeydown="if(event.key==='Enter')triggerEgg('spin')">Spin</div>
-        <div class="egg-btn" tabindex="0" onclick="triggerEgg('matrix')" onkeydown="if(event.key==='Enter')triggerEgg('matrix')">Matrix</div>
-        <div class="egg-btn" tabindex="0" onclick="triggerEgg('rave')" onkeydown="if(event.key==='Enter')triggerEgg('rave')">Rave</div>
-        <div class="egg-btn" tabindex="0" onclick="triggerEgg('kaiju')" onkeydown="if(event.key==='Enter')triggerEgg('kaiju')">Kaiju</div>
-        <div class="egg-btn" tabindex="0" onclick="triggerEgg('date')" onkeydown="if(event.key==='Enter')triggerEgg('date')">Date</div>
-        <div class="egg-btn" tabindex="0" onclick="triggerEgg('rpg')" onkeydown="if(event.key==='Enter')triggerEgg('rpg')">Explore 3D</div>
-        <div class="egg-btn" tabindex="0" onclick="toggleFullscreen()" onkeydown="if(event.key==='Enter')toggleFullscreen()">Fullscreen</div>
-        <div class="egg-btn" tabindex="0" onclick="triggerEgg('close')" onkeydown="if(event.key==='Enter')triggerEgg('close')" style="margin-top:20px; border-color:gray; color:gray;">Close</div>
+        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; max-width: 500px; padding: 20px;">
+            <div class="egg-btn" role="button" tabindex="0" onclick="triggerEgg('spin')" onkeydown="if(event.key==='Enter')triggerEgg('spin')">Spin</div>
+            <div class="egg-btn" tabindex="0" onclick="triggerEgg('matrix')" onkeydown="if(event.key==='Enter')triggerEgg('matrix')">Matrix</div>
+            <div class="egg-btn" tabindex="0" onclick="triggerEgg('rave')" onkeydown="if(event.key==='Enter')triggerEgg('rave')">Rave</div>
+            <div class="egg-btn" tabindex="0" onclick="triggerEgg('kaiju')" onkeydown="if(event.key==='Enter')triggerEgg('kaiju')">Kaiju</div>
+            <div class="egg-btn" tabindex="0" onclick="triggerEgg('date')" onkeydown="if(event.key==='Enter')triggerEgg('date')">Date</div>
+            <div class="egg-btn" tabindex="0" onclick="triggerEgg('rpg')" onkeydown="if(event.key==='Enter')triggerEgg('rpg')">Explore 3D</div>
+            <div class="egg-btn" tabindex="0" onclick="setThemePack('ocean-mode')" onkeydown="if(event.key==='Enter')setThemePack('ocean-mode')">Deep Sea</div>
+            <div class="egg-btn" tabindex="0" onclick="setThemePack('groovy-mode')" onkeydown="if(event.key==='Enter')setThemePack('groovy-mode')">Groovy</div>
+            <div class="egg-btn" tabindex="0" onclick="toggleContrast()" onkeydown="if(event.key==='Enter')toggleContrast()">High Contrast</div>
+            <div class="egg-btn" tabindex="0" onclick="toggleFullscreen()" onkeydown="if(event.key==='Enter')toggleFullscreen()">Fullscreen</div>
+        </div>
+        <div class="egg-btn" tabindex="0" onclick="triggerEgg('close')" onkeydown="if(event.key==='Enter')triggerEgg('close')" style="margin-top:10px; border-color:gray; color:gray;">Close</div>
     </div>
     <div id="pulse-modal" style="padding: 5vh 5vw; box-sizing: border-box;" onclick="if(event.target === this) closePulseHistory()">
         <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 20px; font-size: clamp(1.5rem, 3vw, 2.5rem); text-transform: uppercase; text-align: center;">Sault Pulse Archives</h2>
@@ -232,8 +261,8 @@
         <div class="egg-btn" tabindex="0" onclick="closePulseHistory()" onkeydown="if(event.key==='Enter')closePulseHistory()" style="margin-top:20px; flex-shrink: 0; border-color:gray; color:gray;">Close</div>
     </div>
     <div id="weekly-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; pointer-events: auto; padding: 5vh 5vw;" onclick="if(event.target === this) this.style.display='none'">
-        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 2.5rem); text-transform: uppercase;">5-Day Outlook</h2>
-        <div id="ui-weekly-summary" style="color: var(--text-main); font-size: clamp(1rem, 1.5vw, 1.2rem); text-align: center; max-width: 600px; opacity: 0.9; margin-bottom: 20px; font-style: italic;">{{ weekly_summary }}</div>
+        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 4rem); text-transform: uppercase;">5-Day Outlook</h2>
+        <div id="ui-weekly-summary" style="color: var(--text-main); font-size: clamp(1rem, 1.5vw, 2rem); text-align: center; max-width: 600px; opacity: 0.9; margin-bottom: 20px; font-style: italic;">{{ weekly_summary }}</div>
         <div id="weekly-days" style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; max-width: 800px;">
             {% for day in weekly_list %}
             <div style="background: var(--pod-bg); border: 1px solid var(--pod-border); padding: 15px; border-radius: 15px; text-align: center; min-width: 100px;">
@@ -246,15 +275,16 @@
         <div class="egg-btn" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='none'" style="margin-top:30px; border-color:gray; color:gray;">Close</div>
     </div>
     <div id="cast-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; pointer-events: auto; padding: 5vh 5vw;" onclick="if(event.target === this) this.style.display='none'">
-        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 2.5rem); text-transform: uppercase;">Cast to TV</h2>
-        <div style="color: var(--text-main); font-size: clamp(1rem, 1.5vw, 1.2rem); text-align: left; max-width: 500px; opacity: 0.9; margin-bottom: 20px; line-height: 1.6; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 1px solid var(--pod-border); box-shadow: 0 4px 15px var(--shadow-color); backdrop-filter: blur(8px);">
+        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 4rem); text-transform: uppercase;">Cast to TV</h2>
+        <div style="color: var(--text-main); font-size: clamp(1rem, 1.5vw, 2rem); text-align: left; max-width: 500px; opacity: 0.9; margin-bottom: 20px; line-height: 1.6; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 1px solid var(--pod-border); box-shadow: 0 4px 15px var(--shadow-color); backdrop-filter: blur(8px);">
             To display BEACON on your TV or Smart Display:<br><br>
             <strong>🍎 Apple / iOS:</strong><br>Open Control Center and tap <strong>Screen Mirroring</strong>.<br><br>
             <strong>🤖 Android / Samsung:</strong><br>Swipe down from the top of your screen and tap <strong>Smart View</strong>, <strong>Cast</strong>, or <strong>Screen Cast</strong>.
         </div>
         <div class="egg-btn" tabindex="0" onclick="document.getElementById('cast-modal').style.display='none'" style="margin-top:10px; border-color:gray; color:gray;">Close</div>
     </div>
-    <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: var(--accent); opacity: 0; z-index: 2000; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease;">POWERED BY THE CITY OF SAULT STE. MARIE</div>
+    <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: {{ branding.color | default('var(--accent)') }}; opacity: 0; z-index: 2000; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease;">{{ branding.text | default('POWERED BY THE CITY OF SAULT STE. MARIE') }}</div>
+    <div id="signage-overlay" style="display:none; position:fixed; inset:0; z-index:9000; background:#000; opacity:0; transition: opacity 1s ease;"></div>
     <div id="center-info">
         <div class="clock" id="ui-clock" aria-live="polite">--:-- --</div>
         <div style="display:flex; justify-content:center; align-items:center; gap: clamp(10px, 2vw, 20px); margin-bottom: 2px; flex-wrap: wrap;">
@@ -263,17 +293,25 @@
                 <div class="temp" aria-live="polite"><span id="ui-temp">{{ temp }}</span>°</div>
             </div>
             <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 8px 16px; border-radius: 15px; text-align: center; min-width: 180px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">
-                <div id="ui-desc" aria-live="polite" style="font-size: clamp(1rem, 1.2vw, 1.2rem); opacity: 0.75; font-weight: bold; color: var(--accent);">{{ desc }}</div>
-                <div id="ui-hl-desc" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); opacity: 0.65;">H: {{ high }}° L: {{ low }}° | 💧 {{ pop }}% | 🌅 {{ sunrise }} 🌇 {{ sunset }}</div>
+                <div id="ui-desc" aria-live="polite" style="font-size: clamp(1rem, 1.2vw, 2rem); opacity: 0.65; font-weight: bold; color: var(--accent);">{{ desc }}</div>
+                <div id="ui-hl-desc" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1.8rem); opacity: 0.55;">H: {{ high }}° L: {{ low }}° | 💧 {{ pop }}% | 🌅 {{ sunrise }} 🌇 {{ sunset }}</div>
             </div>
         </div>
         <div class="forecast-line" id="ui-forecast" aria-live="polite">{{ forecast }}</div>
         <div class="suggestion" id="ui-sugg" aria-live="polite">{% if 'Initializing' in suggestion %}{{ suggestion }}{% else %}🧥 Suggested Attire: {{ suggestion }}{% endif %}</div>
         
-        <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.75; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">Tomorrow: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
+        <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1.8rem); color: var(--accent); opacity: 0.65; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">Tomorrow: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
         <div class="pulse-line" id="ui-pulse" role="button" aria-live="polite" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse | safe }}</div>
     </div>
-    <div id="buddy-container" onclick="leaveForMorrowEdge()" class="{% if is_sleeping %}sleeping{% endif %}">
+    <div id="school-closings-container" style="display: none; position: absolute; bottom: 8vh; left: 0; width: 100vw; background: var(--bg); z-index: 1001; pointer-events: none; opacity: 1;">
+        <div style="display: flex; align-items: center; width: 100%; height: 45px; overflow: hidden; position: relative;">
+            <div style="background: var(--accent); color: var(--bg); font-weight: bold; padding: 0 20px; height: 100%; display: flex; align-items: center; z-index: 2; text-transform: uppercase; font-size: 1.1rem; box-shadow: 2px 0 10px rgba(0,0,0,0.5);">EUP Closings</div>
+            <div style="flex-grow: 1; overflow: hidden; white-space: nowrap; height: 100%; display: flex; align-items: center;">
+                <div id="school-closings-marquee" style="display: inline-block; padding-left: 100%; animation: marquee 25s linear infinite; color: var(--accent); font-weight: bold; font-size: 1.3rem; text-transform: uppercase; letter-spacing: 2px;"></div>
+            </div>
+        </div>
+    </div>
+    <div id="buddy-container" onclick="leaveForMorrowEdge()" oncontextmenu="event.preventDefault(); return false;" class="{% if is_sleeping %}sleeping{% endif %}">
         <div id="buddy-swing" style="width: 100%; height: 100%;">
             <div id="buddy-float">
                 <div class="buddy-aura"></div>
@@ -291,6 +329,9 @@
         let pulseHistory = JSON.parse(decodeURIComponent("{{ pulse_history | default([]) | tojson | urlencode }}"));
         let currentHourly = JSON.parse(decodeURIComponent("{{ hourly_list | default([]) | tojson | urlencode }}"));
         const podOrder = ['coffee', 'office', 'gym', 'store', 'library', 'garage', 'park', 'kitchen'];
+        let signageSlides = [];
+        let activeSlideTimer = null;
+        let slideIndex = -1; // -1 means Dashboard
 
         function layoutPods() {
             const isMobile = window.innerWidth <= 600;
@@ -444,6 +485,34 @@
             if (document.fullscreenElement) { exitBtn.style.display = 'flex'; } 
             else { exitBtn.style.display = 'none'; }
         });
+        
+        window.toggleContrast = function() {
+            document.body.classList.toggle('high-contrast-mode');
+            localStorage.setItem('beacon_hc', document.body.classList.contains('high-contrast-mode'));
+            triggerEgg('close');
+        };
+        if (localStorage.getItem('beacon_hc') === 'true') {
+            document.body.classList.add('high-contrast-mode');
+        }
+        
+        let activeThemePack = localStorage.getItem('beacon_themepack') || null;
+        if (activeThemePack) {
+            document.body.classList.add(activeThemePack);
+            document.body.classList.remove('day-mode', 'golden-mode');
+        }
+
+        window.setThemePack = function(theme) {
+            let current = localStorage.getItem('beacon_themepack');
+            if (current === theme) localStorage.setItem('beacon_themepack', '');
+            else localStorage.setItem('beacon_themepack', theme);
+            fetchState(true);
+            triggerEgg('close');
+        };
+        window.acceptManagedTheme = function() {
+            localStorage.removeItem('beacon_themepack');
+            fetchState(true);
+            document.getElementById('lore-trigger').blur();
+        };
 
         window.triggerEgg = function(eggName) {
             document.getElementById('egg-modal').style.display = 'none';
@@ -861,27 +930,74 @@
                 // Pause AI text updates if user interacted in the last 60 seconds (unless manually routing Buddy)
                 const isInteracting = !force && (Date.now() - lastInteraction < 60000);
 
-                if (s.is_day) {
-                    document.body.classList.add('day-mode');
-                    document.body.classList.remove('golden-mode');
-                } else if (s.is_golden) {
-                    document.body.classList.add('golden-mode');
-                    document.body.classList.remove('day-mode');
+                let serverTheme = s.managed_theme || "";
+                let localTheme = localStorage.getItem('beacon_themepack');
+                let appliedTheme = null;
+                
+                if (localTheme !== null) appliedTheme = localTheme;
+                else if (serverTheme) appliedTheme = serverTheme;
+
+                document.body.classList.remove('day-mode', 'golden-mode', 'ocean-mode', 'groovy-mode', 'high-contrast-mode');
+                if (appliedTheme) {
+                    if (appliedTheme !== "") document.body.classList.add(appliedTheme);
                 } else {
-                    document.body.classList.remove('day-mode', 'golden-mode');
+                    if (s.is_day) document.body.classList.add('day-mode');
+                    else if (s.is_golden) document.body.classList.add('golden-mode');
+                }
+
+                const loreTrigger = document.getElementById('lore-trigger');
+                const managedLink = document.getElementById('managed-theme-link');
+                if (serverTheme && localTheme !== null && localTheme !== serverTheme) {
+                    loreTrigger.style.transform = 'rotate(180deg)'; loreTrigger.style.color = '#ff4444'; loreTrigger.style.borderColor = '#ff4444';
+                    if (managedLink) managedLink.style.display = 'block';
+                } else {
+                    loreTrigger.style.transform = 'rotate(0deg)'; loreTrigger.style.color = 'var(--accent)'; loreTrigger.style.borderColor = 'var(--accent)';
+                    if (managedLink) managedLink.style.display = 'none';
+                }
+
+                if (s.branding) {
+                    const brandEl = document.getElementById('municipal-branding');
+                    if (brandEl) {
+                        brandEl.innerText = s.branding.text;
+                        brandEl.style.color = s.branding.color;
+                    }
                 }
 
                 // Handle Emergency Flare Mode
                 if (s.emergency && s.emergency.active) {
-                    document.body.style.boxShadow = `inset 0 0 100px ${s.emergency.color}`;
-                    document.body.style.animation = 'notify-pulse 2s infinite';
+                    document.body.style.setProperty('--flare-color', s.emergency.color);
+                    document.body.style.animation = 'flare-pulse 1.5s infinite alternate';
                     const bbl = document.getElementById('ui-bbl');
                     if (bbl.innerText !== s.emergency.message) {
                         bbl.innerText = s.emergency.message;
                     }
+                } else if (s.school_closings && s.school_closings.sault_closed) {
+                    document.body.style.setProperty('--flare-color', '#00aaff');
+                    document.body.style.animation = 'flare-pulse 1.5s infinite alternate';
+                    const bbl = document.getElementById('ui-bbl');
+                    const msg = "❄️ SAULT SCHOOLS CLOSED! SNOW DAY! ❄️";
+                    if (bbl.innerText !== msg) {
+                        bbl.innerText = msg;
+                    }
                 } else {
-                    document.body.style.boxShadow = '';
+                    document.body.style.removeProperty('--flare-color');
                     document.body.style.animation = '';
+                }
+
+                // Handle EUP School Closings Marquee
+                const closingsContainer = document.getElementById('school-closings-container');
+                const closingsMarquee = document.getElementById('school-closings-marquee');
+                if (s.school_closings && s.school_closings.other_closings && s.school_closings.other_closings.length > 0) {
+                    closingsContainer.style.display = 'block';
+                    const closingsText = s.school_closings.other_closings.join(', ');
+                    if (closingsMarquee.innerText !== closingsText) {
+                        closingsMarquee.innerText = closingsText;
+                        closingsMarquee.style.animation = 'none';
+                        void closingsMarquee.offsetWidth;
+                        closingsMarquee.style.animation = 'marquee 25s linear infinite';
+                    }
+                } else {
+                    closingsContainer.style.display = 'none';
                 }
                 
                 if (s.hourly_list && s.hourly_list.length > 0) {
@@ -891,13 +1007,13 @@
 
                 softUpdate('ui-date', s.date);
                 softUpdate('ui-temp', s.temp);
-                softUpdate('ui-desc', s.desc); softUpdate('ui-hl-desc', `H: ${s.high}° L: ${s.low}° | 💧 ${s.pop}%`);
+                softUpdate('ui-desc', s.desc); softUpdate('ui-hl-desc', `H: ${s.high}° L: ${s.low}° | 💧 ${s.pop}% | 🌅 ${s.sunrise} 🌇 ${s.sunset}`);
                 if (s.icon) softUpdate('ui-icon', `https://openweathermap.org/img/wn/${s.icon}@4x.png`, true);
                 
                 const tEl = document.getElementById('ui-desc-tomorrow');
                 if (s.is_late_night && tEl) {
                     tEl.style.display = 'block';
-                    const newT = `Tomorrow: ${s.t_desc} | H: ${s.t_high}° L: ${s.t_low}° | 💧 ${s.t_pop}%`;
+                    const newT = `Tomorrow: ${s.t_desc} | H: ${s.t_high}° L: ${s.t_low}° | 💧 ${s.t_pop}% | 🌅 ${s.sunrise} 🌇 ${s.sunset}`;
                     if (tEl.dataset.targetText !== newT) softUpdate('ui-desc-tomorrow', newT);
                 } else if (tEl) {
                     tEl.style.display = 'none';
@@ -929,7 +1045,7 @@
                     softUpdate('ui-pulse', s.pulse);
                     
                     const bbl = document.getElementById('ui-bbl');
-                    if (bbl && s.bubble && bbl.innerText !== s.bubble && (!s.emergency || !s.emergency.active)) {
+                    if (bbl && s.bubble && bbl.innerText !== s.bubble && (!s.emergency || !s.emergency.active) && (!s.school_closings || !s.school_closings.sault_closed)) {
                         bbl.classList.remove('bubble-update');
                         void bbl.offsetWidth; // Trigger reflow to reset animation
                         bbl.innerText = s.bubble;
@@ -1088,6 +1204,45 @@
                 softUpdate(id, val);
             }
         });
+
+        function runSignageLoop() {
+            clearTimeout(activeSlideTimer);
+            const overlay = document.getElementById('signage-overlay');
+            
+            const nowMs = new Date().getTime();
+            const activeSlides = signageSlides.filter(slide => {
+                if (slide.start_time && new Date(slide.start_time).getTime() > nowMs) return false;
+                if (slide.end_time && new Date(slide.end_time).getTime() < nowMs) return false;
+                return true;
+            });
+            
+            if (activeSlides.length === 0) {
+                slideIndex = -1; overlay.style.opacity = '0';
+                setTimeout(() => overlay.style.display = 'none', 1000);
+                activeSlideTimer = setTimeout(runSignageLoop, 15000); // Check schedule again in 15s!
+                return; // Loop is dead until new slides arrive
+            }
+            slideIndex++;
+            if (slideIndex >= activeSlides.length) {
+                slideIndex = -1; overlay.style.opacity = '0';
+                setTimeout(() => overlay.style.display = 'none', 1000);
+                activeSlideTimer = setTimeout(runSignageLoop, 15000); // 15 seconds of Buddy baseline
+                return;
+            }
+            const slide = activeSlides[slideIndex];
+            overlay.style.display = 'block';
+            if (slide.type === 'text') {
+                const strobeClass = slide.strobe ? 'strobe-alert' : '';
+                const safeText = slide.text.replace(/\n/g, '<br>');
+                overlay.innerHTML = `<div class="${strobeClass}" style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; padding:5vw; text-align:center; background:${slide.bg_color}; transition: all 0.5s;">
+                    <h1 style="color:${slide.text_color}; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">${safeText}</h1></div>`;
+            } else if (slide.type === 'image') {
+                overlay.innerHTML = `<div style="width:100%; height:100%; background:url('${slide.url}') center/contain no-repeat #000;"></div>`;
+            }
+            void overlay.offsetWidth; // Force reflow
+            overlay.style.opacity = '1';
+            activeSlideTimer = setTimeout(runSignageLoop, slide.duration * 1000);
+        }
 
         fetchState();
         

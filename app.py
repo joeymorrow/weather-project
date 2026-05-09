@@ -11,6 +11,7 @@ from email.mime.text import MIMEText
 import google.genai as genai
 from google.genai import types
 import pytz
+from werkzeug.utils import secure_filename
 
 def send_alert_email(subject, body):
     try:
@@ -39,6 +40,8 @@ OWM_KEY = os.environ.get("OPENWEATHERMAP_API_KEY", "")
 DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
 STATE_FILE = os.path.join(DATA_DIR, "buddy_state.json")
+UPLOAD_FOLDER = os.path.join("static", "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 DB_FILE = os.path.join(DATA_DIR, "pulse_history.db")
 LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 manual_override = None
@@ -93,7 +96,11 @@ state = {
     "hourly_list": [],
     "sunrise": "--:-- AM", "sunset": "--:-- PM",
     "weekly_list": [], "weekly_summary": "Analyzing weekly patterns...",
-    "emergency": {"active": False, "message": "", "color": "#ff0000"}
+    "emergency": {"active": False, "message": "", "color": "#ff0000"},
+    "branding": {"text": "POWERED BY THE CITY OF SAULT STE. MARIE", "color": "#00ffff"},
+    "slides": [],
+    "managed_theme": "",
+    "school_closings": {"sault_closed": False, "other_closings": []}
 }
 
 if os.path.exists(STATE_FILE):
@@ -132,6 +139,36 @@ def contains_denied_words(text):
     for word in DENYLIST:
         if word in text_lower: return True
     return False
+
+def scrape_closings():
+    try:
+        from bs4 import BeautifulSoup
+        import requests
+        res = requests.get("https://www.9and10news.com/school-closings/", timeout=10)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        closings = []
+        sault_closed = False
+        eup_schools = [
+            "Sault Area", "JKL Bahweting", "Brimley", "DeTour", "Pickford", 
+            "Rudyard", "Tahquamenon", "Engadine", "Les Cheneaux", "Moran", "Ojibwe", "Whitefish"
+        ]
+        for tag in soup.find_all(['tr', 'li', 'p', 'div']):
+            text = tag.get_text(" ", strip=True)
+            if len(text) > 150: continue
+            text_lower = text.lower()
+            if "closed" in text_lower or "delay" in text_lower:
+                for school in eup_schools:
+                    if school.lower() in text_lower:
+                        status = "Closed" if "closed" in text_lower else "Delayed"
+                        if school == "Sault Area" and status == "Closed":
+                            sault_closed = True
+                        else:
+                            entry = f"{school} {status}"
+                            if entry not in closings: closings.append(entry)
+        return sault_closed, closings
+    except Exception as e:
+        print(f"[ERROR] Scrape closings failed: {e}", flush=True)
+        return False, []
 
 def run_sync():
     try:
@@ -190,6 +227,12 @@ def run_sync():
         except Exception as e:
             print(f"[ERROR] Hourly parsing: {e}", flush=True)
         
+        now = datetime.now(TZ)
+        sault_closed = False
+        other_closings = []
+        if now.month in [10, 11, 12, 1, 2, 3, 4]:
+            sault_closed, other_closings = scrape_closings()
+
         # Calculate tomorrow's forecast (Skipping today's remaining blocks)
         now_str = now.strftime('%Y-%m-%d')
         t_items = [i for i in f['list'] if i['dt_txt'].split(' ')[0] != now_str]
@@ -333,7 +376,8 @@ def run_sync():
                 "is_day": is_day, "is_golden": is_golden, "pop": pop,
                 "hourly_list": hourly_list,
                 "sunrise": sunrise_str, "sunset": sunset_str,
-                "weekly_list": weekly_list
+                "weekly_list": weekly_list,
+                "school_closings": {"sault_closed": sault_closed, "other_closings": other_closings}
             })
             with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
     except Exception as e: 
@@ -438,17 +482,54 @@ def admin():
         if request.form.get('password') == admin_password:
             action = request.form.get('action')
             with state_lock:
-                if action == 'enable':
-                    state['emergency'] = {"active": True, "message": request.form.get('message', 'Emergency Alert'), "color": request.form.get('color', '#ff0000')}
-                elif action == 'disable':
-                    state['emergency']['active'] = False
+                if action == 'update_flare':
+                    if request.form.get('flare_active') == 'yes':
+                        state['emergency'] = {"active": True, "message": request.form.get('message', ''), "color": request.form.get('color', '#ff0000')}
+                    else:
+                        state['emergency']['active'] = False
+                elif action == 'update_branding':
+                    state['branding'] = {
+                        "text": request.form.get('branding_text', '').strip(),
+                        "color": request.form.get('branding_color', '#00ffff')
+                    }
+                elif action == 'update_theme':
+                    state['managed_theme'] = request.form.get('managed_theme', '')
+                elif action == 'add_text_slide':
+                    slide = {
+                        "id": str(int(time.time())),
+                        "type": "text",
+                        "text": request.form.get('text', ''),
+                        "bg_color": request.form.get('bg_color', '#000000'),
+                        "text_color": request.form.get('text_color', '#ffffff'),
+                        "strobe": request.form.get('strobe') == 'yes',
+                        "duration": int(request.form.get('duration', 15)),
+                        "start_time": request.form.get('start_time', ''),
+                        "end_time": request.form.get('end_time', '')
+                    }
+                    state.setdefault('slides', []).append(slide)
+                elif action == 'add_image_slide':
+                    file = request.files.get('image')
+                    if file and file.filename:
+                        fname = secure_filename(file.filename)
+                        fpath = os.path.join(UPLOAD_FOLDER, f"{int(time.time())}_{fname}")
+                        file.save(fpath)
+                        slide = {"id": str(int(time.time())), "type": "image", "url": "/" + fpath.replace("\\", "/"), "duration": int(request.form.get('duration', 15)), "start_time": request.form.get('start_time', ''), "end_time": request.form.get('end_time', '')}
+                        state.setdefault('slides', []).append(slide)
+                elif action == 'delete_slide':
+                    sid = request.form.get('slide_id')
+                    for s in state.get('slides', []):
+                        if s.get('id') == sid and s.get('type') == 'image':
+                            try:
+                                os.remove(os.path.join(app.root_path, s.get('url').lstrip('/')))
+                            except: pass
+                    state['slides'] = [s for s in state.get('slides', []) if s.get('id') != sid]
                 try:
                     with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                 except: pass
-            return "Settings Updated. <a href='/admin'>Go Back</a>"
+            return "Settings Updated. <a href='/admin' style='color:#00ffff;'>Go Back</a>"
         return "Unauthorized", 401
     with state_lock:
-        return render_template('admin.html', emergency=state.get('emergency', {}))
+        return render_template('admin.html', emergency=state.get('emergency', {}), branding=state.get('branding', {}), slides=state.get('slides', []), managed_theme=state.get('managed_theme', ''))
 @app.route('/api/state')
 def get_state(): 
     with state_lock:
