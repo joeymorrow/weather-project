@@ -90,6 +90,7 @@ state = {
     "bubble": "...", "pulse": "Anchoring Sault Pulse...",
     "forecast": "Loading forecast...", "acc_css": "none", "is_sleeping": False, "show_bed": False,
     "is_day": False, "is_golden": False, "pop": 0, "pulse_history": load_history(),
+    "hourly_list": [],
     "weekly_list": [], "weekly_summary": "Analyzing weekly patterns...",
     "emergency": {"active": False, "message": "", "color": "#ff0000"}
 }
@@ -151,6 +152,20 @@ def run_sync():
         is_golden = (is_morning_golden or is_evening_golden) and (clouds < 75)
         is_day = (sunrise <= now_ts < sunset) and not is_golden
         pop = int(f['list'][0].get('pop', 0) * 100)
+        
+        hourly_list = []
+        try:
+            for i in f['list'][:8]:
+                dt = datetime.strptime(i['dt_txt'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.utc).astimezone(TZ)
+                hourly_list.append({
+                    "time": dt.strftime('%I%p').lstrip('0').lower(),
+                    "temp": int(i['main']['temp']),
+                    "pop": int(i.get('pop', 0) * 100),
+                    "clouds": i['clouds']['all'],
+                    "desc": i['weather'][0]['main'].lower()
+                })
+        except Exception as e:
+            print(f"[ERROR] Hourly parsing: {e}", flush=True)
         
         # Calculate tomorrow's forecast (Skipping today's remaining blocks)
         now_str = now.strftime('%Y-%m-%d')
@@ -276,6 +291,7 @@ def run_sync():
                 "t_high": t_high, "t_low": t_low, "t_desc": t_desc, "t_pop": t_pop,
                 "is_late_night": is_late_night,
                 "is_day": is_day, "is_golden": is_golden, "pop": pop,
+                "hourly_list": hourly_list,
                 "weekly_list": weekly_list
             })
             with open(STATE_FILE, 'w') as sf: json.dump(state, sf)

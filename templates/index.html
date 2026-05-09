@@ -256,6 +256,11 @@
         </div>
         <div class="forecast-line" id="ui-forecast" aria-live="polite">{{ forecast }}</div>
         <div class="suggestion" id="ui-sugg" aria-live="polite">{% if 'Initializing' in suggestion %}{{ suggestion }}{% else %}🧥 Suggested Attire: {{ suggestion }}{% endif %}</div>
+        
+        <div id="hourly-container" aria-hidden="true" style="margin: 4px auto; width: 100%; max-width: clamp(280px, 90%, 650px); height: clamp(60px, 10vh, 75px); position: relative; border-radius: 12px; background: var(--pod-bg); border: 1px solid var(--pod-border); padding: 5px 0;">
+            <canvas id="hourly-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+        </div>
+        
         <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.8; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center;">Tomorrow: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
         <div class="pulse-line" id="ui-pulse" aria-live="polite" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse }}</div>
     </div>
@@ -275,6 +280,7 @@
         let lastInteraction = 0;
         let keyBuffer = "";
         let pulseHistory = JSON.parse(decodeURIComponent("{{ pulse_history | default([]) | tojson | urlencode }}"));
+        let currentHourly = JSON.parse(decodeURIComponent("{{ hourly_list | default([]) | tojson | urlencode }}"));
         const podOrder = ['coffee', 'office', 'gym', 'store', 'library', 'garage', 'park', 'kitchen'];
 
         function layoutPods() {
@@ -602,6 +608,93 @@
             return "Oh no... what have you done?";
         };
 
+        function drawHourlyGraph(data) {
+            const container = document.getElementById('hourly-container');
+            const canvas = document.getElementById('hourly-canvas');
+            if (!canvas || !data || data.length === 0) {
+                if (container) container.style.display = 'none';
+                return;
+            }
+            container.style.display = 'block';
+            
+            const dpr = window.devicePixelRatio || 1;
+            const rect = container.getBoundingClientRect();
+            if(rect.width === 0) return;
+            
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            
+            const w = rect.width;
+            const h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+            
+            const style = getComputedStyle(document.body);
+            const accent = style.getPropertyValue('--accent').trim() || '#00ffff';
+            const textMain = style.getPropertyValue('--text-main').trim() || '#ffffff';
+            
+            const temps = data.map(d => d.temp);
+            const minT = Math.min(...temps);
+            const maxT = Math.max(...temps);
+            const range = (maxT - minT) || 1;
+            
+            const padX = 20;
+            const stepX = (w - padX * 2) / (data.length - 1);
+            const topPad = 18;
+            const bottomPad = 14;
+            const graphH = h - topPad - bottomPad;
+            
+            // 1. Precipitation Bars & Cloud Halos
+            data.forEach((d, i) => {
+                const cx = padX + i * stepX;
+                const cy = topPad + graphH - ((d.temp - minT) / range) * graphH;
+                
+                if (d.pop > 0) {
+                    const popH = (d.pop / 100) * (bottomPad + graphH/2 - 5); 
+                    ctx.fillStyle = d.desc.includes('snow') ? 'rgba(255,255,255,0.8)' : accent;
+                    ctx.globalAlpha = d.desc.includes('snow') ? 0.15 : 0.1;
+                    ctx.fillRect(cx - stepX*0.35, h - bottomPad - popH, stepX*0.7, popH);
+                    ctx.globalAlpha = 1.0;
+                }
+                if (d.clouds > 10) {
+                    const radius = 8 + (d.clouds / 100) * 12;
+                    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+                    grad.addColorStop(0, `rgba(255, 255, 255, ${0.1 + (d.clouds/100)*0.15})`);
+                    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2); ctx.fill();
+                }
+            });
+            
+            // 2. Temp Line
+            const linePath = new Path2D(); const fillPath = new Path2D();
+            data.forEach((d, i) => {
+                const cx = padX + i * stepX; const cy = topPad + graphH - ((d.temp - minT) / range) * graphH;
+                if (i === 0) { linePath.moveTo(cx, cy); fillPath.moveTo(cx, h - bottomPad); fillPath.lineTo(cx, cy); } 
+                else {
+                    const cpX = padX + (i - 1) * stepX + stepX / 2;
+                    const prevY = topPad + graphH - ((data[i-1].temp - minT) / range) * graphH;
+                    linePath.bezierCurveTo(cpX, prevY, cpX, cy, cx, cy); fillPath.bezierCurveTo(cpX, prevY, cpX, cy, cx, cy);
+                }
+                if (i === data.length - 1) { fillPath.lineTo(cx, h - bottomPad); fillPath.closePath(); }
+            });
+            ctx.fillStyle = accent; ctx.globalAlpha = 0.15; ctx.fill(fillPath);
+            ctx.globalAlpha = 1.0; ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke(linePath);
+            
+            // 3. Nodes & Labels
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            data.forEach((d, i) => {
+                const cx = padX + i * stepX; const cy = topPad + graphH - ((d.temp - minT) / range) * graphH;
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, Math.PI*2); ctx.fill();
+                ctx.font = '10px "Segoe UI", sans-serif'; ctx.fillStyle = textMain; ctx.globalAlpha = 0.5; ctx.fillText(d.time, cx, h - 5);
+                ctx.font = 'bold 11px "Segoe UI", sans-serif'; ctx.fillStyle = accent; ctx.globalAlpha = 0.9; ctx.fillText(d.temp + '°', cx, cy - 10);
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
         async function moveBuddy(station) {
             if (station === currentStation) {
                 const bbl = document.getElementById('ui-bbl');
@@ -696,6 +789,11 @@
                 } else {
                     document.body.style.boxShadow = '';
                     document.body.style.animation = '';
+                }
+                
+                if (s.hourly_list && s.hourly_list.length > 0) {
+                    currentHourly = s.hourly_list;
+                    drawHourlyGraph(currentHourly);
                 }
 
                 softUpdate('ui-date', s.date);
@@ -884,7 +982,8 @@
         if ('{{ is_sleeping }}' === 'True') document.getElementById('ui-zzz').style.animation = 'drift-zzz 4s infinite';
 
         setInterval(updateClock, 1000); updateClock(); 
-        syncBuddy(); window.addEventListener('resize', syncBuddy); 
+        syncBuddy(); window.addEventListener('resize', () => { syncBuddy(); drawHourlyGraph(currentHourly); }); 
+        setTimeout(() => drawHourlyGraph(currentHourly), 100);
         
         // Kickoff ancient decryption scramble for initial load values
         ['ui-date', 'ui-temp', 'ui-desc', 'ui-hl-desc', 'ui-forecast', 'ui-pulse', 'ui-sugg'].forEach(id => {
