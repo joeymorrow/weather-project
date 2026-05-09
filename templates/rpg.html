@@ -240,7 +240,7 @@
         // Player (Buddy)
         const playerGroup = new THREE.Group();
         const buddyModel = new THREE.Group(); // Inner model for floating
-        const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1a73e8 }); // Buddy Blue
+        const bodyMat = new THREE.MeshLambertMaterial({ color: 0xe8f0f8 }); // Buddy Blue
         const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 2), bodyMat); bodyMesh.castShadow = true; buddyModel.add(bodyMesh);
         const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 0.2), new THREE.MeshLambertMaterial({ color: 0x000000 })); visorMesh.position.set(0, 0.5, -1.05); buddyModel.add(visorMesh);
         const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
@@ -1357,7 +1357,7 @@
                 scene.fog.color.setHex(0x87CEEB); // Restore normal sky blue fog
                 
                 // Restore original materials
-                bodyMat.color.setHex(0x1a73e8); botBodyMat.color.setHex(0x00ff00);
+                bodyMat.color.setHex(0xe8f0f8); botBodyMat.color.setHex(0x00ff00);
                 carMat.color.setHex(0x000080); groundMat.color.setHex(parseInt('{{ terrain_color }}'));
                 treeMat.color.setHex(parseInt('{{ leaf_color }}')); trunkMat.color.setHex(0x8b4513);
                 mountMat.color.setHex(0x334455); riverMat.color.setHex(0x0000ff);
