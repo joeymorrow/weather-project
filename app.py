@@ -44,6 +44,8 @@ LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 manual_override = None
 override_expiry = 0
 state_lock = threading.Lock()
+admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
+DENYLIST = ["profanity", "badword", "controversial", "inappropriate"]
 
 def init_db():
     with closing(sqlite3.connect(DB_FILE, timeout=10)) as pulse_conn:
@@ -88,7 +90,8 @@ state = {
     "bubble": "...", "pulse": "Anchoring Sault Pulse...",
     "forecast": "Loading forecast...", "acc_css": "none", "is_sleeping": False, "show_bed": False,
     "is_day": False, "is_golden": False, "pop": 0, "pulse_history": load_history(),
-    "weekly_list": [], "weekly_summary": "Analyzing weekly patterns..."
+    "weekly_list": [], "weekly_summary": "Analyzing weekly patterns...",
+    "emergency": {"active": False, "message": "", "color": "#ff0000"}
 }
 
 if os.path.exists(STATE_FILE):
@@ -120,6 +123,13 @@ def get_best_models():
         ranked.sort(key=lambda x: x[1], reverse=True)
         return [r[0] for r in ranked] if ranked else ["models/gemini-2.1-flash-lite", "models/gemini-1.5-flash"]
     except: return ["models/gemini-2.1-flash-lite", "models/gemini-1.5-flash"]
+
+def contains_denied_words(text):
+    if not text: return False
+    text_lower = text.lower()
+    for word in DENYLIST:
+        if word in text_lower: return True
+    return False
 
 def run_sync():
     try:
@@ -177,6 +187,11 @@ def run_sync():
             
         is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22)
 
+        weather_desc = w['weather'][0]['description'].lower()
+        severe_keywords = ["storm", "tornado", "hurricane", "flood", "thunder", "extreme", "blizzard"]
+        is_severe = any(kw in weather_desc for kw in severe_keywords)
+        mood_instruction = "IMPORTANT: The current weather is SEVERE. Keep Buddy's tone serious, urgent, and focused on safety. Do not be overly cheerful." if is_severe else "Buddy should be his usual helpful, friendly self."
+
         buddy_task = "Task 1 (Buddy): 3-5 word unique greeting observing the beautiful sunrise." if (is_morning_golden and clouds < 75) else "Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding)."
 
         global manual_override
@@ -198,6 +213,7 @@ def run_sync():
         Sault MI. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         {buddy_task}
         {pulse_task}
+        {mood_instruction}
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
         Task 4 (Attire): 2-4 word practical clothing/gear suggestion based on the forecast. Factor in current season ({now.strftime('%B')}).
         Task 5 (Weekly): 1-2 sentence overall outlook for the upcoming 5 days based on the forecast trend.
@@ -218,6 +234,11 @@ def run_sync():
                 
                 new_pulse = ai.get("pulse", "Anchoring Sault Pulse...")
                 is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
+                
+                if contains_denied_words(new_pulse) or contains_denied_words(ai.get("bubble", "")):
+                    new_pulse = "Safe Mode: Standard rhythm today."
+                    ai["bubble"] = "Operating in safe mode."
+                    ai["suggestion"] = "Stay safe."
                 
                 if is_news:
                     try:
@@ -260,7 +281,15 @@ def run_sync():
             with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
     except Exception as e: 
         print(f"[ERROR] {e}", flush=True)
-        with state_lock: state["bubble"] = "Signal degraded. Retrying..."
+        with state_lock: 
+            state.update({
+                "bubble": "I'm having trouble seeing the sky right now, but stay safe!",
+                "desc": "Data unavailable",
+                "temp": "--", "high": "--", "low": "--", "pop": "--",
+                "suggestion": "Stay safe.",
+                "forecast": "Weather data currently offline.",
+                "pulse": "Our connection to the Sault skies is temporarily interrupted."
+            })
 
 def sync_loop():
     # Prevent multiple Gunicorn workers from spawning redundant background threads!
@@ -345,6 +374,24 @@ def monitor_loop():
 @app.route('/')
 def index():
     with state_lock: return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state.copy())
+
+@app.route('/admin', methods=['GET', 'POST'])
+def admin():
+    if request.method == 'POST':
+        if request.form.get('password') == admin_password:
+            action = request.form.get('action')
+            with state_lock:
+                if action == 'enable':
+                    state['emergency'] = {"active": True, "message": request.form.get('message', 'Emergency Alert'), "color": request.form.get('color', '#ff0000')}
+                elif action == 'disable':
+                    state['emergency']['active'] = False
+                try:
+                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                except: pass
+            return "Settings Updated. <a href='/admin'>Go Back</a>"
+        return "Unauthorized", 401
+    with state_lock:
+        return render_template('admin.html', emergency=state.get('emergency', {}))
 @app.route('/api/state')
 def get_state(): 
     with state_lock:

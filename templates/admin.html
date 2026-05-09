@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Override Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #fff; padding: 2rem; max-width: 600px; margin: auto; }
+        input, textarea, button { width: 100%; margin-bottom: 1rem; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; }
+        button { background: #00ffff; color: #000; font-weight: bold; cursor: pointer; }
+        button:hover { background: #00cccc; }
+        label { display: block; margin-bottom: 0.5rem; color: #aaa; }
+    </style>
+</head>
+<body>
+    <h2>Emergency Override Dashboard</h2>
+    <p>Current Status: <strong>{{ "Active" if emergency.active else "Inactive" }}</strong></p>
+    <form method="POST">
+        <label>Admin Password:</label>
+        <input type="password" name="password" required>
+        
+        <label>Action:</label>
+        <select name="action" style="width: 100%; margin-bottom: 1rem; padding: 10px; background: #222; color: #fff; border: 1px solid #444;">
+            <option value="enable">Enable Override (Beacon Flare)</option>
+            <option value="disable">Disable Override</option>
+        </select>
+        
+        <label>Emergency Message:</label>
+        <textarea name="message" rows="4">{{ emergency.message }}</textarea>
+        
+        <label>Beacon Flare Color (Hex or Name):</label>
+        <input type="color" name="color" value="{{ emergency.color }}">
+        
+        <button type="submit">Update System</button>
+    </form>
+    <br><a href="/" style="color: #00ffff;">Back to Dashboard</a>
+</body>
+</html>

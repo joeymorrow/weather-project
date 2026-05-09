@@ -15,12 +15,11 @@ A local weather and scheduling dashboard powered by AI.
    cd weather-project
    ```
 3. **Configure Environment Variables:**
-   Copy the example environment file and add your keys:
+   You can configure your `.env` file, Docker prerequisites, and Cloudflare tunnel automatically by running our setup script:
    ```bash
-   cp .env.example .env
-   nano .env
+   chmod +x setup_infra.sh
+   ./setup_infra.sh
    ```
-   Add your `GEMINI_API_KEY` and `OPENWEATHERMAP_API_KEY`.
 
 4. **Run via Python (Local Development ONLY):**
    ```bash
