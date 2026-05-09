@@ -189,13 +189,14 @@
         /* Mobile View Fine-Tuning (under 480px) */
         @media (max-width: 480px) {
             body { padding-bottom: max(20px, env(safe-area-inset-bottom)) !important; }
-            #header-container { padding-top: max(50px, calc(env(safe-area-inset-top) + 40px)); gap: 8px; }
+            #header-container { padding-top: max(40px, calc(env(safe-area-inset-top) + 30px)); gap: 6px; }
             #lore-trigger { top: max(20px, env(safe-area-inset-top)); left: max(20px, env(safe-area-inset-left)); }
             #center-info { align-items: center !important; }
             .temp-row { width: 100% !important; justify-content: center !important; align-items: center !important; }
-            .suggestion { padding: 14px 24px !important; margin: 20px auto !important; line-height: 1.4 !important; word-wrap: break-word; }
+            .suggestion { padding: 10px 20px !important; margin: 15px auto !important; line-height: 1.4 !important; word-wrap: break-word; }
             .pods { gap: 6px !important; padding-bottom: max(10px, env(safe-area-inset-bottom)) !important; }
             .pod, #pos-bed { margin: -2px 0 !important; transform: scale(0.65) !important; }
+            #buddy-container:not(.kaiju-mode):not(.on-date) { transform: scale(0.8) !important; margin-top: -10px !important; margin-bottom: -30px !important; }
         }
     </style>
 </head>
@@ -248,7 +249,7 @@
                 <img id="ui-icon" alt="Current weather icon" src="https://openweathermap.org/img/wn/{{ icon }}@4x.png" style="width: clamp(70px, 8vw, 120px);">
                 <div class="temp" aria-live="polite"><span id="ui-temp">{{ temp }}</span>°</div>
             </div>
-            <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 8px 16px; border-radius: 15px; text-align: left; min-width: 180px;">
+            <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 8px 16px; border-radius: 15px; text-align: center; min-width: 180px;">
                 <div id="ui-desc" aria-live="polite" style="font-size: clamp(1rem, 1.2vw, 1.2rem); opacity: 0.8; font-weight: bold; color: var(--accent);">{{ desc }}</div>
                 <div id="ui-hl-desc" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); opacity: 0.7;">H: {{ high }}° L: {{ low }}° | 💧 {{ pop }}%</div>
             </div>
