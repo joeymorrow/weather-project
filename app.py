@@ -5,7 +5,7 @@ import tracemalloc
 import fcntl
 from contextlib import closing
 from flask import Flask, render_template, jsonify, request
-from datetime import datetime
+from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
 import google.genai as genai
@@ -91,6 +91,7 @@ state = {
     "forecast": "Loading forecast...", "acc_css": "none", "is_sleeping": False, "show_bed": False,
     "is_day": False, "is_golden": False, "pop": 0, "pulse_history": load_history(),
     "hourly_list": [],
+    "sunrise": "--:-- AM", "sunset": "--:-- PM",
     "weekly_list": [], "weekly_summary": "Analyzing weekly patterns...",
     "emergency": {"active": False, "message": "", "color": "#ff0000"}
 }
@@ -153,17 +154,39 @@ def run_sync():
         is_day = (sunrise <= now_ts < sunset) and not is_golden
         pop = int(f['list'][0].get('pop', 0) * 100)
         
+        sunrise_dt = datetime.fromtimestamp(sunrise, pytz.utc).astimezone(TZ)
+        sunset_dt = datetime.fromtimestamp(sunset, pytz.utc).astimezone(TZ)
+        sunrise_str = sunrise_dt.strftime('%I:%M %p').lstrip('0')
+        sunset_str = sunset_dt.strftime('%I:%M %p').lstrip('0')
+        
         hourly_list = []
         try:
-            for i in f['list'][:8]:
+            known = [{"dt": now, "temp": w['main']['temp'], "pop": f['list'][0].get('pop', 0) * 100, "clouds": w.get('clouds', {}).get('all', 0), "desc": w['weather'][0]['main'].lower()}]
+            for i in f['list'][:10]:
                 dt = datetime.strptime(i['dt_txt'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.utc).astimezone(TZ)
-                hourly_list.append({
-                    "time": dt.strftime('%I%p').lstrip('0').lower(),
-                    "temp": int(i['main']['temp']),
-                    "pop": int(i.get('pop', 0) * 100),
-                    "clouds": i['clouds']['all'],
-                    "desc": i['weather'][0]['main'].lower()
-                })
+                known.append({"dt": dt, "temp": i['main']['temp'], "pop": i.get('pop', 0) * 100, "clouds": i['clouds']['all'], "desc": i['weather'][0]['main'].lower()})
+            
+            start_dt = now.replace(minute=0, second=0, microsecond=0)
+            for offset in range(25): # Synthesize 24 continuous hours from current hour!
+                target_dt = start_dt + timedelta(hours=offset)
+                p1, p2 = known[0], known[-1]
+                for k in known:
+                    if k["dt"] <= target_dt: p1 = k
+                    if k["dt"] >= target_dt:
+                        p2 = k
+                        break
+                
+                if p1 == p2:
+                    t_temp, t_pop, t_clouds = p1["temp"], p1["pop"], p1["clouds"]
+                else:
+                    total_sec = (p2["dt"] - p1["dt"]).total_seconds()
+                    elapsed_sec = (target_dt - p1["dt"]).total_seconds()
+                    ratio = elapsed_sec / total_sec if total_sec > 0 else 0
+                    t_temp = p1["temp"] + (p2["temp"] - p1["temp"]) * ratio
+                    t_pop = p1["pop"] + (p2["pop"] - p1["pop"]) * ratio
+                    t_clouds = p1["clouds"] + (p2["clouds"] - p1["clouds"]) * ratio
+                
+                hourly_list.append({"time": target_dt.strftime('%I%p').lstrip('0').lower(), "temp": int(round(t_temp)), "pop": int(round(t_pop)), "clouds": int(round(t_clouds)), "desc": p1["desc"]})
         except Exception as e:
             print(f"[ERROR] Hourly parsing: {e}", flush=True)
         
@@ -222,7 +245,7 @@ def run_sync():
         time_str = now.strftime('%I:%M %p')
         date_str = now.strftime('%B %d')
         
-        pulse_task = "Task 2 (Pulse): 1-sentence sleek summary of tomorrow's weather forecast. Start with 'Tomorrow:'. Make it conversational, descriptive, and highly engaging. Do not search for news. Set 'is_news' to false." if is_late_night else "Task 2 (Pulse): Adopt the persona of a masterful, charismatic writer (akin to a top-tier presidential speechwriter). You wake up aware of the world's worries, but your mission is to ease them. You believe deeply in the indomitable human spirit, the comforting cyclical patterns of life, and that providing this daily pulse is a small effort to lift the city's spirits. Provide a concise, profound 2-sentence pulse on the region's true rhythm that resonates with all ages. Be robust and grounded—do not make 'charisma' your entire personality; let the real world do the talking. STRICT RULE: Rely ONLY on the provided weather/date context. Never hallucinate seasonal details (e.g., do not mention snow or ice unless the current weather data confirms it is freezing). Search the web for real local happenings in Sault Ste. Marie or the EUP. Examples of the VIBE (do not copy literally unless true): 'A full flight is landing at CIU tonight...', 'Sherman Park Beach will be packed today.', 'The Kincheloe garage sale starts Friday.', or 'Take a quiet drive to Mackinac City!'. Ground the update in vivid, factual UP sensory details (e.g., the hum of the highway, or actual weather). Refer to the city as 'the Sault' or 'the Soo'. If your update shares a tangible local fact, event, or specific community detail, set 'is_news' to true. Otherwise, set it to false."
+        pulse_task = "Task 2 (Pulse): 1-sentence sleek summary of tomorrow's weather forecast. Start with 'Tomorrow:'. Make it conversational, descriptive, and highly engaging. Do not search for news. Set 'is_news' to false." if is_late_night else "Task 2 (Pulse): Adopt the persona of a masterful, charismatic writer. You believe deeply in the indomitable human spirit and the comforting cyclical patterns of life. Provide an ambient observation of the city's current movement and rhythm, creating a feeling of 'environmental awareness'. You have creative license to be evocative, suggestive, and deeply artistic in your descriptions, but keep it grounded in reality (Note: A strict denylist filter is active, so keep themes appropriate for all ages). Frame this as a profound observation rather than a call to action. Write 1-3 sentences with varied pacing for a captivating read. STRICT RULE: Rely ONLY on the provided weather/date context. Never hallucinate seasonal details (e.g., do not mention snow unless it is freezing). Search the web for real, public local happenings in Sault Ste. Marie, MI (US side only) or the EUP. Ground the update in vivid, factual UP sensory details. FORMATTING & LOGIC: Wrap all specific locations and times in <i> tags. If an event has a fee, append '($)'. For recurring events like shipping, try to indicate progress (e.g., '1 of 3 scheduled passages'). Refer to the city as 'the Sault' or 'the Soo'. If your update shares a tangible local fact, event, or specific community detail, set 'is_news' to true. Otherwise, set it to false."
 
         prompt = f"""
         Sault MI. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
@@ -292,6 +315,7 @@ def run_sync():
                 "is_late_night": is_late_night,
                 "is_day": is_day, "is_golden": is_golden, "pop": pop,
                 "hourly_list": hourly_list,
+                "sunrise": sunrise_str, "sunset": sunset_str,
                 "weekly_list": weekly_list
             })
             with open(STATE_FILE, 'w') as sf: json.dump(state, sf)

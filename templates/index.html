@@ -61,7 +61,7 @@
         #pos-bed { position: absolute; left: 50%; bottom: 2vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 200px); height: clamp(60px, 8vmin, 100px); border-radius: 20px; border: 2px solid var(--pod-border); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 4rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
         #pos-bed:hover { filter: grayscale(0%) opacity(1); transform: translateX(-50%) scale(1.05); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100; }
         #pos-bed.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); pointer-events: none; z-index: 6; }
-        #center-info { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 60vw; max-width: 760px; pointer-events: none; z-index: 10; }
+        #center-info { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 60vw; max-width: 760px; pointer-events: none; z-index: 10; }
         .date-line { font-size: clamp(0.9rem, 1.2vw, 1.5rem); color: var(--accent); opacity: 0.6; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
         .clock { font-size: clamp(2rem, 4vw, 3.5rem); color: var(--accent); margin-bottom: -5px; text-shadow: 0 4px 20px var(--shadow-color), 0 0 40px var(--shadow-color); } .temp { font-size: clamp(4rem, 8vw, 8rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; text-shadow: 0 6px 30px var(--shadow-color), 0 0 60px var(--shadow-color); }
         .suggestion { font-size: clamp(0.9rem, 1.4vw, 1.2rem); color: var(--accent); font-weight: bold; margin: 2px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 4px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); }
@@ -156,7 +156,7 @@
                 width: 95vw !important;
                 display: flex !important;
                 flex-direction: column !important;
-                margin: 10px auto !important;
+                margin: 30px auto 10px auto !important;
             }
             
             /* 4. Anchor Buddy securely below the text, pushing him down using auto margin */
@@ -255,14 +255,14 @@
             </div>
             <div style="background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 8px 16px; border-radius: 15px; text-align: center; min-width: 180px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">
                 <div id="ui-desc" aria-live="polite" style="font-size: clamp(1rem, 1.2vw, 1.2rem); opacity: 0.8; font-weight: bold; color: var(--accent);">{{ desc }}</div>
-                <div id="ui-hl-desc" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); opacity: 0.7;">H: {{ high }}° L: {{ low }}° | 💧 {{ pop }}%</div>
+                <div id="ui-hl-desc" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); opacity: 0.7;">H: {{ high }}° L: {{ low }}° | 💧 {{ pop }}% | 🌅 {{ sunrise }} 🌇 {{ sunset }}</div>
             </div>
         </div>
         <div class="forecast-line" id="ui-forecast" aria-live="polite">{{ forecast }}</div>
         <div class="suggestion" id="ui-sugg" aria-live="polite">{% if 'Initializing' in suggestion %}{{ suggestion }}{% else %}🧥 Suggested Attire: {{ suggestion }}{% endif %}</div>
         
         <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.8; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">Tomorrow: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
-        <div class="pulse-line" id="ui-pulse" role="button" aria-live="polite" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse }}</div>
+        <div class="pulse-line" id="ui-pulse" role="button" aria-live="polite" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse | safe }}</div>
     </div>
     <div id="buddy-container" onclick="leaveForMorrowEdge()" class="{% if is_sleeping %}sleeping{% endif %}">
         <div id="buddy-swing" style="width: 100%; height: 100%;">
@@ -386,12 +386,12 @@
                 for(let i=0; i<len; i++) targetText += (strArr[i] === ' ' || strArr[i] === '|' || strArr[i] === '\n') ? strArr[i] : alienChars[Math.floor(Math.random() * alienChars.length)];
             }
             
-            if (el.innerText === '') {
-                el.innerText = targetText;
+            if (el.innerHTML.trim() === '') {
+                el.innerHTML = targetText;
                 el.classList.remove('fade-out');
             } else {
                 el.classList.add('fade-out');
-                setTimeout(() => { el.innerText = targetText; el.classList.remove('fade-out'); }, 800);
+                setTimeout(() => { el.innerHTML = targetText; el.classList.remove('fade-out'); }, 800);
             }
         }
 
@@ -439,7 +439,7 @@
         window.openPulseHistory = function() {
             const list = document.getElementById('pulse-list');
             list.innerHTML = pulseHistory.length ? pulseHistory.map(p => {
-                const safeText = p.text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const safeText = p.text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&lt;i&gt;/gi, '<i>').replace(/&lt;\/i&gt;/gi, '</i>');
                 return `<div style="background: var(--pod-bg); border: 1px solid var(--pod-border); padding: 15px 20px; border-radius: 12px; color: var(--text-main); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.4; text-align: left;"><div style="color: var(--accent); font-size: 0.8rem; margin-bottom: 5px; opacity: 0.8; text-transform: uppercase;">${p.date}</div>${safeText}</div>`;
             }).join('') : '<div style="color: var(--accent); text-align:center; opacity: 0.6; margin-top: 20px;">No grounded archives yet. Check back later!</div>';
             document.getElementById('pulse-modal').style.display = 'flex';
@@ -692,9 +692,11 @@
             
             data.forEach((d, i) => {
                 const cx = padX + i * stepX; const cy = t1_bot - ((d.temp - minT) / range) * (trackH * 0.6) - (trackH * 0.2);
-                ctx.fillStyle = '#000'; ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = accent; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI*2); ctx.fill();
-                ctx.font = 'bold 16px "Segoe UI", sans-serif'; ctx.globalAlpha = 0.8; ctx.fillText(d.temp + '°', cx, cy - 18);
+                ctx.fillStyle = '#000'; ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = accent; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, Math.PI*2); ctx.fill();
+                if (i % 3 === 0 || i === data.length - 1) {
+                    ctx.font = 'bold 15px "Segoe UI", sans-serif'; ctx.globalAlpha = 0.9; ctx.fillText(d.temp + '°', cx, cy - 14);
+                }
             });
 
             // 4. Sky / Cloud Cover (Middle Track)
@@ -716,8 +718,10 @@
             
             data.forEach((d, i) => {
                 const cx = padX + i * stepX; const cy = t2_bot - (d.clouds / 100) * (trackH * 0.6) - (trackH * 0.1);
-                ctx.fillStyle = textMain; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
-                ctx.font = 'bold 14px "Segoe UI", sans-serif'; ctx.globalAlpha = 0.8; ctx.fillText(d.clouds + '%', cx, cy - 15);
+                ctx.fillStyle = textMain; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI*2); ctx.fill();
+                if (i % 3 === 0 || i === data.length - 1) {
+                    ctx.font = 'bold 13px "Segoe UI", sans-serif'; ctx.globalAlpha = 0.8; ctx.fillText(d.clouds + '%', cx, cy - 12);
+                }
             });
 
             // 5. Precipitation (Bottom Track) & Timeline
@@ -726,19 +730,23 @@
                 if (d.pop > 0) {
                     const popH = Math.max(4, (d.pop / 100) * (trackH * 0.6)); 
                     ctx.strokeStyle = d.desc.includes('snow') ? '#ffffff' : accent;
-                    ctx.globalAlpha = d.desc.includes('snow') ? 0.7 : 0.5;
-                    ctx.lineWidth = 6; ctx.lineCap = 'round';
+                    ctx.globalAlpha = d.desc.includes('snow') ? 0.7 : 0.4;
+                    ctx.lineWidth = 4; ctx.lineCap = 'round';
                     ctx.beginPath();
                     ctx.moveTo(cx, t3_bot - (trackH * 0.15));
                     ctx.lineTo(cx, t3_bot - popH - (trackH * 0.15));
                     ctx.stroke();
                     
-                    ctx.fillStyle = textMain; ctx.globalAlpha = 0.8; ctx.font = 'bold 14px "Segoe UI", sans-serif';
-                    ctx.fillText(d.pop + '%', cx, t3_bot - popH - (trackH * 0.15) - 15);
+                    if (i % 3 === 0 || i === data.length - 1) {
+                        ctx.fillStyle = textMain; ctx.globalAlpha = 0.8; ctx.font = 'bold 12px "Segoe UI", sans-serif';
+                        ctx.fillText(d.pop + '%', cx, t3_bot - popH - (trackH * 0.15) - 10);
+                    }
                 }
                 
-                ctx.fillStyle = textMain; ctx.globalAlpha = 0.7; ctx.font = 'bold 16px "Segoe UI", sans-serif';
-                ctx.fillText(d.time, cx, t3_bot + 25);
+                if (i % 3 === 0 || i === data.length - 1) {
+                    ctx.fillStyle = textMain; ctx.globalAlpha = 0.7; ctx.font = 'bold 14px "Segoe UI", sans-serif';
+                    ctx.fillText(d.time, cx, t3_bot + 25);
+                }
             });
             ctx.globalAlpha = 1.0;
         }
@@ -1037,9 +1045,9 @@
         ['ui-date', 'ui-temp', 'ui-desc', 'ui-hl-desc', 'ui-forecast', 'ui-pulse', 'ui-sugg'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                let val = el.innerText;
-                if (id === 'ui-temp') val = parseInt(val) || 0;
-                el.innerText = ''; 
+                let val = el.innerHTML;
+                if (id === 'ui-temp') val = parseInt(el.innerText) || 0;
+                el.innerHTML = ''; 
                 softUpdate(id, val);
             }
         });
