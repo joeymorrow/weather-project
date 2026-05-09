@@ -33,6 +33,8 @@ def send_alert_email(subject, body):
 
 client_alerts = {"last_sent": 0}
 
+http_session = requests.Session()
+
 app = Flask(__name__)
 TZ = pytz.timezone('America/Detroit')
 G_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -172,8 +174,8 @@ def scrape_closings():
 
 def run_sync():
     try:
-        w = requests.get(f"https://api.openweathermap.org/data/2.5/weather?q=Sault+Ste.+Marie,MI,US&appid={OWM_KEY}&units=imperial", timeout=10).json()
-        f = requests.get(f"https://api.openweathermap.org/data/2.5/forecast?q=Sault+Ste.+Marie,MI,US&appid={OWM_KEY}&units=imperial", timeout=10).json()
+        w = http_session.get(f"https://api.openweathermap.org/data/2.5/weather?q=Sault+Ste.+Marie,MI,US&appid={OWM_KEY}&units=imperial", timeout=10).json()
+        f = http_session.get(f"https://api.openweathermap.org/data/2.5/forecast?q=Sault+Ste.+Marie,MI,US&appid={OWM_KEY}&units=imperial", timeout=10).json()
         now = datetime.now(TZ)
         h = now.hour
         is_sleep = (h >= 22 or h < 6)
@@ -438,7 +440,7 @@ def monitor_loop():
         current_snapshot = tracemalloc.take_snapshot()
         top_stats = current_snapshot.compare_to(baseline_snapshot, 'lineno')
         total_growth = sum(stat.size_diff for stat in top_stats)
-        if total_growth > 1024 * 1024 * 5: # Log if memory grew by more than 5MB since baseline
+        if total_growth > 1024 * 1024 * 20: # Log if memory grew by more than 20MB since baseline
             leak_details = [str(stat) for stat in top_stats[:5]]
             log_system_event("MEMORY_GROWTH", f"Memory grew by {total_growth / 1024:.1f} KiB since baseline.", {"top_5_leaks": leak_details})
             

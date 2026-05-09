@@ -1251,7 +1251,7 @@
         setInterval(() => {
             if (telemetrySent || !performance || !performance.memory) return;
             const mb = performance.memory.usedJSHeapSize / (1024 * 1024);
-            if (mb > 150) { // 150MB is highly unusual for the 2D dashboard
+            if (mb > 300) { // Bumped threshold: V8 engine lazily garbage collects
                 fetch('/api/telemetry/report', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ 
