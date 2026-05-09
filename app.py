@@ -39,10 +39,15 @@ app = Flask(__name__)
 TZ = pytz.timezone('America/Detroit')
 G_KEY = os.environ.get("GEMINI_API_KEY", "")
 OWM_KEY = os.environ.get("OPENWEATHERMAP_API_KEY", "")
-DATA_DIR = "data"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+
+if os.environ.get("HOST_DATA_DIR") and not os.path.exists("/.dockerenv"):
+    DATA_DIR = os.environ.get("HOST_DATA_DIR")
+
 os.makedirs(DATA_DIR, exist_ok=True)
 STATE_FILE = os.path.join(DATA_DIR, "buddy_state.json")
-UPLOAD_FOLDER = os.path.join("static", "uploads")
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 DB_FILE = os.path.join(DATA_DIR, "pulse_history.db")
 LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
@@ -66,6 +71,19 @@ def init_db():
                                 title TEXT,
                                 zipcode TEXT
                              )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS hallucinations_log (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                retrieved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                date TEXT,
+                                text TEXT,
+                                reason TEXT
+                             )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS old_pulses (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                date TEXT,
+                                text TEXT
+                             )''')
     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as log_conn:
         with log_conn:
             log_conn.execute('''CREATE TABLE IF NOT EXISTS logs (
@@ -83,6 +101,20 @@ def init_db():
                                 cache_mb REAL
                              )''')
 init_db()
+
+def get_agenda_item_count():
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM pulses")
+            return c.fetchone()[0]
+    except Exception as e:
+        print(f"[ERROR] get_agenda_item_count: {e}", flush=True)
+        return 0
+
+@app.context_processor
+def inject_agenda_count():
+    return dict(agenda_item_count=get_agenda_item_count())
 
 def get_beacon_pages():
     try:
@@ -341,7 +373,12 @@ def run_sync():
         with state_lock:
             last_pulse_topic = state.get("pulse", "")
         
-        pulse_task = "Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of Sault Ste. Marie, Michigan's nocturnal rhythm—such as freighters passing through the dark <i>Soo Locks</i>, the ambient glow of the <i>International Bridge</i>, stargazing (if the weather is clear), or the city peacefully resting. Seamlessly weave a brief mention of tomorrow's weather into this comforting thought. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the current time. Do not search for news. Set 'is_news' to false." if is_late_night else "Task 2 (Pulse): Adopt the persona of a steadfast, grounded local speechwriter. 1. Verification Step: Search for a specific, tangible event, milestone, or community gathering happening TODAY in Sault Ste. Marie, MI. If no specific event is found, report on a seasonal rhythm (e.g., the shipping season, a specific park's activity, or local bridge traffic). 2. Content: Provide a 2-sentence update. Weave the current weather into the description of the activity. If it is a scheduled event, you MUST include the start/end times in <i> tags. If no specific times exist for the activity (e.g., watching freighters), do not invent them. 3. Restraint: Do NOT invent or \"hallucinate\" events to fit the persona. Be unconquerable and grounded, not flowery. Avoid saccharine words like 'sanctuary' or 'embrace'. 4. Formatting: Wrap specific locations, subjects, and event times in <i> tags. Focus exclusively on the Michigan side. Set 'is_news' to true only if a verifiable event is shared; otherwise, set to false."
+        pulse_task = (
+            "Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of Sault Ste. Marie, Michigan's nocturnal rhythm—such as freighters passing through the dark <i>Soo Locks</i>, the ambient glow of the <i>International Bridge</i>, stargazing (if the weather is clear), or the city peacefully resting. Seamlessly weave a brief mention of tomorrow's weather into this comforting thought. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the current time. Do not search for news. Set 'is_news' to false." 
+            if is_late_night else 
+            "Task 2 (Pulse): Adopt the persona of a steadfast, grounded local speechwriter. "
+            "ANTI-HALLUCINATION PROTOCOL (SAC): 1. SEARCH for a verifiable event happening TODAY in Sault Ste. Marie, MI. 2. If no specific event is found with a source, DO NOT invent one; instead, describe a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i> or <i>park activity</i>). 3. CONTENT: Provide a 2-sentence update weaving the current weather into the activity. 4. TRUTH BOUNDARY: For scheduled events, include start/end times in <i> tags only if verified. If the city is quiet, describe the quiet with dignity—never use 'filler' events like fake workshops. 5. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid saccharine words like 'sanctuary'. Set 'is_news' to true ONLY if a specific verified event is shared; otherwise, set to false."
+        )
 
         prompt = f"""
         Sault Ste. Marie, Michigan. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
@@ -370,6 +407,41 @@ def run_sync():
                 new_pulse = ai.get("pulse", "Anchoring Sault Pulse...")
                 is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
                 
+                # Secret In-Flight Hallucination Double-Check
+                if is_news and new_pulse != "Anchoring Sault Pulse...":
+                    try:
+                        check_prompt = f"""
+You are a strict fact-checker evaluating a newly generated "Pulse" event for Sault Ste. Marie, Michigan. Use Google Search to verify if the event actually happened or is scheduled around the time it was reported before making a judgment.
+Determine if this text is a hallucinated/invented specific event (like fake workshops or generic community gatherings with fake times), or if it is legitimate.
+Text: "{new_pulse}"
+Return ONLY valid JSON: {{"hallucinated": true/false}}
+"""
+                        for m_check in get_best_models():
+                            try:
+                                check_resp = gemini_client.models.generate_content(
+                                    model=m_check, 
+                                    contents=check_prompt,
+                                    config=types.GenerateContentConfig(tools=[{"google_search": {}}])
+                                )
+                                check_text = check_resp.text
+                                check_data = json.loads(check_text[check_text.find('{'):check_text.rfind('}')+1])
+                                
+                                if check_data.get("hallucinated"):
+                                    print("[API] Hallucination caught in-flight! Replacing with recent valid pulse.", flush=True)
+                                    import random
+                                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                        c = conn.cursor()
+                                        # Pick from the last ~3 hours of successful pulses (18 syncs)
+                                        c.execute("SELECT text FROM pulses ORDER BY id DESC LIMIT 18")
+                                        recent = [r[0] for r in c.fetchall()]
+                                        new_pulse = random.choice(recent) if recent else "The Sault continues its steady, unconquerable rhythm."
+                                    is_news = False # Prevent archiving the replaced past pulse
+                                break
+                            except Exception:
+                                continue
+                    except Exception as e:
+                        pass
+
                 if contains_denied_words(new_pulse) or contains_denied_words(ai.get("bubble", "")):
                     new_pulse = "Safe Mode: Standard rhythm today."
                     ai["bubble"] = "Operating in safe mode."
@@ -547,7 +619,7 @@ def hallucination_cleanup_loop():
             time.sleep(sleep_seconds)
             
         try:
-            subprocess.run(["python", "cleanup_hallucinations.py", "--run-auto"], check=False)
+            subprocess.run(["python", os.path.join(BASE_DIR, "cleanup_hallucinations.py"), "--run-auto"], check=False)
         except Exception as e:
             print(f"[ERROR] Hallucination cleanup loop: {e}", flush=True)
 
@@ -678,7 +750,7 @@ def joeyadmin():
         elif action == 'run_cleanup':
             import subprocess
             try:
-                res = subprocess.run(["python", "cleanup_hallucinations.py"], capture_output=True, text=True, check=False)
+                res = subprocess.run(["python", os.path.join(BASE_DIR, "cleanup_hallucinations.py")], capture_output=True, text=True, check=False)
                 cleanup_summary = res.stdout
             except Exception as e:
                 cleanup_summary = f"Error running cleanup: {e}"
@@ -821,6 +893,7 @@ def get_state():
     with state_lock:
         out = state.copy()
         out["build_timestamp"] = os.environ.get("BUILD_TIMESTAMP", "Local Dev")
+            out["agenda_item_count"] = get_agenda_item_count()
         return jsonify(out)
 
 @app.route('/api/vote', methods=['POST'])
