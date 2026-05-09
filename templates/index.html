@@ -722,64 +722,44 @@
             let events = todaysEvents.map(e => ({ ...e, ...parseTimeRange(e.text) }));
             events.sort((a, b) => a.start - b.start);
             
-            let columns = [];
-            for (let ev of events) {
-                let placed = false;
-                for (let col of columns) {
-                    if (col[col.length - 1].end <= ev.start) {
-                        col.push(ev);
-                        ev.column = columns.indexOf(col);
-                        placed = true; break;
-                    }
-                }
-                if (!placed) {
-                    ev.column = columns.length;
-                    columns.push([ev]);
-                }
-            }
-            let maxCols = columns.length || 1;
-
-            let gridHtml = '';
-            for (let i = 0; i < 24; i++) {
-                let h = i % 12 || 12;
-                let ampm = i < 12 ? 'AM' : 'PM';
-                gridHtml += `<div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); height: 60px; box-sizing: border-box;">
-                    <div style="width: 60px; text-align: right; padding-right: 10px; color: var(--accent); opacity: 0.7; font-size: 0.8rem; transform: translateY(-8px);">${h} ${ampm}</div>
-                    <div style="flex-grow: 1; border-left: 1px solid rgba(255,255,255,0.1); position: relative;"></div>
-                </div>`;
-            }
-
             let eventsHtml = events.map(ev => {
-                let top = ev.start * 60;
-                let height = (ev.end - ev.start) * 60;
-                if (ev.allDay) { top = 0; height = 60; }
-                let leftPos = `calc(60px + (${ev.column} * ((100% - 60px) / ${maxCols})))`;
-                let width = `calc((100% - 60px) / ${maxCols})`;
+                let formatTime = (timeNum) => {
+                    let h = Math.floor(timeNum);
+                    let m = Math.round((timeNum - h) * 60);
+                    let ampm = h >= 12 ? 'PM' : 'AM';
+                    let dH = h % 12 || 12;
+                    let dM = m.toString().padStart(2, '0');
+                    return `${dH}:${dM} ${ampm}`;
+                };
                 
+                let timeLabel = ev.allDay ? 'All Day' : formatTime(ev.start);
+                if (!ev.allDay && ev.end && ev.end !== ev.start + 24 && ev.end !== ev.start) {
+                    let endVal = ev.end > 24 ? ev.end - 24 : ev.end;
+                    timeLabel += ` - ${formatTime(endVal)}`;
+                }
+
                 let searchQuery = encodeURIComponent(ev.label + ' Sault Ste. Marie');
-                let searchLink = `<a href="https://www.google.com/search?q=${searchQuery}" target="_blank" style="color: var(--accent); text-decoration: none; pointer-events: auto; margin-left: 5px; flex-shrink: 0;" title="Search on Google">🔗</a>`;
+                let searchLink = `<a href="https://www.google.com/search?q=${searchQuery}" target="_blank" tabindex="0" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(0, 255, 255, 0.1); border: 1px solid var(--accent); color: var(--accent); text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 1rem; font-weight: bold; transition: background 0.2s, box-shadow 0.2s; pointer-events: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.5);" onmouseover="this.style.background='var(--accent)'; this.style.color='#000';" onmouseout="this.style.background='rgba(0, 255, 255, 0.1)'; this.style.color='var(--accent)';" onfocus="this.style.background='var(--accent)'; this.style.color='#000';" onblur="this.style.background='rgba(0, 255, 255, 0.1)'; this.style.color='var(--accent)';">🔗 Search Google</a>`;
                 
-                return `<div style="position: absolute; top: ${top}px; left: ${leftPos}; width: ${width}; height: ${height}px; background: rgba(0, 255, 255, 0.15); border: 1px solid var(--accent); border-radius: 6px; padding: 5px; box-sizing: border-box; overflow: hidden; font-size: 0.9rem; color: var(--text-main); display: flex; flex-direction: column; backdrop-filter: blur(4px);">
-                    <div style="font-weight: bold; color: var(--accent); display: flex; align-items: center; justify-content: space-between; padding-bottom: 2px;">
-                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ev.label}</span>
-                        ${searchLink}
+                return `<div style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--pod-border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                        <div style="font-size: clamp(1.2rem, 3vw, 1.6rem); font-weight: bold; color: var(--accent); line-height: 1.2;">${ev.label}</div>
+                        <div style="font-size: clamp(0.9rem, 2vw, 1.1rem); color: #ccc; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; white-space: nowrap;">🕒 ${timeLabel}</div>
                     </div>
-                    <div style="font-size: 0.8rem; opacity: 0.85; overflow: hidden; display: -webkit-box; -webkit-line-clamp: ${Math.max(1, Math.floor(height/18) - 1)}; -webkit-box-orient: vertical;">${ev.text}</div>
+                    <div style="font-size: clamp(1rem, 2.5vw, 1.2rem); color: var(--text-main); opacity: 0.9; line-height: 1.5;">${ev.text}</div>
+                    <div style="align-self: flex-start; margin-top: 5px;">${searchLink}</div>
                 </div>`;
             }).join('');
             
             const displayDate = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-            let html = `<h3 style="color: var(--text-main); margin-bottom: 10px; font-size: 1.5rem; border-bottom: 1px solid var(--pod-border); padding-bottom: 5px; text-align: center;">${displayDate}</h3>`;
+            let html = `<h3 style="color: var(--text-main); margin-bottom: 15px; font-size: clamp(1.2rem, 3vw, 1.8rem); border-bottom: 1px solid var(--pod-border); padding-bottom: 10px; text-align: center; width: 100%;">${displayDate}</h3>`;
             
             if (events.length === 0) {
-                html += `<div style="color: var(--accent); opacity: 0.6; text-align: center; margin-top: 20px;">No events populated so far today.</div>`;
+                html += `<div style="color: var(--accent); opacity: 0.6; text-align: center; margin-top: 20px; font-size: 1.2rem;">No events populated so far today.</div>`;
             } else {
-                html += `<div id="calendar-scroll" style="position: relative; width: 100%; height: 55vh; overflow-y: auto; background: rgba(0,0,0,0.5); border: 1px solid var(--pod-border); border-radius: 12px; margin-top: 10px; scroll-behavior: smooth;">
-                    <div style="position: relative; height: 1440px;">
-                        ${gridHtml}
-                        ${eventsHtml}
-                    </div>
+                html += `<div id="calendar-scroll" tabindex="0" style="width: 100%; max-height: 60vh; overflow-y: auto; padding-right: 10px; scroll-behavior: smooth;">
+                    ${eventsHtml}
                 </div>`;
             }
             
@@ -788,7 +768,7 @@
             
             const scrollBox = document.getElementById('calendar-scroll');
             if (scrollBox) {
-                setTimeout(() => scrollBox.scrollTop = 8 * 60, 10);
+                scrollBox.focus();
             }
         };
 
