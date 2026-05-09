@@ -598,11 +598,20 @@
             document.body.classList.remove('day-mode', 'golden-mode');
         }
         
+        window.clearThemes = function() {
+            localStorage.removeItem('beacon_themepack');
+            localStorage.setItem('beacon_hc', 'false');
+            document.body.classList.remove('high-contrast-mode');
+            if (window.updateSecretMenuUI) window.updateSecretMenuUI();
+            fetchState(true);
+            triggerEgg('close');
+        };
+
         if (window.updateSecretMenuUI) window.updateSecretMenuUI();
 
         window.setThemePack = function(theme) {
             let current = localStorage.getItem('beacon_themepack');
-            if (current === theme) localStorage.setItem('beacon_themepack', '');
+            if (current === theme) localStorage.removeItem('beacon_themepack');
             else localStorage.setItem('beacon_themepack', theme);
             if (window.updateSecretMenuUI) window.updateSecretMenuUI();
             fetchState(true);
