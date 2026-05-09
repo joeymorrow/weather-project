@@ -42,7 +42,7 @@
         body.golden-mode .suggestion { background: rgba(224, 155, 107, 0.05); border-color: rgba(224, 155, 107, 0.2); }
         body.golden-mode .buddy-body { box-shadow: inset -5px -10px 15px rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.3), 0 0 15px rgba(224,155,107,0.2); }
         body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100dvh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: --bg 120s ease, --accent 120s ease, --dim 120s ease, --buddy-blue 120s ease, --text-main 120s ease, --pod-border 120s ease, --pod-bg 120s ease, --pod-hover-glow 120s ease, --pod-active-bg 120s ease, --shadow-color 120s ease, background 120s ease, color 120s ease; }
-        #header-container { display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 20; pointer-events: none; }
+        #header-container { display: flex; flex-direction: column; align-items: center; width: fit-content; max-width: 100%; margin: 0 auto; z-index: 20; pointer-events: none; }
         #header { font-size: clamp(1rem, 1.8vw, 3.5rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.65; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); }
         #location { font-size: clamp(1rem, 1.5vw, 3rem); opacity: 0.35; letter-spacing: 2px; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
         #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: help; color: var(--accent); transition: transform 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
@@ -332,6 +332,70 @@
         let signageSlides = [];
         let activeSlideTimer = null;
         let slideIndex = -1; // -1 means Dashboard
+
+        window.fitBubble = function(targetX, targetY) {
+            const bbl = document.getElementById('ui-bbl');
+            const buddy = document.getElementById('buddy-container');
+            if (!bbl || bbl.style.display === 'none') return;
+            
+            let bX, bY;
+            if (targetX !== undefined && targetY !== undefined) {
+                bX = targetX + (buddy.offsetWidth / 2);
+                bY = targetY;
+            } else {
+                const buddyRect = buddy.getBoundingClientRect();
+                bX = buddyRect.left + (buddyRect.width / 2);
+                bY = buddyRect.top;
+            }
+            
+            const isMobile = window.innerWidth <= 600;
+            let tX = 'translateX(-50%)';
+            let tOrigin = 'bottom center';
+            
+            // 1. Horizontal check: shift the text box to the opposite side if near edges
+            if (bX < window.innerWidth / 3) {
+                bbl.style.setProperty('left', '10%', 'important');
+                bbl.style.setProperty('right', 'auto', 'important');
+                tX = 'translateX(0)'; tOrigin = 'bottom left';
+            } else if (bX > (window.innerWidth / 3) * 2) {
+                bbl.style.setProperty('left', 'auto', 'important');
+                bbl.style.setProperty('right', '10%', 'important');
+                tX = 'translateX(0)'; tOrigin = 'bottom right';
+            } else {
+                bbl.style.setProperty('left', '50%', 'important');
+                bbl.style.setProperty('right', 'auto', 'important');
+            }
+            
+            // 2. Vertical check: Drop it closer, or below Buddy if dangerously near top of viewport
+            bbl.style.setProperty('bottom', isMobile ? '120%' : '130%', 'important');
+            bbl.style.setProperty('top', 'auto', 'important');
+            if (bY < 120) {
+                bbl.style.setProperty('bottom', '100%', 'important');
+                if (bY < 60) {
+                    bbl.style.setProperty('bottom', 'auto', 'important');
+                    bbl.style.setProperty('top', '110%', 'important');
+                    tOrigin = tOrigin.replace('bottom', 'top');
+                }
+            }
+            
+            bbl.style.setProperty('transform-origin', tOrigin, 'important');
+            bbl.style.setProperty('transform', `${tX} scale(1)`, 'important');
+            
+            // 3. Last Resort: Apply 85% scale if the bounding box STILL overflows the screen edge
+            if (targetX === undefined) {
+                const rect = bbl.getBoundingClientRect();
+                if (rect.left < 5 || rect.right > window.innerWidth - 5 || rect.top < 5 || rect.bottom > window.innerHeight - 5) {
+                    bbl.style.setProperty('transform', `${tX} scale(0.85)`, 'important');
+                }
+            }
+        };
+
+        const bblObserver = new MutationObserver(() => requestAnimationFrame(() => window.fitBubble()));
+        bblObserver.observe(document.getElementById('ui-bbl'), { childList: true, characterData: true, subtree: true });
+        
+        document.getElementById('buddy-container').addEventListener('transitionend', (e) => {
+            if (e.propertyName === 'left' || e.propertyName === 'top') window.fitBubble();
+        });
 
         function layoutPods() {
             const isMobile = window.innerWidth <= 600;
@@ -1155,30 +1219,25 @@
                 
                 if (window.innerWidth <= 600) b.classList.remove('bg-mode');
 
-                let rLeft;
+                let destLeft, destTop;
                 if (window.innerWidth <= 600 && currentStation !== 'bed') {
                     const cx = window.innerWidth / 2; const cy = window.innerHeight * 0.95 - 15;
-                    b.style.left = (cx - (b.offsetWidth/2)) + 'px'; b.style.top = (cy - (b.offsetHeight/2) - 55) + 'px';
-                    rLeft = cx - 40; 
+                    destLeft = cx - (b.offsetWidth/2);
+                    destTop = cy - (b.offsetHeight/2) - 55;
                 } else {
                     const r = t.getBoundingClientRect();
                     let xOffset = 0;
                     if (currentStation !== 'bed') {
                         xOffset = b.dataset.orbitSide === 'left' ? -55 : 55;
                     }
-                    b.style.left = (r.left + (r.width/2) - (b.offsetWidth/2) + xOffset) + 'px'; 
-                    b.style.top = (r.top + (r.height/2) - (b.offsetHeight/2) - (currentStation === 'bed' ? 0 : 10)) + 'px';
-                    rLeft = r.left + xOffset; 
+                    destLeft = r.left + (r.width/2) - (b.offsetWidth/2) + xOffset;
+                    destTop = r.top + (r.height/2) - (b.offsetHeight/2) - (currentStation === 'bed' ? 0 : 10);
                 }
                 
-                const bbl = document.getElementById('ui-bbl');
-                if (rLeft < window.innerWidth / 3) {
-                    bbl.style.left = '10%'; bbl.style.transform = 'translateX(0)';
-                } else if (rLeft > (window.innerWidth / 3) * 2) {
-                    bbl.style.left = '90%'; bbl.style.transform = 'translateX(-100%)';
-                } else {
-                    bbl.style.left = '50%'; bbl.style.transform = 'translateX(-50%)';
-                }
+                b.style.left = destLeft + 'px';
+                b.style.top = destTop + 'px';
+                
+                window.fitBubble(destLeft, destTop);
             }
         }
         

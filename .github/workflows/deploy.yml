@@ -95,7 +95,7 @@ jobs:
             try {
               console.log('Testing / ...');
               await page.goto('http://127.0.0.1:5000/', {waitUntil: 'domcontentloaded', timeout: 15000});
-              await new Promise(r => setTimeout(r, 1000));
+              await new Promise(r => setTimeout(r, 2000));
             } catch (e) {
               console.error('[QA PAGE ERROR] Dashboard load failed:', e.message); errors++;
             }
