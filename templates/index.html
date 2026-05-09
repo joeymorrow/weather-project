@@ -50,6 +50,8 @@
         #lore-trigger:hover + .lore-box, #lore-trigger:focus + .lore-box { opacity: 1; pointer-events: all; }
         #weekly-trigger { position: absolute; top: 20px; left: 55px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; }
         #weekly-trigger:hover, #weekly-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #agenda-trigger { position: absolute; top: 20px; left: 90px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2000; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; }
+        #agenda-trigger:hover, #agenda-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         .pod { position: absolute; width: clamp(60px, 8vmin, 180px); height: clamp(60px, 8vmin, 180px); border-radius: 50%; border: 1px solid var(--pod-border); background: var(--pod-bg); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 5rem); filter: grayscale(80%) opacity(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
         .pod:hover { filter: grayscale(0%) opacity(1); transform: scale(1.1); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100 !important; }
         .pod.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); z-index: 6; pointer-events: none; }
@@ -71,7 +73,7 @@
         .pulse-line:hover, .pulse-line:focus { opacity: 1; outline: none; background: var(--pod-bg); text-shadow: 0 0 10px var(--accent); box-shadow: 0 -10px 10px var(--pod-bg); }
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: auto; z-index: 2000; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: pointer; }
         #build-stamp:hover, #build-stamp:focus { opacity: 0.8; outline: none; }
-        #egg-modal, #pulse-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; pointer-events: auto; }
+        #egg-modal, #pulse-modal, #agenda-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; pointer-events: auto; }
         .egg-btn { background: rgba(0,255,255,0.1); border: 2px solid var(--accent); color: var(--accent); padding: 15px 30px; font-size: 1.2rem; border-radius: 10px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: 200px; text-align: center; }
         .egg-btn:hover, .egg-btn:focus { background: var(--accent); color: #000; outline: none; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, z-index 0s 0.75s; z-index: 1000; cursor: pointer; }
@@ -237,6 +239,7 @@
         <div id="managed-theme-link" onclick="acceptManagedTheme()" style="display:none; margin-top: 15px; color: #ff4444; font-weight: bold; cursor: pointer; border: 1px solid #ff4444; padding: 8px; border-radius: 8px; text-align: center; transition: 0.2s;">Overwrite my theme with Managed Theme</div>
     </div>
     <div id="weekly-trigger" role="button" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('weekly-modal').style.display='flex'" title="5-Day Outlook">📅</div>
+    <div id="agenda-trigger" role="button" tabindex="0" onclick="openAgenda()" onkeydown="if(event.key==='Enter')openAgenda()" title="Daily Agenda">🗓️</div>
     <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
     <div class="pods"><div class="pod" role="button" id="pos-coffee" tabindex="0" onclick="moveBuddy('coffee')" onkeydown="if(event.key==='Enter')moveBuddy('coffee')">☕</div><div class="pod" role="button" tabindex="0" id="pos-office" onclick="moveBuddy('office')" onkeydown="if(event.key==='Enter')moveBuddy('office')">💻</div><div class="pod" role="button" tabindex="0" id="pos-gym" onclick="moveBuddy('gym')" onkeydown="if(event.key==='Enter')moveBuddy('gym')">💪</div><div class="pod" role="button" tabindex="0" id="pos-store" onclick="moveBuddy('store')" onkeydown="if(event.key==='Enter')moveBuddy('store')">🛍️</div><div class="pod" role="button" tabindex="0" id="pos-library" onclick="moveBuddy('library')" onkeydown="if(event.key==='Enter')moveBuddy('library')">📖</div><div class="pod" role="button" tabindex="0" id="pos-garage" onclick="moveBuddy('garage')" onkeydown="if(event.key==='Enter')moveBuddy('garage')">🔧</div><div class="pod" role="button" tabindex="0" id="pos-park" onclick="moveBuddy('park')" onkeydown="if(event.key==='Enter')moveBuddy('park')">🚲</div><div class="pod" role="button" tabindex="0" id="pos-kitchen" onclick="moveBuddy('kitchen')" onkeydown="if(event.key==='Enter')moveBuddy('kitchen')">🍳</div><div id="pos-bed" role="button" tabindex="0" onclick="moveBuddy('bed')" onkeydown="if(event.key==='Enter')moveBuddy('bed')">🛏️</div></div>
     <div id="egg-modal" onclick="if(event.target === this) triggerEgg('close')">
@@ -273,6 +276,11 @@
             {% endfor %}
         </div>
         <div class="egg-btn" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='none'" style="margin-top:30px; border-color:gray; color:gray;">Close</div>
+    </div>
+    <div id="agenda-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; pointer-events: auto; padding: 5vh 5vw;" onclick="if(event.target === this) this.style.display='none'">
+        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 4rem); text-transform: uppercase;">Daily Agenda</h2>
+        <div id="agenda-content" style="width: 100%; max-width: 800px; max-height: 70vh; overflow-y: auto; text-align: left; padding-right: 10px;"></div>
+        <div class="egg-btn" tabindex="0" onclick="document.getElementById('agenda-modal').style.display='none'" style="margin-top:30px; border-color:gray; color:gray;">Close</div>
     </div>
     <div id="cast-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 15px; pointer-events: auto; padding: 5vh 5vw;" onclick="if(event.target === this) this.style.display='none'">
         <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 4rem); text-transform: uppercase;">Cast to TV</h2>
@@ -442,6 +450,7 @@
             if (e.key === 'Escape') {
                 document.getElementById('egg-modal').style.display = 'none';
                 document.getElementById('pulse-modal').style.display = 'none';
+                document.getElementById('agenda-modal').style.display = 'none';
                 return;
             }
             lastInteraction = Date.now();
@@ -600,6 +609,62 @@
         };
         window.closePulseHistory = function() {
             document.getElementById('pulse-modal').style.display = 'none';
+        };
+
+        window.openAgenda = function() {
+            const content = document.getElementById('agenda-content');
+            
+            const today = new Date();
+            const formatPulseDate = (d) => {
+                const m = d.toLocaleDateString('en-US', { month: 'long' });
+                const day = d.getDate().toString().padStart(2, '0');
+                return `${m} ${day}`;
+            };
+            
+            const todayStr = formatPulseDate(today);
+            
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = formatPulseDate(yesterday);
+
+            let todaysEvents = [];
+            let tomorrowsEvents = [];
+            
+            const seenEvents = new Set();
+
+            pulseHistory.forEach(p => {
+                const match = p.text.match(/<i>(.*?)<\/i>/i);
+                if (!match) return;
+                
+                let label = match[1].trim();
+                if (seenEvents.has(label)) return;
+                
+                let isTomorrow = p.text.toLowerCase().includes('tomorrow');
+                let isAgendaItem = false;
+                
+                const safeText = p.text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&lt;i&gt;/gi, '<i>').replace(/&lt;\/i&gt;/gi, '</i>');
+
+                if (p.date === todayStr) {
+                    if (isTomorrow) tomorrowsEvents.push({ label, text: safeText });
+                    else todaysEvents.push({ label, text: safeText });
+                    isAgendaItem = true;
+                } else if (p.date === yesterdayStr) {
+                    if (isTomorrow) todaysEvents.push({ label, text: safeText });
+                    isAgendaItem = true;
+                }
+                
+                if (isAgendaItem) seenEvents.add(label);
+            });
+
+            let html = `<h3 style="color: var(--text-main); margin-bottom: 10px; font-size: 1.5rem; border-bottom: 1px solid var(--pod-border); padding-bottom: 5px;">Today's Schedule</h3>`;
+            if (todaysEvents.length > 0) { todaysEvents.forEach(e => { html += `<details style="background: var(--pod-bg); border: 1px solid var(--pod-border); padding: 10px 15px; border-radius: 12px; color: var(--text-main); margin-bottom: 10px; font-size: 1.1rem; cursor: pointer;"><summary style="color: var(--accent); font-weight: bold; outline: none;">${e.label}</summary><div style="margin-top: 10px; line-height: 1.4; font-size: 1rem; opacity: 0.9;">${e.text}</div></details>`; }); } else { html += `<div style="color: var(--accent); opacity: 0.6; margin-bottom: 20px;">No events populated so far today.</div>`; }
+            html += `<h3 style="color: var(--text-main); margin-top: 20px; margin-bottom: 10px; font-size: 1.5rem; border-bottom: 1px solid var(--pod-border); padding-bottom: 5px;">Tomorrow's Schedule</h3>`;
+            if (tomorrowsEvents.length > 0) { tomorrowsEvents.forEach(e => { html += `<details style="background: var(--pod-bg); border: 1px solid var(--pod-border); padding: 10px 15px; border-radius: 12px; color: var(--text-main); margin-bottom: 10px; font-size: 1.1rem; cursor: pointer;"><summary style="color: var(--accent); font-weight: bold; outline: none;">${e.label}</summary><div style="margin-top: 10px; line-height: 1.4; font-size: 1rem; opacity: 0.9;">${e.text}</div></details>`; }); } else { html += `<div style="color: var(--accent); opacity: 0.6; margin-bottom: 20px;">No events populated so far for tomorrow.</div>`; }
+            content.innerHTML = html;
+            document.getElementById('agenda-modal').style.display = 'flex';
         };
 
     window.startCast = function() {

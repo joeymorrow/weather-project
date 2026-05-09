@@ -71,13 +71,23 @@ def init_db():
                              )''')
 init_db()
 
-def load_history():
+def load_history(today_str=None, yesterday_str=None):
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
-            c.execute("SELECT date, text FROM pulses ORDER BY id DESC LIMIT 21")
+            if today_str and yesterday_str:
+                c.execute("""
+                    SELECT date, text FROM pulses 
+                    WHERE date = ? OR date = ? OR id IN (
+                        SELECT id FROM pulses ORDER BY id DESC LIMIT 21
+                    )
+                    ORDER BY id DESC
+                """, (today_str, yesterday_str))
+            else:
+                c.execute("SELECT date, text FROM pulses ORDER BY id DESC LIMIT 21")
             return [{"date": r[0], "text": r[1]} for r in c.fetchall()]
-    except:
+    except Exception as e:
+        print(f"[ERROR] load_history: {e}", flush=True)
         return []
 
 def log_system_event(log_type, message, details=""):
@@ -339,8 +349,9 @@ def run_sync():
                     ai["bubble"] = "Operating in safe mode."
                     ai["suggestion"] = "Stay safe."
                 
+                yesterday_str = (now - timedelta(days=1)).strftime('%B %d')
                 if is_news:
-                    hist = load_history()
+                    hist = load_history(date_str, yesterday_str)
                     # Smart Local Deduplication: Extract data entities using the <i> tags
                     new_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', new_pulse, re.IGNORECASE))
                     is_duplicate_data = False
@@ -360,7 +371,7 @@ def run_sync():
                         except sqlite3.IntegrityError:
                             pass # Ignore exact duplicate string matches
                 
-                hist = load_history()
+                hist = load_history(date_str, yesterday_str)
                 
                 with state_lock:
                     state.update({
