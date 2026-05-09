@@ -207,14 +207,14 @@ jobs:
           }
 
           try {
-            console.log('Testing /joeyadmin ...');
+            console.log('Testing /cooladmin ...');
             const adminUser = process.env.ADMIN_USERNAME || 'admin';
             const adminPass = process.env.ADMIN_PASSWORD || 'changeme';
             await page.authenticate({ username: adminUser, password: adminPass });
-            await page.goto('http://127.0.0.1:5000/joeyadmin', {waitUntil: 'domcontentloaded', timeout: 15000});
+            await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
           } catch (e) {
-            console.error('[QA PAGE ERROR] JoeyAdmin load failed:', e.message); errors++;
+            console.error('[QA PAGE ERROR] CoolAdmin load failed:', e.message); errors++;
           }
 
           try {

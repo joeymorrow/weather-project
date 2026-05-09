@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Joey Admin | Overload Dashboard</title>
+    <title>CoolAdmin Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* Cyberpunk Overlord Aesthetic */
@@ -38,7 +38,7 @@
     </style>
 </head>
 <body>
-    <h1>Joey's Overload Interface</h1>
+    <h1>CoolAdmin Interface</h1>
     <div class="grid">
         <!-- System Services -->
         <div class="card">
@@ -126,6 +126,15 @@
                 </div>
             </div>
             <h3 style="margin-top: 20px; font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Dynamic Beacons</h3>
+            <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px;">
+                <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0;">
+                    <input type="hidden" name="action" value="add_beacon_page">
+                    <input type="text" name="title" required placeholder="Title (e.g. Brimley)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; min-width:150px; outline:none;">
+                    <input type="text" name="slug" required placeholder="Slug (e.g. brimley)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; min-width:150px; outline:none;">
+                    <input type="text" name="zipcode" required placeholder="Query (e.g. 49715,US)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; min-width:150px; outline:none;">
+                    <button type="submit" class="manage-btn">Create Page</button>
+                </form>
+            </div>
             {% for page in beacon_pages %}
             <div class="site-link">
                 <div>
@@ -141,12 +150,37 @@
                     {% endif %}
                     <a href="/schools/{{ page.slug }}" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
                     <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="delete_beacon_page"><input type="hidden" name="page_id" value="{{ page.id }}"><button type="submit" class="danger-btn" onclick="return confirm('Delete this dynamic page?')">Delete</button></form>
                 </div>
             </div>
             {% endfor %}
             {% if not beacon_pages %}
             <p style="font-size: 0.9rem; color: #666; font-style: italic;">No dynamic pages currently loaded.</p>
             {% endif %}
+        </div>
+
+        <!-- EAP Subscriptions -->
+        <div class="card">
+            <h2>📡 EAP Multicast Subscriptions</h2>
+            <p style="font-size: 0.9rem; color: #888;">Map local network multicast streams (IP/Port) to listen for EAP alerts dynamically.</p>
+            <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px;">
+                <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0;">
+                    <input type="hidden" name="action" value="add_eap_sub">
+                    <input type="text" name="multicast_ip" required placeholder="Multicast IP (e.g. 239.0.0.1)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; min-width:150px; outline:none;">
+                    <input type="number" name="port" required placeholder="Port (e.g. 5000)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; min-width:100px; outline:none;">
+                    <select name="profile" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; outline:none;">
+                        <option value="CommonSense">Common Sense / Guess</option>
+                        <option value="ILoveUGuys">I Love U Guys (SRP)</option>
+                    </select>
+                    <button type="submit" class="manage-btn">Add EAP Listener</button>
+                </form>
+            </div>
+            {% for sub in eap_subs %}
+            <div class="site-link">
+                <div><strong>{{ sub.ip }}:{{ sub.port }}</strong><br><span style="font-size: 0.8rem; color: #ccc;">Profile: {{ sub.profile }}</span></div>
+                <form method="POST" style="margin:0;"><input type="hidden" name="action" value="delete_eap_sub"><input type="hidden" name="sub_id" value="{{ sub.id }}"><button type="submit" class="danger-btn">Delete</button></form>
+            </div>
+            {% endfor %}
         </div>
 
         <!-- Pulse Management -->

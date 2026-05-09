@@ -326,6 +326,7 @@
     </div>
     <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: {{ branding.color | default('var(--accent)') }}; opacity: 0; z-index: 3500; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease; display: {% if branding and branding.text %}block{% else %}none{% endif %};">{{ branding.text }}</div>
     <div id="signage-overlay" style="display:none; position:fixed; inset:0; z-index:9000; background:#000; opacity:0; transition: opacity 1s ease;"></div>
+    <div id="emergency-takeover" style="display:none; position:fixed; inset:0; z-index:10000; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:5vw; animation: strobe-bg 1s infinite alternate;"></div>
     <div id="center-info">
         <div class="clock" id="ui-clock" aria-live="polite">--:-- --</div>
         <div style="display:flex; justify-content:center; align-items:center; gap: clamp(10px, 2vw, 20px); margin-bottom: 2px; flex-wrap: wrap;">
@@ -1556,6 +1557,28 @@
                 else signageSlides = [];
                 if (!activeSlideTimer) runSignageLoop();
 
+                // Handle Emergency Takeover (EAP & Flares)
+                const currentSlug = "{{ page_slug | default('main') }}";
+                let activeEap = null;
+                if (s.school_alerts && s.school_alerts[currentSlug]) {
+                    activeEap = s.school_alerts[currentSlug];
+                }
+                
+                const takeoverEl = document.getElementById('emergency-takeover');
+                if (takeoverEl) {
+                    if (activeEap) {
+                        takeoverEl.style.display = 'flex';
+                        takeoverEl.style.background = activeEap.color;
+                        takeoverEl.innerHTML = `<h1 style="color:#fff; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">${activeEap.type}</h1><p style="color:#fff; font-size:clamp(1.5rem, 4vw, 3rem); text-shadow:0 2px 15px rgba(0,0,0,0.6); margin-top:20px;">${activeEap.message}</p>`;
+                    } else if (s.emergency && s.emergency.active) {
+                        takeoverEl.style.display = 'flex';
+                        takeoverEl.style.background = s.emergency.color;
+                        takeoverEl.innerHTML = `<h1 style="color:#fff; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">EMERGENCY</h1><p style="color:#fff; font-size:clamp(1.5rem, 4vw, 3rem); text-shadow:0 2px 15px rgba(0,0,0,0.6); margin-top:20px;">${s.emergency.message}</p>`;
+                    } else {
+                        takeoverEl.style.display = 'none';
+                    }
+                }
+
                 // Handle Emergency Flare Mode
                 if (s.emergency && s.emergency.active) {
                     document.body.style.setProperty('--flare-color', s.emergency.color);
@@ -1839,6 +1862,9 @@
             }
             const slide = activeSlides[slideIndex];
             overlay.style.display = 'block';
+            overlay.style.background = '#000'; // Reset styling
+            overlay.style.pointerEvents = 'auto'; 
+            
             if (slide.type === 'text') {
                 const strobeClass = slide.strobe ? 'strobe-alert' : '';
                 const safeText = slide.text.replace(/\n/g, '<br>');
@@ -1846,6 +1872,18 @@
                     <h1 style="color:${slide.text_color}; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">${safeText}</h1></div>`;
             } else if (slide.type === 'image') {
                 overlay.innerHTML = `<div style="width:100%; height:100%; background:url('${slide.url}') center/contain no-repeat #000;"></div>`;
+            } else if (slide.type === 'video') {
+                if (slide.pip) {
+                    overlay.style.background = 'transparent';
+                    overlay.style.pointerEvents = 'none';
+                    overlay.innerHTML = `<div style="position:absolute; bottom:clamp(20px, 4vh, 40px); right:clamp(20px, 4vw, 40px); width:clamp(250px, 30vw, 600px); aspect-ratio:16/9; border-radius:15px; overflow:hidden; box-shadow:0 10px 30px var(--shadow-color); border:2px solid var(--accent); pointer-events:auto;">
+                        <video src="${slide.url}" autoplay muted loop playsinline style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+                    </div>`;
+                } else {
+                    overlay.innerHTML = `<video src="${slide.url}" autoplay muted loop playsinline style="width:100%; height:100%; object-fit:contain;"></video>`;
+                }
+            } else if (slide.type === 'iframe') {
+                overlay.innerHTML = `<iframe src="${slide.url}" style="width:100%; height:100%; border:none;" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>`;
             }
             void overlay.offsetWidth; // Force reflow
             overlay.style.opacity = '1';

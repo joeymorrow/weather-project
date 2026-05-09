@@ -10,6 +10,7 @@ import smtplib
 from email.mime.text import MIMEText
 import google.genai as genai
 from google.genai import types
+import socket, struct, select
 import pytz
 from werkzeug.utils import secure_filename
 
@@ -85,6 +86,12 @@ def init_db():
                                 date TEXT,
                                 text TEXT
                              )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS eap_subscriptions (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                multicast_ip TEXT,
+                                port INTEGER,
+                                profile TEXT
+                             )''')
     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as log_conn:
         with log_conn:
             log_conn.execute('''CREATE TABLE IF NOT EXISTS logs (
@@ -125,6 +132,15 @@ def get_beacon_pages():
             return [{"id": r[0], "slug": r[1], "title": r[2], "zipcode": r[3]} for r in c.fetchall()]
     except Exception as e:
         print(f"[ERROR] get_beacon_pages: {e}", flush=True)
+        return []
+
+def get_eap_subscriptions():
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, multicast_ip, port, profile FROM eap_subscriptions")
+            return [{"id": r[0], "ip": r[1], "port": r[2], "profile": r[3]} for r in c.fetchall()]
+    except:
         return []
 
 def load_history(today_str=None, yesterday_str=None):
@@ -243,9 +259,8 @@ def scrape_closings():
         print(f"[ERROR] Scrape closings failed: {e}", flush=True)
         return False, []
 
-def run_sync():
+def sync_for_location(slug, loc_name, query):
     try:
-        query = state.get("main_config", {}).get("query", "Sault+Ste.+Marie,MI,US")
         w = http_session.get(f"https://api.openweathermap.org/data/2.5/weather?q={query}&appid={OWM_KEY}&units=imperial", timeout=10).json()
         f = http_session.get(f"https://api.openweathermap.org/data/2.5/forecast?q={query}&appid={OWM_KEY}&units=imperial", timeout=10).json()
         now = datetime.now(TZ)
@@ -365,12 +380,13 @@ def run_sync():
 
         buddy_task = "Task 1 (Buddy): 3-5 word unique greeting observing the beautiful sunrise." if (is_morning_golden and clouds < 75) else "Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding)."
 
-        global manual_override
+        global manual_override, override_expiry
         if manual_override and time.time() < override_expiry:
             st_id = manual_override
             is_sleep = (st_id == "bed")
         else:
-            manual_override = None
+            if slug == "main": # Only reset manual override once per loop
+                manual_override = None
 
         global gemini_client
         if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
@@ -379,16 +395,18 @@ def run_sync():
         date_str = now.strftime('%B %d')
         
         with state_lock:
-            last_pulse_topic = state.get("pulse", "")
+            if slug == "main":
+                last_pulse_topic = state.get("pulse", "")
+            else:
+                last_pulse_topic = state.get("tenants", {}).get(slug, {}).get("pulse", "")
         
         pulse_task = (
-            "Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of Sault Ste. Marie, Michigan's nocturnal rhythm—such as freighters passing through the dark <i>Soo Locks</i>, the ambient glow of the <i>International Bridge</i>, stargazing (if the weather is clear), or the city peacefully resting. Seamlessly weave a brief mention of tomorrow's weather into this comforting thought. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the current time. Do not search for news. Set 'is_news' to false." 
+            f"Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of tomorrow's weather into this comforting thought. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the current time. Do not search for news. Set 'is_news' to false." 
             if is_late_night else 
-            "Task 2 (Pulse): Adopt the persona of a steadfast, grounded local speechwriter. "
-            "ANTI-HALLUCINATION PROTOCOL (SAC): 1. SEARCH for a verifiable event happening TODAY in Sault Ste. Marie, MI. 2. If no specific event is found with a source, DO NOT invent one; instead, describe a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i> or <i>park activity</i>). 3. CONTENT: Provide a 2-sentence update weaving the current weather into the activity. 4. TRUTH BOUNDARY: For scheduled events, include start/end times in <i> tags only if verified. If the city is quiet, describe the quiet with dignity—never use 'filler' events like fake workshops. 5. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid saccharine words like 'sanctuary'. Set 'is_news' to true ONLY if a specific verified event is shared; otherwise, set to false."
+            f"Task 2 (Pulse): Adopt the persona of a steadfast, grounded local speechwriter. "
+            f"ANTI-HALLUCINATION PROTOCOL (SAC): 1. SEARCH for a verifiable event happening TODAY in {loc_name}. 2. If no specific event is found with a source, DO NOT invent one; instead, describe a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i> or <i>park activity</i>). 3. CONTENT: Provide a 2-sentence update weaving the current weather into the activity. 4. TRUTH BOUNDARY: For scheduled events, include start/end times in <i> tags only if verified. If the city is quiet, describe the quiet with dignity—never use 'filler' events like fake workshops. 5. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid saccharine words like 'sanctuary'. Set 'is_news' to true ONLY if a specific verified event is shared; otherwise, set to false."
         )
 
-        loc_name = state.get("main_config", {}).get("location", "Sault Ste. Marie, Michigan")
         prompt = f"""
         {loc_name}. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         PREVIOUS PULSE: "{last_pulse_topic}" -> Provide a completely different topic/event.
@@ -402,6 +420,10 @@ def run_sync():
         """
         
         success = False
+        new_pulse = "Anchoring Sault Pulse..." if slug == "main" else f"Anchoring {loc_name} Pulse..."
+        is_news = False
+        ai = {}
+
         for m_id in get_best_models():
             try:
                 resp = gemini_client.models.generate_content(
@@ -413,14 +435,13 @@ def run_sync():
                 json_str = text[text.find('{'):text.rfind('}')+1]
                 ai = json.loads(json_str)
                 
-                new_pulse = ai.get("pulse", "Anchoring Sault Pulse...")
+                new_pulse = ai.get("pulse", new_pulse)
                 is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
                 
-                # Secret In-Flight Hallucination Double-Check
-                if is_news and new_pulse != "Anchoring Sault Pulse...":
+                if is_news and new_pulse and "Anchoring" not in new_pulse:
                     try:
                         check_prompt = f"""
-You are a strict fact-checker evaluating a newly generated "Pulse" event for Sault Ste. Marie, Michigan. Use Google Search to verify if the event actually happened or is scheduled around the time it was reported before making a judgment.
+You are a strict fact-checker evaluating a newly generated "Pulse" event for {loc_name}. Use Google Search to verify if the event actually happened or is scheduled around the time it was reported before making a judgment.
 Determine if this text is a hallucinated/invented specific event (like fake workshops or generic community gatherings with fake times), or if it is legitimate.
 Text: "{new_pulse}"
 Return ONLY valid JSON: {{"hallucinated": true/false}}
@@ -436,15 +457,14 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                                 check_data = json.loads(check_text[check_text.find('{'):check_text.rfind('}')+1])
                                 
                                 if check_data.get("hallucinated"):
-                                    print("[API] Hallucination caught in-flight! Replacing with recent valid pulse.", flush=True)
+                                    print(f"[API] Hallucination caught in-flight for {slug}! Replacing with fallback.", flush=True)
                                     import random
                                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                         c = conn.cursor()
-                                        # Pick from the last ~3 hours of successful pulses (18 syncs)
                                         c.execute("SELECT text FROM pulses ORDER BY id DESC LIMIT 18")
                                         recent = [r[0] for r in c.fetchall()]
-                                        new_pulse = random.choice(recent) if recent else "The Sault continues its steady, unconquerable rhythm."
-                                    is_news = False # Prevent archiving the replaced past pulse
+                                        new_pulse = random.choice(recent) if recent and slug == "main" else f"{loc_name} continues its steady rhythm."
+                                    is_news = False
                                 break
                             except Exception:
                                 continue
@@ -457,47 +477,36 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                     ai["suggestion"] = "Stay safe."
                 
                 yesterday_str = (now - timedelta(days=1)).strftime('%B %d')
-                if is_news:
+                if is_news and slug == "main": # Only log main pulses to global history for deduplication
                     hist = load_history(date_str, yesterday_str)
-                    # Smart Local Deduplication: Extract data entities using the <i> tags
                     new_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', new_pulse, re.IGNORECASE))
                     is_duplicate_data = False
-                    
                     if new_tags:
-                        for past in hist[:5]: # Compare against the 5 most recent archived events
+                        for past in hist[:5]:
                             past_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', past["text"], re.IGNORECASE))
                             if past_tags and len(new_tags.intersection(past_tags)) >= max(1, len(new_tags) // 2):
                                 is_duplicate_data = True
                                 break
-                                
                     if not is_duplicate_data:
                         try:
                             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                 with conn:
                                     conn.execute("INSERT INTO pulses (date, text) VALUES (?, ?)", (date_str, new_pulse))
                         except sqlite3.IntegrityError:
-                            pass # Ignore exact duplicate string matches
+                            pass
                 
-                hist = load_history(date_str, yesterday_str)
-                
-                with state_lock:
-                    state.update({
-                        "suggestion": ai.get("tip"), "bubble": ai.get("say"), 
-                        "pulse": new_pulse, "acc_css": "zzz" if is_sleep else ai.get("acc", "none"),
-                        "forecast": ai.get("forecast", "Weather data processing..."), 
-                        "weekly_summary": ai.get("weekly_summary", "Weekly pattern steady."),
-                        "pulse_history": hist
-                    })
-                print(f"[API] Success via {m_id}", flush=True)
+                print(f"[API] Success via {m_id} for {slug}", flush=True)
                 success = True; break
             except: continue
         
-        if not success: state["bubble"] = "Optimizing antenna..."
+        if not success: ai["bubble"] = "Optimizing antenna..."
 
         day = now.day
         suffix = 'th' if 11 <= day <= 13 else {1:'st', 2:'nd', 3:'rd'}.get(day % 10, 'th')
-        with state_lock:
-            state.update({
+        
+        hist = load_history(date_str, (now - timedelta(days=1)).strftime('%B %d')) if slug == "main" else []
+
+        update_dict = {
                 "temp": int(w['main']['temp']), "high": today_high, 
                 "low": today_low,
                 "desc": w['weather'][0]['description'].title(), "icon": w['weather'][0]['icon'],
@@ -653,9 +662,62 @@ def hallucination_cleanup_loop():
         except Exception as e:
             print(f"[ERROR] Hallucination cleanup loop: {e}", flush=True)
 
+def handle_eap_message(msg_text):
+    try:
+        data = json.loads(msg_text)
+        msg_type = data.get("type", "EAP ALERT").upper()
+        msg = data.get("message", "Emergency Alert Activated")
+    except:
+        msg_type = "EAP ALERT"
+        msg = msg_text.strip()
+
+    msg_lower = msg.lower()
+    color = "#d32f2f" # Default Red (Lockdown/Fire/Evacuate)
+    if "secure" in msg_lower or "hazard" in msg_lower or "weather" in msg_lower: color = "#ff8c00"
+    elif "hold" in msg_lower: color = "#800080"
+    elif "shelter" in msg_lower or "medical" in msg_lower: color = "#1976d2"
+    elif "clear" in msg_lower: color = "#388e3c"
+
+    with state_lock:
+        if 'school_alerts' not in state: state['school_alerts'] = {}
+        tenants = ['sault-schools', 'pickford-schools'] + [p['slug'] for p in get_beacon_pages()]
+        for t in tenants:
+            state['school_alerts'][t] = {'type': msg_type, 'color': color, 'message': msg}
+        try:
+            with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+        except: pass
+
+def eap_multicast_listener():
+    active_sockets = {}
+    while True:
+        try:
+            subs = get_eap_subscriptions()
+            current_endpoints = {(s["ip"], s["port"]): s["profile"] for s in subs}
+            for ep in list(active_sockets.keys()):
+                if ep not in current_endpoints:
+                    active_sockets[ep].close(); del active_sockets[ep]
+            for ep, profile in current_endpoints.items():
+                ip, port = ep
+                if ep not in active_sockets:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    sock.bind(('', port))
+                    mreq = struct.pack("4sl", socket.inet_aton(ip), socket.INADDR_ANY)
+                    sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+                    sock.setblocking(False)
+                    active_sockets[ep] = sock
+            if active_sockets:
+                ready_socks, _, _ = select.select(list(active_sockets.values()), [], [], 5.0)
+                for sock in ready_socks:
+                    data, _ = sock.recvfrom(4096)
+                    handle_eap_message(data.decode('utf-8', errors='ignore'))
+            else: time.sleep(5)
+        except Exception as e:
+            print(f"[EAP ERROR] {e}", flush=True); time.sleep(5)
+
 @app.before_request
 def check_disabled_pages():
-    if request.path.startswith('/joeyadmin') or request.path.startswith('/admin') or request.path.startswith('/static') or request.path.startswith('/api/'):
+    if request.path.startswith('/cooladmin') or request.path.startswith('/joeyadmin') or request.path.startswith('/admin') or request.path.startswith('/static') or request.path.startswith('/api/'):
         return
     with state_lock:
         disabled = state.get("disabled_pages", [])
@@ -678,7 +740,11 @@ def sault_weather_redirect():
 
 @app.route('/sault-schools')
 def sault_schools():
-    with state_lock: return render_template('sault_schools.html', **state.copy())
+    with state_lock: 
+        page_state = state.get('tenants', {}).get('sault-schools', state).copy()
+        page_state['school_alerts'] = state.get('school_alerts', {})
+        page_state['school_closings'] = state.get('school_closings', {})
+        return render_template('sault_schools.html', **page_state)
 
 @app.route('/sault_schools')
 @app.route('/sault_schools.html')
@@ -688,7 +754,11 @@ def sault_schools_redirect():
 
 @app.route('/pickford-schools')
 def pickford_schools():
-    with state_lock: return render_template('pickford_schools.html', **state.copy())
+    with state_lock: 
+        page_state = state.get('tenants', {}).get('pickford-schools', state).copy()
+        page_state['school_alerts'] = state.get('school_alerts', {})
+        page_state['school_closings'] = state.get('school_closings', {})
+        return render_template('pickford_schools.html', **page_state)
 
 @app.route('/pickford_schools')
 @app.route('/pickford_schools.html')
@@ -704,9 +774,11 @@ def dynamic_school(slug):
         return "Page not found", 404
     
     with state_lock: 
-        page_state = state.copy()
+        page_state = state.get('tenants', {}).get(slug, state).copy()
         page_state['page_title'] = page['title']
         page_state['page_slug'] = slug
+        page_state['school_alerts'] = state.get('school_alerts', {})
+        page_state['school_closings'] = state.get('school_closings', {})
         return render_template('school_dashboard.html', **page_state)
 
 @app.route('/joeyadmin', methods=['GET', 'POST'])
@@ -742,7 +814,7 @@ def joeyadmin():
                 
                 if trigger_sync:
                     threading.Thread(target=run_sync).start()
-            return redirect('/joeyadmin')
+            return redirect('/cooladmin')
             
         elif action == 'toggle_page':
             page_route = request.form.get('page_route')
@@ -757,8 +829,46 @@ def joeyadmin():
                     try:
                         with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                     except: pass
-            return redirect('/joeyadmin')
+            return redirect('/cooladmin')
             
+        elif action == 'add_beacon_page':
+            slug = request.form.get('slug', '').strip().lower().replace(' ', '-')
+            title = request.form.get('title', '').strip()
+            zipcode = request.form.get('zipcode', '').strip()
+            if slug and title and zipcode:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn:
+                            conn.execute("INSERT INTO beacon_pages (slug, title, zipcode) VALUES (?, ?, ?)", (slug, title, zipcode))
+                except sqlite3.IntegrityError:
+                    pass
+            return redirect('/cooladmin')
+        elif action == 'delete_beacon_page':
+            page_id = request.form.get('page_id')
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        conn.execute("DELETE FROM beacon_pages WHERE id = ?", (page_id,))
+            except: pass
+            return redirect('/cooladmin')
+
+        elif action == 'add_eap_sub':
+            ip = request.form.get('multicast_ip', '').strip()
+            port = request.form.get('port', type=int)
+            profile = request.form.get('profile', 'CommonSense')
+            if ip and port:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        conn.execute("INSERT INTO eap_subscriptions (multicast_ip, port, profile) VALUES (?, ?, ?)", (ip, port, profile))
+            return redirect('/cooladmin')
+
+        elif action == 'delete_eap_sub':
+            sub_id = request.form.get('sub_id')
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("DELETE FROM eap_subscriptions WHERE id = ?", (sub_id,))
+            return redirect('/cooladmin')
+
         elif action == 'shutdown':
             confirm_user = request.form.get('username')
             confirm_pass = request.form.get('password')
@@ -826,7 +936,7 @@ def joeyadmin():
     except:
         hallucinations = []
         
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary)
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
@@ -873,6 +983,27 @@ def admin():
                         file.save(fpath)
                         slide = {"id": str(int(time.time())), "type": "image", "url": "/" + fpath.replace("\\", "/"), "duration": int(request.form.get('duration', 15)), "start_time": request.form.get('start_time', ''), "end_time": request.form.get('end_time', '')}
                         state.setdefault('slides', []).append(slide)
+                elif action == 'add_video_slide':
+                    slide = {
+                        "id": str(int(time.time())),
+                        "type": "video",
+                        "url": request.form.get('url', '').strip(),
+                        "pip": request.form.get('pip') == 'yes',
+                        "duration": int(request.form.get('duration', 15)),
+                        "start_time": request.form.get('start_time', ''),
+                        "end_time": request.form.get('end_time', '')
+                    }
+                    state.setdefault('slides', []).append(slide)
+                elif action == 'add_iframe_slide':
+                    slide = {
+                        "id": str(int(time.time())),
+                        "type": "iframe",
+                        "url": request.form.get('url', '').strip(),
+                        "duration": int(request.form.get('duration', 15)),
+                        "start_time": request.form.get('start_time', ''),
+                        "end_time": request.form.get('end_time', '')
+                    }
+                    state.setdefault('slides', []).append(slide)
                 elif action == 'delete_slide':
                     sid = request.form.get('slide_id')
                     for s in state.get('slides', []):
@@ -903,22 +1034,16 @@ def admin():
                     slug = request.form.get('location_slug')
                     alert_type = request.form.get('alert_type')
                     message = request.form.get('alert_message', '').strip()
+                    color = request.form.get('alert_color', '#d32f2f')
                     if 'school_alerts' not in state:
                         state['school_alerts'] = {}
                     if alert_type == 'NONE':
                         if slug in state['school_alerts']:
                             del state['school_alerts'][slug]
                     else:
-                        colors = {
-                            'HOLD': '#800080',
-                            'SECURE': '#ff8c00',
-                            'LOCKDOWN': '#d32f2f',
-                            'EVACUATE': '#388e3c',
-                            'SHELTER': '#1976d2'
-                        }
                         state['school_alerts'][slug] = {
                             'type': alert_type,
-                            'color': colors.get(alert_type, '#d32f2f'),
+                            'color': color,
                             'message': message
                         }
                 try:
@@ -1039,9 +1164,11 @@ if __name__ != '__main__':
     threading.Thread(target=sync_loop, daemon=True).start()
     threading.Thread(target=monitor_loop, daemon=True).start()
     threading.Thread(target=hallucination_cleanup_loop, daemon=True).start()
+    threading.Thread(target=eap_multicast_listener, daemon=True).start()
 
 if __name__ == '__main__':
     threading.Thread(target=sync_loop, daemon=True).start()
     threading.Thread(target=monitor_loop, daemon=True).start()
     threading.Thread(target=hallucination_cleanup_loop, daemon=True).start()
+    threading.Thread(target=eap_multicast_listener, daemon=True).start()
     app.run(host='0.0.0.0', port=5000, debug=False)

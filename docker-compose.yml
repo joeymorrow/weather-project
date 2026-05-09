@@ -7,13 +7,12 @@ services:
       - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro
       - /run/systemd:/run/systemd:ro
       - /etc/machine-id:/etc/machine-id:ro
-    pid: "host"
+    network_mode: "host" # REQUIRED for Multicast EAP! Maps container directly to host network interface.
 
   slim-proxy:
     build: .
     command: python slim_proxy.py
-    ports:
-      - "5000:8080" # Exposes proxy on 5000, passing clean traffic internally to weather-dashboard:5000
+    network_mode: "host" # Proxy also binds to host to proxy port 8080 -> 5000
     restart: always
     volumes:
       - ./data:/app/data # Allows the proxy to log dropped traffic to the SQLite database!

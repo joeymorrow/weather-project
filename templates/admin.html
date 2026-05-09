@@ -212,17 +212,21 @@
                     <option value="{{ page.slug }}">{{ page.title }}</option>
                     {% endfor %}
                 </select>
+                <label>EAP Protocol Profile:</label>
+                <select id="eap_profile" onchange="updateEAPOptions()">
+                    <option value="CommonSense">Common Sense (Standard Office/Facility)</option>
+                    <option value="ILoveUGuys">Schools: "I Love U Guys" (SRP)</option>
+                    <option value="Hospital">Hospital / Healthcare (HICS)</option>
+                    <option value="Retail">Retail / Commercial (Walmart, etc.)</option>
+                    <option value="Casino">Casino / Entertainment</option>
+                </select>
                 <label>Alert Type:</label>
-                <select name="alert_type" required>
-                    <option value="NONE">Clear Alert (Normal)</option>
-                    <option value="HOLD">HOLD (Purple)</option>
-                    <option value="SECURE">SECURE (Orange)</option>
-                    <option value="LOCKDOWN">LOCKDOWN (Red)</option>
-                    <option value="EVACUATE">EVACUATE (Green)</option>
-                    <option value="SHELTER">SHELTER (Blue)</option>
+                <select id="alert_type" name="alert_type" onchange="updateEAPDetails()" required>
+                    <!-- Populated dynamically via JS -->
                 </select>
                 <label>Alert Message / Instructions:</label>
-                <textarea name="alert_message" rows="2" placeholder="e.g. Clear the halls. Do business as usual."></textarea>
+                <textarea id="alert_message" name="alert_message" rows="2" placeholder="e.g. Clear the halls. Do business as usual."></textarea>
+                <input type="hidden" id="alert_color" name="alert_color" value="#d32f2f">
                 <button type="submit">Update Location Alert</button>
             </form>
             <h3 style="color: #00ffff; margin-top: 20px; border-bottom: 1px solid #333; padding-bottom: 5px;">Active Alerts</h3>
@@ -241,6 +245,46 @@
                 <p style="color: #666; font-style: italic;">No active location alerts.</p>
             {% endif %}
         </div>
+        
+        <!-- 4.5 Add Video Signage -->
+        <div class="card">
+            <h2>🎥 Add Video Slide</h2>
+            <p style="font-size: 0.9rem; color: #888;">Link to an MP4/WebM video. Enable PIP to overlay it in the corner without hiding Buddy!</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="add_video_slide">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <label>Direct Video URL (.mp4, .webm):</label>
+                <input type="url" name="url" required placeholder="https://example.com/video.mp4">
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;"><label>Duration (Seconds):</label><input type="number" name="duration" value="30" min="5" max="3600" required></div>
+                    <div style="flex: 1;"><label>Picture-in-Picture (PIP):</label><select name="pip"><option value="no">No (Fullscreen)</option><option value="yes">Yes (Corner Overlay)</option></select></div>
+                </div>
+                <button type="submit">Add Video Slide</button>
+            </form>
+        </div>
+
+        <!-- 4.6 Add Web/Canva Signage -->
+        <div class="card">
+            <h2>🌐 Add Web / Canva Slide</h2>
+            <p style="font-size: 0.9rem; color: #888;">Embed a Canva presentation, Google Slide, or any webpage via URL.</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="add_iframe_slide">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <label>Embed URL:</label>
+                <input type="url" name="url" required placeholder="https://www.canva.com/design/.../view?embed">
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                </div>
+                <label>Duration (Seconds):</label>
+                <input type="number" name="duration" value="30" min="5" max="3600" required>
+                <button type="submit">Add Web Slide</button>
+            </form>
+        </div>
 
         <!-- 5. Active Slideshow -->
         <div class="card" style="grid-column: 1 / -1;">
@@ -256,6 +300,12 @@
                                 <br><span class="color-preview" style="background: {{ slide.bg_color }};"></span> BG | <span class="color-preview" style="background: {{ slide.text_color }};"></span> Text | Strobe: {{ "Yes" if slide.strobe else "No" }}
                             {% else %}
                                 <strong>IMAGE ({{ slide.duration }}s)</strong>: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View File</a>
+                            {% endif %}
+                            {% elif slide.type == 'video' %}
+                                <strong>VIDEO ({{ slide.duration }}s)</strong>: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
+                                <br><span style="font-size:0.85rem; color:#888;">PIP Mode: {{ "Yes" if slide.pip else "No" }}</span>
+                            {% elif slide.type == 'iframe' %}
+                                <strong>WEB / CANVA ({{ slide.duration }}s)</strong>: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
                             {% endif %}
                             {% if slide.start_time %} <br><span style="font-size:0.85rem; color:#888;">Starts: {{ slide.start_time }}</span> {% endif %}
                             {% if slide.end_time %} <span style="font-size:0.85rem; color:#888;">Ends: {{ slide.end_time }}</span> {% endif %}
@@ -276,16 +326,69 @@
     </div>
     
     <div style="text-align: center; margin-top: 30px;">
-        <a href="/joeyadmin" style="color: #ff00ff; text-decoration: none; font-weight: bold; margin-right: 20px;">👾 Overload Interface</a>
+        <a href="/cooladmin" style="color: #ff00ff; text-decoration: none; font-weight: bold; margin-right: 20px;">⚙️ CoolAdmin</a>
         <a href="/" style="color: #00ffff; text-decoration: none; font-weight: bold;">← Back to Dashboard</a>
     </div>
     
     <script>
+        const eapProfiles = {
+            "CommonSense": [
+                {val: "EVACUATE", label: "Evacuate Building (Red)", color: "#d32f2f", msg: "Please proceed to the nearest exit immediately."},
+                {val: "SHELTER", label: "Shelter in Place (Blue)", color: "#1976d2", msg: "Seek shelter immediately. Do not leave the building."},
+                {val: "HAZARD", label: "Hazard/Weather (Orange)", color: "#f57c00", msg: "Hazardous conditions detected. Stay indoors."},
+                {val: "ALL_CLEAR", label: "All Clear (Green)", color: "#388e3c", msg: "The emergency has passed. Resume normal activities."}
+            ],
+            "ILoveUGuys": [
+                {val: "HOLD", label: "HOLD (Purple)", color: "#800080", msg: "Clear the halls and remain in your room."},
+                {val: "SECURE", label: "SECURE (Orange)", color: "#ff8c00", msg: "Get inside. Lock outside doors."},
+                {val: "LOCKDOWN", label: "LOCKDOWN (Red)", color: "#d32f2f", msg: "Locks, lights, out of sight."},
+                {val: "EVACUATE", label: "EVACUATE (Green)", color: "#388e3c", msg: "Leave the building according to plan."},
+                {val: "SHELTER", label: "SHELTER (Blue)", color: "#1976d2", msg: "Hazard and safety strategy."}
+            ],
+            "Hospital": [
+                {val: "CODE_RED", label: "Code Red - Fire (Red)", color: "#d32f2f", msg: "Fire emergency. Follow evacuation protocols."},
+                {val: "CODE_BLUE", label: "Code Blue - Medical (Blue)", color: "#1976d2", msg: "Medical emergency in progress."},
+                {val: "CODE_BLACK", label: "Code Black - Bomb (Black)", color: "#000000", msg: "Bomb threat. Follow security instructions."},
+                {val: "CODE_SILVER", label: "Code Silver - Weapon (Gray)", color: "#757575", msg: "Person with weapon. Seek immediate cover."}
+            ],
+            "Retail": [
+                {val: "EVACUATE", label: "Store Evacuation (Red)", color: "#d32f2f", msg: "Please leave the store immediately through the nearest exit."},
+                {val: "WEATHER", label: "Severe Weather (Orange)", color: "#f57c00", msg: "Severe weather alert. Please move away from windows."},
+                {val: "MEDICAL", label: "Medical Incident (Blue)", color: "#1976d2", msg: "Medical incident. Please clear the area for responders."}
+            ],
+            "Casino": [
+                {val: "EVACUATE", label: "Casino Evacuation (Red)", color: "#d32f2f", msg: "Please evacuate the gaming floor immediately."},
+                {val: "SECURITY", label: "Security Incident (Orange)", color: "#f57c00", msg: "Security incident. Please follow staff directions."},
+                {val: "WEATHER", label: "Severe Weather (Blue)", color: "#1976d2", msg: "Severe weather alert. Move to interior areas."}
+            ]
+        };
+
+        function updateEAPOptions() {
+            const profile = document.getElementById('eap_profile').value;
+            const typeSelect = document.getElementById('alert_type');
+            typeSelect.innerHTML = '<option value="NONE" data-color="#000" data-msg="">Clear Alert (Normal)</option>';
+            eapProfiles[profile].forEach(opt => {
+                let el = document.createElement('option');
+                el.value = opt.val; el.innerHTML = opt.label; el.dataset.color = opt.color; el.dataset.msg = opt.msg;
+                typeSelect.appendChild(el);
+            });
+            updateEAPDetails();
+        }
+
+        function updateEAPDetails() {
+            const typeSelect = document.getElementById('alert_type');
+            const selected = typeSelect.options[typeSelect.selectedIndex];
+            document.getElementById('alert_color').value = selected.dataset.color || '#d32f2f';
+            document.getElementById('alert_message').value = selected.value !== "NONE" ? (selected.dataset.msg || '') : '';
+        }
+        
         function applyTemplate(msg, color, activeState) {
             document.querySelector('textarea[name="message"]').value = msg;
             document.querySelector('input[name="color"]').value = color;
             document.querySelector('select[name="flare_active"]').value = activeState;
         }
+        
+        updateEAPOptions(); // Init forms on load
     </script>
 </body>
 </html>

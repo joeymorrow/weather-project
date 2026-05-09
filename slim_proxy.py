@@ -76,7 +76,7 @@ def handle_client(client_socket):
 
         # Forward the clean, validated traffic to the internal Gunicorn container
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.connect(('weather-dashboard', 5000))
+        server_socket.connect(('127.0.0.1', 5000)) # Changed from DNS mapping since we use network_mode: host!
         server_socket.sendall(request)
         
         # Start bidirectional piping
