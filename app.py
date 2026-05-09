@@ -893,7 +893,7 @@ def get_state():
     with state_lock:
         out = state.copy()
         out["build_timestamp"] = os.environ.get("BUILD_TIMESTAMP", "Local Dev")
-            out["agenda_item_count"] = get_agenda_item_count()
+        out["agenda_item_count"] = get_agenda_item_count()
         return jsonify(out)
 
 @app.route('/api/vote', methods=['POST'])
