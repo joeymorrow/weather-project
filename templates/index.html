@@ -149,7 +149,7 @@
         @keyframes rave-colors { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
         .rave-bg { animation: rave-colors 0.5s infinite alternate !important; }
         .bubble-update { animation: fadeBubble 0.8s ease-out; }
-        @keyframes notify-pulse { 0%, 100% { text-shadow: none; transform: scale(1); } 50% { text-shadow: 0 0 15px #00ff00; color: #00ff00; transform: scale(1.02); } }
+        @keyframes box-ripple-glow { 0% { box-shadow: 0 0 0 0 var(--accent), 0 0 20px var(--accent), 0 8px 25px var(--shadow-color); border-color: var(--accent); transform: scale(1); } 50% { box-shadow: 0 0 0 15px transparent, 0 0 40px var(--accent), 0 8px 25px var(--shadow-color); border-color: #fff; transform: scale(1.02); } 100% { box-shadow: 0 0 0 0 transparent, 0 0 10px transparent, 0 8px 25px var(--shadow-color); border-color: var(--pod-border); transform: scale(1); } }
         @keyframes wiggle-awake { 0%, 100% { transform: scale(1) rotate(0deg); } 25% { transform: scale(1.05, 0.95) rotate(-15deg); } 50% { transform: scale(0.95, 1.05) rotate(15deg); } 75% { transform: scale(1.02, 0.98) rotate(-10deg); } }
         .waking-up .buddy-body { animation: wiggle-awake 1.2s ease-in-out; }
         .waking-up .arm.left { transform: rotate(160deg); top: 15px; }
@@ -1564,8 +1564,8 @@
                     pulseHistory = s.pulse_history || [];
                     if (pulseHistory.length > oldLen && oldLen > 0 && document.getElementById('pulse-modal').style.display !== 'flex') {
                         const pLine = document.getElementById('ui-pulse');
-                        pLine.style.animation = 'notify-pulse 2s 2 ease-in-out';
-                        setTimeout(() => pLine.style.animation = '', 4000);
+                        pLine.style.animation = 'box-ripple-glow 1.5s 3 cubic-bezier(0.25, 1, 0.5, 1)';
+                        setTimeout(() => pLine.style.animation = '', 4500);
                     }
                     
                     softUpdate('ui-sugg', s.suggestion && s.suggestion.includes('Initializing') ? s.suggestion : `🧥 Suggested Attire: ${s.suggestion}`);
