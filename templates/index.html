@@ -891,9 +891,19 @@
 
         window.openPulseHistory = function() {
             const list = document.getElementById('pulse-list');
-            list.innerHTML = pulseHistory.length ? pulseHistory.map(p => {
+            
+            let displayHistory = [];
+            if (lastPulse && lastPulse !== "Anchoring Sault Pulse...") {
+                displayHistory.push({ date: "CURRENT PULSE", text: lastPulse, isCurrent: true });
+            }
+            pulseHistory.forEach(p => {
+                if (p.text !== lastPulse) displayHistory.push(p);
+            });
+            
+            list.innerHTML = displayHistory.length ? displayHistory.map(p => {
                 const safeText = p.text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&lt;i&gt;/gi, '<i>').replace(/&lt;\/i&gt;/gi, '</i>');
-                return `<div style="background: var(--pod-bg); border: 1px solid var(--pod-border); padding: 15px 20px; border-radius: 12px; color: var(--text-main); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.4; text-align: left;"><div style="color: var(--accent); font-size: 0.8rem; margin-bottom: 5px; opacity: 0.8; text-transform: uppercase;">${p.date}</div>${safeText}</div>`;
+                const borderStyle = p.isCurrent ? "border: 2px solid var(--accent); box-shadow: 0 0 15px rgba(0,255,255,0.2);" : "border: 1px solid var(--pod-border);";
+                return `<div style="background: var(--pod-bg); ${borderStyle} padding: 15px 20px; border-radius: 12px; color: var(--text-main); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.4; text-align: left;"><div style="color: var(--accent); font-size: 0.8rem; margin-bottom: 5px; opacity: 0.8; text-transform: uppercase; font-weight: ${p.isCurrent ? 'bold' : 'normal'};">${p.date}</div>${safeText}</div>`;
             }).join('') : '<div style="color: var(--accent); text-align:center; opacity: 0.6; margin-top: 20px;">No grounded archives yet. Check back later!</div>';
             document.getElementById('pulse-modal').style.display = 'flex';
             list.focus();
