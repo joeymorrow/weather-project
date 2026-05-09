@@ -60,6 +60,12 @@ def init_db():
                                 date TEXT,
                                 text TEXT UNIQUE
                              )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS beacon_pages (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                slug TEXT UNIQUE,
+                                title TEXT,
+                                zipcode TEXT
+                             )''')
     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as log_conn:
         with log_conn:
             log_conn.execute('''CREATE TABLE IF NOT EXISTS logs (
@@ -70,6 +76,16 @@ def init_db():
                                 details TEXT
                              )''')
 init_db()
+
+def get_beacon_pages():
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, slug, title, zipcode FROM beacon_pages ORDER BY title ASC")
+            return [{"id": r[0], "slug": r[1], "title": r[2], "zipcode": r[3]} for r in c.fetchall()]
+    except Exception as e:
+        print(f"[ERROR] get_beacon_pages: {e}", flush=True)
+        return []
 
 def load_history(today_str=None, yesterday_str=None):
     try:
@@ -113,7 +129,8 @@ state = {
     "branding": {"text": "POWERED BY THE CITY OF SAULT STE. MARIE", "color": "#00ffff"},
     "slides": [],
     "managed_theme": "",
-    "school_closings": {"sault_closed": False, "other_closings": []}
+    "school_closings": {"sault_closed": False, "other_closings": []},
+    "school_alerts": {}
 }
 
 if os.path.exists(STATE_FILE):
@@ -533,6 +550,19 @@ def pickford_schools():
 def pickford_schools_redirect():
     return redirect('/pickford-schools')
 
+@app.route('/schools/<slug>')
+def dynamic_school(slug):
+    pages = get_beacon_pages()
+    page = next((p for p in pages if p['slug'] == slug), None)
+    if not page:
+        return "Page not found", 404
+    
+    with state_lock: 
+        page_state = state.copy()
+        page_state['page_title'] = page['title']
+        page_state['page_slug'] = slug
+        return render_template('school_dashboard.html', **page_state)
+
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if request.method == 'POST':
@@ -580,13 +610,53 @@ def admin():
                                 os.remove(os.path.join(app.root_path, s.get('url').lstrip('/')))
                             except: pass
                     state['slides'] = [s for s in state.get('slides', []) if s.get('id') != sid]
+                elif action == 'add_beacon_page':
+                    slug = request.form.get('slug', '').strip().lower().replace(' ', '-')
+                    title = request.form.get('title', '').strip()
+                    zipcode = request.form.get('zipcode', '').strip()
+                    if slug and title and zipcode:
+                        try:
+                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                with conn:
+                                    conn.execute("INSERT INTO beacon_pages (slug, title, zipcode) VALUES (?, ?, ?)", (slug, title, zipcode))
+                        except sqlite3.IntegrityError:
+                            pass # Slug already exists
+                elif action == 'delete_beacon_page':
+                    page_id = request.form.get('page_id')
+                    try:
+                        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                            with conn:
+                                conn.execute("DELETE FROM beacon_pages WHERE id = ?", (page_id,))
+                    except: pass
+                elif action == 'update_school_alert':
+                    slug = request.form.get('location_slug')
+                    alert_type = request.form.get('alert_type')
+                    message = request.form.get('alert_message', '').strip()
+                    if 'school_alerts' not in state:
+                        state['school_alerts'] = {}
+                    if alert_type == 'NONE':
+                        if slug in state['school_alerts']:
+                            del state['school_alerts'][slug]
+                    else:
+                        colors = {
+                            'HOLD': '#800080',
+                            'SECURE': '#ff8c00',
+                            'LOCKDOWN': '#d32f2f',
+                            'EVACUATE': '#388e3c',
+                            'SHELTER': '#1976d2'
+                        }
+                        state['school_alerts'][slug] = {
+                            'type': alert_type,
+                            'color': colors.get(alert_type, '#d32f2f'),
+                            'message': message
+                        }
                 try:
                     with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                 except: pass
             return "Settings Updated. <a href='/admin' style='color:#00ffff;'>Go Back</a>"
         return "Unauthorized", 401
     with state_lock:
-        return render_template('admin.html', emergency=state.get('emergency', {}), branding=state.get('branding', {}), slides=state.get('slides', []), managed_theme=state.get('managed_theme', ''))
+        return render_template('admin.html', emergency=state.get('emergency', {}), branding=state.get('branding', {}), slides=state.get('slides', []), managed_theme=state.get('managed_theme', ''), beacon_pages=get_beacon_pages(), school_alerts=state.get('school_alerts', {}))
 @app.route('/api/state')
 def get_state(): 
     with state_lock:

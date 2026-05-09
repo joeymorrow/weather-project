@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Morrow Edge | Buddy Control Panel</title>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: 2rem; }
-        h1 { color: #00ffff; text-align: center; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2rem; }
-        .container { max-width: 1200px; margin: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
-        .card { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .card h2 { margin-top: 0; color: #00ffff; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: clamp(1rem, 4vw, 2rem); }
+        h1 { color: #00ffff; text-align: center; letter-spacing: 2px; text-transform: uppercase; margin-bottom: clamp(1rem, 4vw, 2rem); font-size: clamp(1.5rem, 5vw, 2.5rem); }
+        .container { max-width: 1200px; margin: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: clamp(10px, 3vw, 20px); }
+        .card { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: clamp(15px, 3vw, 20px); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .card h2 { margin-top: 0; color: #00ffff; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: clamp(1.2rem, 4vw, 1.5rem); }
         input, select, textarea, button { width: 100%; margin-bottom: 15px; padding: 12px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; font-family: inherit; }
         button { background: #00ffff; color: #000; font-weight: bold; cursor: pointer; border: none; font-size: 1rem; text-transform: uppercase; transition: 0.2s; }
         button:hover { background: #00cccc; box-shadow: 0 0 10px #00ffff; }
@@ -120,6 +120,93 @@
                 <input type="number" name="duration" value="15" min="5" max="300" required>
                 <button type="submit">Upload Image Slide</button>
             </form>
+        </div>
+
+        <!-- 5. Dynamic Beacon Pages -->
+        <div class="card">
+            <h2>🏫 Dynamic Beacon Pages</h2>
+            <p style="font-size: 0.9rem; color: #888;">Create dynamically generated school dashboards by zipcode.</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="add_beacon_page">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;"><label>Page Title:</label><input type="text" name="title" required placeholder="e.g. Brimley Schools"></div>
+                    <div style="flex: 1;"><label>URL Slug:</label><input type="text" name="slug" required placeholder="e.g. brimley"></div>
+                </div>
+                <label>Zip Code / City Query:</label>
+                <input type="text" name="zipcode" required placeholder="e.g. 49715,US or Sault Ste. Marie,MI">
+                <button type="submit">Create Page</button>
+            </form>
+            
+            <h3 style="color: #00ffff; margin-top: 20px; border-bottom: 1px solid #333; padding-bottom: 5px;">Active Pages</h3>
+            {% if beacon_pages %}
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                {% for page in beacon_pages %}
+                    <div class="slide-item">
+                        <div class="slide-info">
+                            <strong>{{ page.title }}</strong><br>
+                            <span style="font-size:0.85rem; color:#888;">Route: /schools/{{ page.slug }} | Query: {{ page.zipcode }}</span>
+                        </div>
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <a href="/schools/{{ page.slug }}" target="_blank" style="background: #00ffff; color: #000; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem; margin-right: 10px;">View</a>
+                            <form method="POST" style="margin:0; display:flex; align-items:center;">
+                                <input type="hidden" name="action" value="delete_beacon_page">
+                                <input type="hidden" name="page_id" value="{{ page.id }}">
+                                <input type="password" name="password" placeholder="Admin Pass" required style="width:110px; margin:0 10px 0 0; padding:8px;">
+                                <button type="submit" class="danger" style="margin:0; padding:8px 15px;">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: #666; font-style: italic;">No dynamic pages created yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- School Alerts -->
+        <div class="card">
+            <h2>🛡️ School & Location SRP Alerts</h2>
+            <p style="font-size: 0.9rem; color: #888;">Trigger "I Love U Guys" Standard Response Protocol alerts for specific locations.</p>
+            <form method="POST">
+                <input type="hidden" name="action" value="update_school_alert">
+                <label>Admin Password:</label> <input type="password" name="password" required>
+                <label>Target Location:</label>
+                <select name="location_slug" required>
+                    <option value="sault-schools">Sault Ste. Marie Schools</option>
+                    <option value="pickford-schools">Pickford Schools</option>
+                    {% for page in beacon_pages %}
+                    <option value="{{ page.slug }}">{{ page.title }}</option>
+                    {% endfor %}
+                </select>
+                <label>Alert Type:</label>
+                <select name="alert_type" required>
+                    <option value="NONE">Clear Alert (Normal)</option>
+                    <option value="HOLD">HOLD (Purple)</option>
+                    <option value="SECURE">SECURE (Orange)</option>
+                    <option value="LOCKDOWN">LOCKDOWN (Red)</option>
+                    <option value="EVACUATE">EVACUATE (Green)</option>
+                    <option value="SHELTER">SHELTER (Blue)</option>
+                </select>
+                <label>Alert Message / Instructions:</label>
+                <textarea name="alert_message" rows="2" placeholder="e.g. Clear the halls. Do business as usual."></textarea>
+                <button type="submit">Update Location Alert</button>
+            </form>
+            <h3 style="color: #00ffff; margin-top: 20px; border-bottom: 1px solid #333; padding-bottom: 5px;">Active Alerts</h3>
+            {% if school_alerts %}
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                {% for slug, alert in school_alerts.items() %}
+                    <div class="slide-item" style="border-left-color: {{ alert.color }};">
+                        <div class="slide-info">
+                            <strong>{{ slug }}</strong><br>
+                            <span style="font-size:0.85rem; color:#888;">{{ alert.type }}: {{ alert.message }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: #666; font-style: italic;">No active location alerts.</p>
+            {% endif %}
         </div>
 
         <!-- 5. Active Slideshow -->

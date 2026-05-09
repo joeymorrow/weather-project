@@ -73,9 +73,14 @@
             flex-direction: column;
             align-items: center;
         }
+        @keyframes subtleFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-0.8cqw); }
+        }
         .current-condition img {
             width: 12cqw;
             margin-bottom: -2cqw;
+            animation: subtleFloat 4s ease-in-out infinite;
         }
         .current-condition .temp {
             font-size: 5cqw;
@@ -127,6 +132,8 @@
         }
         .forecast-day img {
             width: 7cqw;
+            animation: subtleFloat 4s ease-in-out infinite;
+            animation-delay: 1s;
         }
         .forecast-day .high {
             font-size: 2.2cqw;
@@ -180,6 +187,14 @@
         <div id="eap-trigger" onclick="setEap()"></div>
         <div class="banners">
             <div id="eap-banner" class="alert-banner" style="display:none;" onclick="clearEap(event)"></div>
+            {% set srp = school_alerts.get('pickford-schools') if school_alerts else None %}
+            {% if srp %}
+            <div class="alert-banner" style="background: {{ srp.color }}; display: flex; flex-direction: column; gap: 0.5cqw;">
+                <div style="font-size: 3cqw; letter-spacing: 2px;">{{ srp.type }}</div>
+                {% if srp.message %}<div style="font-size: 1.8cqw; font-weight: 500;">{{ srp.message }}</div>{% endif %}
+            </div>
+            {% endif %}
+
             {% set pickford_alert = False %}
             {% set pickford_status = "" %}
             {% for closing in school_closings.other_closings %}
@@ -197,9 +212,9 @@
         </div>
         <div class="top-row">
             <div class="location-date">
+                <div id="live-clock" style="font-size: 6.5cqw; font-weight: 700; color: #0066b2; transition: opacity 1s, text-shadow 1s; line-height: 1.1; margin-bottom: 0.5cqw;"></div>
                 <h1>PICKFORD</h1>
                 <h2>{{ date.split(',')[1] | default(date) }}</h2>
-                <div id="live-clock" style="font-size: 4.5cqw; font-weight: 700; color: #0066b2; transition: opacity 1s, text-shadow 1s;"></div>
             </div>
             <div class="current-condition">
                 <img src="https://openweathermap.org/img/wn/{{ icon }}@4x.png" alt="weather icon">

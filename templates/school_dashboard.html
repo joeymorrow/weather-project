@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sault Schools Weather</title>
+    <title>{{ page_title }} Weather</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap');
         
@@ -162,15 +162,6 @@
             box-sizing: border-box;
             cursor: pointer;
         }
-        .sub-alert-banner {
-            background: #f57c00;
-            color: #ffffff;
-            font-size: 1.8cqw;
-            font-weight: 700;
-            text-align: center;
-            padding: 1cqw;
-            box-sizing: border-box;
-        }
         #eap-trigger {
             position: absolute;
             top: 0;
@@ -187,24 +178,18 @@
         <div id="eap-trigger" onclick="setEap()"></div>
         <div class="banners">
             <div id="eap-banner" class="alert-banner" style="display:none;" onclick="clearEap(event)"></div>
-            {% set srp = school_alerts.get('sault-schools') if school_alerts else None %}
+            {% set srp = school_alerts.get(page_slug) if school_alerts else None %}
             {% if srp %}
             <div class="alert-banner" style="background: {{ srp.color }}; display: flex; flex-direction: column; gap: 0.5cqw;">
                 <div style="font-size: 3cqw; letter-spacing: 2px;">{{ srp.type }}</div>
                 {% if srp.message %}<div style="font-size: 1.8cqw; font-weight: 500;">{{ srp.message }}</div>{% endif %}
             </div>
             {% endif %}
-            
-            {% if school_closings.sault_closed %}
-            <div class="sub-alert-banner">
-                ALERT: Severe Weather - Sault Area Public Schools are CLOSED
-            </div>
-            {% endif %}
         </div>
         <div class="top-row">
             <div class="location-date">
                 <div id="live-clock" style="font-size: 6.5cqw; font-weight: 700; color: #0066b2; transition: opacity 1s, text-shadow 1s; line-height: 1.1; margin-bottom: 0.5cqw;"></div>
-                <h1>SAULT STE. MARIE</h1>
+                <h1>{{ page_title }}</h1>
                 <h2>{{ date.split(',')[1] | default(date) }}</h2>
             </div>
             <div class="current-condition">
