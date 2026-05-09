@@ -245,10 +245,14 @@ def run_sync():
         time_str = now.strftime('%I:%M %p')
         date_str = now.strftime('%B %d')
         
-        pulse_task = "Task 2 (Pulse): 1-sentence sleek summary of tomorrow's weather forecast. Start with 'Tomorrow:'. Make it conversational, descriptive, and highly engaging. Do not search for news. Set 'is_news' to false." if is_late_night else "Task 2 (Pulse): Adopt the persona of a masterful, charismatic writer. You believe deeply in the indomitable human spirit and the comforting cyclical patterns of life. Provide an ambient observation of the city's current movement and rhythm, creating a feeling of 'environmental awareness'. You have creative license to be evocative, suggestive, and deeply artistic in your descriptions, but keep it grounded in reality (Note: A strict denylist filter is active, so keep themes appropriate for all ages). Frame this as a profound observation rather than a call to action. Write 1-3 sentences with varied pacing for a captivating read. STRICT RULE: Rely ONLY on the provided weather/date context. Never hallucinate seasonal details (e.g., do not mention snow unless it is freezing). Search the web for real, public local happenings in Sault Ste. Marie, MI (US side only) or the EUP. Ground the update in vivid, factual UP sensory details. FORMATTING & LOGIC: Wrap all specific locations and times in <i> tags. If an event has a fee, append '($)'. For recurring events like shipping, try to indicate progress (e.g., '1 of 3 scheduled passages'). Refer to the city as 'the Sault' or 'the Soo'. If your update shares a tangible local fact, event, or specific community detail, set 'is_news' to true. Otherwise, set it to false."
+        with state_lock:
+            last_pulse_topic = state.get("pulse", "")
+        
+        pulse_task = "Task 2 (Pulse): 1-sentence sleek summary of tomorrow's weather forecast. Start with 'Tomorrow:'. Make it conversational, descriptive, and highly engaging. Do not search for news. Set 'is_news' to false." if is_late_night else "Task 2 (Pulse): Adopt the persona of a masterful, charismatic writer (akin to a top-tier presidential speechwriter). You wake up aware of the world's worries, but your mission is to ease them. You believe deeply in the indomitable human spirit. Provide a concise, profound 2-sentence pulse reflecting the region's true rhythm—this could be a recent local milestone (e.g., a city fund passing, a sports victory) OR an ongoing/upcoming public event. DO NOT state the current time. If mentioning an active event or scheduled passage, provide the full time range (e.g., 'until 4 PM') or how much time is left so locals can avoid FOMO. Examples: 'The school's CTE fund just passed, proving the Soo's dedication to its future.', or 'The Edgar B. Speer is locking through until <i>3:15 PM</i> (about 45 mins left)...'. Wrap all specific locations, subjects, and event times in <i> tags. If an event has a fee, append '($)'. Ground the update in vivid, factual UP sensory details. Set 'is_news' to true if sharing a tangible local fact."
 
         prompt = f"""
         Sault MI. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
+        PREVIOUS PULSE: "{last_pulse_topic}" -> Provide a completely different topic/event.
         {buddy_task}
         {pulse_task}
         {mood_instruction}
@@ -279,12 +283,25 @@ def run_sync():
                     ai["suggestion"] = "Stay safe."
                 
                 if is_news:
-                    try:
-                        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                            with conn:
-                                conn.execute("INSERT INTO pulses (date, text) VALUES (?, ?)", (date_str, new_pulse))
-                    except sqlite3.IntegrityError:
-                        pass # Ignore exact duplicate pulses
+                    hist = load_history()
+                    # Smart Local Deduplication: Extract data entities using the <i> tags
+                    new_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', new_pulse, re.IGNORECASE))
+                    is_duplicate_data = False
+                    
+                    if new_tags:
+                        for past in hist[:5]: # Compare against the 5 most recent archived events
+                            past_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', past["text"], re.IGNORECASE))
+                            if past_tags and len(new_tags.intersection(past_tags)) >= max(1, len(new_tags) // 2):
+                                is_duplicate_data = True
+                                break
+                                
+                    if not is_duplicate_data:
+                        try:
+                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                with conn:
+                                    conn.execute("INSERT INTO pulses (date, text) VALUES (?, ?)", (date_str, new_pulse))
+                        except sqlite3.IntegrityError:
+                            pass # Ignore exact duplicate string matches
                 
                 hist = load_history()
                 
