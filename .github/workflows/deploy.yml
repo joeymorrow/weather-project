@@ -115,10 +115,16 @@ jobs:
                       if (overlaps) issues.push('[' + scenarioName + '] Layout Clash: ' + sel1 + ' is overlapping ' + sel2 + '!');
                     }
                   };
-                  checkClash('#buddy-container', '#center-info');
-                  checkClash('#header-container', '#center-info');
-                  checkClash('#center-info', '.pods');
-                  checkClash('#buddy-container', '#header-container');
+                  if (window.location.pathname === '/') {
+                    checkClash('#buddy-container', '#center-info');
+                    checkClash('#header-container', '#center-info');
+                    checkClash('#center-info', '.pods');
+                    checkClash('#buddy-container', '#header-container');
+                  } else if (window.location.pathname.includes('schools')) {
+                    checkClash('.top-row', '.bottom-row');
+                    checkClash('.location-date', '.current-condition');
+                    checkClash('.current-condition', '.metrics');
+                  }
                   
                   if (document.documentElement.scrollWidth > window.innerWidth) {
                     issues.push('[' + scenarioName + '] Anti-Vibe: Horizontal scrollbar detected!');
@@ -169,6 +175,25 @@ jobs:
               } catch (e) {
                 console.error('[QA MODAL ERROR] Pulse Interaction failed:', e.message); errors++;
               }
+
+            // Sault Schools Checks
+            try {
+              console.log('Testing /sault-schools ...');
+              await page.goto('http://127.0.0.1:5000/sault-schools', {waitUntil: 'domcontentloaded', timeout: 15000});
+              await new Promise(r => setTimeout(r, 1000));
+              await runClashCheck('Sault Schools 16:9');
+
+              // Test OnePlus Nord 5G Landscape
+              console.log('Testing OnePlus Nord 5G Landscape on /sault-schools ...');
+              await page.setViewport({ width: 2400, height: 1080 });
+              await new Promise(r => setTimeout(r, 1000));
+              await runClashCheck('Sault Schools OnePlus Nord Landscape');
+              
+              // Revert Viewport
+              await page.setViewport({ width: 1280, height: 720 });
+            } catch (e) {
+              console.error('[QA PAGE ERROR] Sault Schools load failed:', e.message); errors++;
+            }
 
             try {
               console.log('Testing /rpg ...');

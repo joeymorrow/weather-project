@@ -97,6 +97,7 @@ state = {
     "is_day": False, "is_golden": False, "pop": 0, "pulse_history": load_history(),
     "hourly_list": [],
     "sunrise": "--:-- AM", "sunset": "--:-- PM",
+    "clouds": 0, "humidity": 0, "wind": "0 mph N", "uv_index": "0 (low)",
     "weekly_list": [], "weekly_summary": "Analyzing weekly patterns...",
     "emergency": {"active": False, "message": "", "color": "#ff0000"},
     "branding": {"text": "POWERED BY THE CITY OF SAULT STE. MARIE", "color": "#00ffff"},
@@ -243,6 +244,16 @@ def run_sync():
         t_desc = t_items[min(4, len(t_items)-1)]['weather'][0]['description'].title() if t_items else "..."
         t_pop = int(max([i.get('pop', 0) for i in t_items[:8]]) * 100) if t_items else 0
         
+        clouds_val = w.get('clouds', {}).get('all', 0)
+        humidity_val = w.get('main', {}).get('humidity', 0)
+        wind_val = w.get('wind', {}).get('speed', 0)
+        wind_deg = w.get('wind', {}).get('deg', 0)
+        dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+        wind_dir = dirs[int((wind_deg / 22.5) + 0.5) % 16]
+        wind_str = f"{wind_val} mph {wind_dir}"
+        uv_val = 0 if not is_day else max(1, int(10 - (clouds_val / 10)))
+        uv_str = f"{uv_val} (low)" if uv_val < 3 else (f"{uv_val} (moderate)" if uv_val < 6 else f"{uv_val} (high)")
+        
         # Calculate today's high/low accurately instead of overlapping with tomorrow
         today_items = [i for i in f['list'] if i['dt_txt'].split(' ')[0] == now_str]
         if today_items:
@@ -266,7 +277,8 @@ def run_sync():
         for dt, dat in list(daily_forecasts.items())[1:6]:
             d_icon = max(set(dat['icons']), key=dat['icons'].count) if dat['icons'] else "01d"
             day_name = datetime.strptime(dt, '%Y-%m-%d').strftime('%a')
-            weekly_list.append({"day": day_name, "high": int(dat['high']), "low": int(dat['low']), "icon": d_icon})
+            date_short = datetime.strptime(dt, '%Y-%m-%d').strftime('%m/%d')
+            weekly_list.append({"day": day_name, "date_short": date_short, "high": int(dat['high']), "low": int(dat['low']), "icon": d_icon})
             
         is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22)
 
@@ -376,6 +388,8 @@ def run_sync():
                 "t_high": t_high, "t_low": t_low, "t_desc": t_desc, "t_pop": t_pop,
                 "is_late_night": is_late_night,
                 "is_day": is_day, "is_golden": is_golden, "pop": pop,
+                "clouds": clouds_val, "humidity": humidity_val,
+                "wind": wind_str, "uv_index": uv_str,
                 "hourly_list": hourly_list,
                 "sunrise": sunrise_str, "sunset": sunset_str,
                 "weekly_list": weekly_list,
@@ -477,6 +491,14 @@ def monitor_loop():
 @app.route('/')
 def index():
     with state_lock: return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state.copy())
+
+@app.route('/sault-schools')
+def sault_schools():
+    with state_lock: return render_template('sault_schools.html', **state.copy())
+
+@app.route('/pickford-schools')
+def pickford_schools():
+    with state_lock: return render_template('pickford_schools.html', **state.copy())
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():

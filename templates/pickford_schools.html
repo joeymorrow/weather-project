@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pickford Schools Weather</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        .dashboard {
+            container-type: inline-size;
+            aspect-ratio: 16 / 9;
+            width: 100%;
+            max-width: calc(100vh * 16 / 9);
+            max-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 4%;
+            box-sizing: border-box;
+            gap: 4%;
+            position: relative;
+            margin: auto;
+        }
+        .top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 45%;
+        }
+        .bottom-row {
+            height: 45%;
+            background: rgba(240, 240, 240, 0.8);
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 2%;
+        }
+        .location-date {
+            flex: 1;
+        }
+        .location-date h1 {
+            color: #0066b2;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 3cqw;
+            margin: 0;
+            line-height: 1.2;
+        }
+        .location-date h2 {
+            color: #4a5568;
+            font-weight: 300;
+            font-size: 2.2cqw;
+            margin: 0;
+            text-transform: uppercase;
+        }
+        .current-condition {
+            flex: 1;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .current-condition img {
+            width: 12cqw;
+            margin-bottom: -2cqw;
+        }
+        .current-condition .temp {
+            font-size: 5cqw;
+            font-weight: 700;
+            color: #0066b2;
+            margin: 0;
+            line-height: 1;
+        }
+        .current-condition .desc {
+            font-size: 1.8cqw;
+            color: #0066b2;
+            text-transform: lowercase;
+            margin-top: 0.5cqw;
+        }
+        .metrics {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2cqw;
+            align-items: flex-start;
+            padding-left: 5cqw;
+        }
+        .metric-pill {
+            background: rgba(240, 240, 240, 0.8);
+            border-radius: 20px;
+            padding: 0.8cqw 2cqw;
+            color: #4a5568;
+            font-size: 1.4cqw;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .forecast-day {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #0066b2;
+            flex: 1;
+        }
+        .forecast-day .date {
+            font-size: 1.4cqw;
+            color: #4a5568;
+        }
+        .forecast-day .day {
+            font-size: 1.8cqw;
+            font-weight: 700;
+        }
+        .forecast-day img {
+            width: 7cqw;
+        }
+        .forecast-day .high {
+            font-size: 2.2cqw;
+            font-weight: 700;
+        }
+        .forecast-day .low {
+            font-size: 1.8cqw;
+            font-weight: 300;
+        }
+        .banners {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        .alert-banner {
+            background: #d32f2f;
+            color: #ffffff;
+            font-size: 2cqw;
+            font-weight: 700;
+            text-align: center;
+            padding: 1cqw;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .sub-alert-banner {
+            background: #f57c00;
+            color: #ffffff;
+            font-size: 1.8cqw;
+            font-weight: 700;
+            text-align: center;
+            padding: 1cqw;
+            box-sizing: border-box;
+        }
+        #eap-trigger {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5cqw;
+            z-index: 999;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div id="eap-trigger" onclick="setEap()"></div>
+        <div class="banners">
+            <div id="eap-banner" class="alert-banner" style="display:none;" onclick="clearEap(event)"></div>
+            {% set pickford_alert = False %}
+            {% set pickford_status = "" %}
+            {% for closing in school_closings.other_closings %}
+                {% if 'Pickford' in closing %}
+                    {% set pickford_alert = True %}
+                    {% set pickford_status = closing %}
+                {% endif %}
+            {% endfor %}
+            
+            {% if pickford_alert %}
+            <div class="sub-alert-banner">
+                ALERT: {{ pickford_status }}
+            </div>
+            {% endif %}
+        </div>
+        <div class="top-row">
+            <div class="location-date">
+                <h1>PICKFORD</h1>
+                <h2>{{ date.split(',')[1] | default(date) }}</h2>
+                <div id="live-clock" style="font-size: 4.5cqw; font-weight: 700; color: #0066b2; transition: opacity 1s, text-shadow 1s;"></div>
+            </div>
+            <div class="current-condition">
+                <img src="https://openweathermap.org/img/wn/{{ icon }}@4x.png" alt="weather icon">
+                <div class="temp">{{ temp }}&deg;F</div>
+                <div class="desc">{{ desc }}</div>
+            </div>
+            <div class="metrics">
+                <div class="metric-pill">☁️ Cloud coverage | {{ clouds }}%</div>
+                <div class="metric-pill">💧 Humidity | {{ humidity }}%</div>
+                <div class="metric-pill">💨 Wind | {{ wind }}</div>
+                <div class="metric-pill">☀️ UV Index | {{ uv_index }}</div>
+            </div>
+        </div>
+        <div class="bottom-row">
+            {% for day in weekly_list %}
+            <div class="forecast-day">
+                <div class="date">{{ day.date_short | default('') }}</div>
+                <div class="day">{{ day.day }}</div>
+                <img src="https://openweathermap.org/img/wn/{{ day.icon }}@2x.png" alt="weather icon">
+                <div class="high">{{ day.high }}&deg;F</div>
+                <div class="low">{{ day.low }}&deg;F</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <script>
+        function updateClock() {
+            const now = new Date();
+            let h = now.getHours();
+            const m = now.getMinutes();
+            const s = now.getSeconds();
+            const ms = now.getMilliseconds();
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12; h = h ? h : 12;
+            const mStr = m < 10 ? '0' + m : m;
+            
+            const clockEl = document.getElementById('live-clock');
+            if (clockEl) {
+                clockEl.innerText = `${h}:${mStr} ${ampm}`;
+                const fraction = (s * 1000 + ms) / 60000;
+                clockEl.style.opacity = 0.5 + (0.5 * fraction);
+                clockEl.style.textShadow = `0 0 ${2 + 15 * fraction}px rgba(0, 102, 178, ${fraction})`;
+            }
+        }
+        setInterval(updateClock, 50); updateClock();
+        
+        function setEap() {
+            const msg = prompt("Enter EAP Message:");
+            if (msg) {
+                const eapEl = document.getElementById('eap-banner');
+                eapEl.innerText = "ALERT: " + msg; eapEl.style.display = 'block';
+            }
+        }
+        function clearEap(e) { e.stopPropagation(); document.getElementById('eap-banner').style.display = 'none'; }
+        
+        // Automatic refresh to keep the display updated without interaction
+        setTimeout(() => location.reload(), 300000); // 5 minutes
+    </script>
+</body>
+</html>
