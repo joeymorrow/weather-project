@@ -6,6 +6,7 @@ services:
       - ./data:/app/data # Mount persistent data securely
       - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro
       - /run/systemd:/run/systemd:ro
+      - /etc/machine-id:/etc/machine-id:ro
 
   slim-proxy:
     build: .

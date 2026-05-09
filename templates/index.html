@@ -140,6 +140,7 @@
         .waking-up .eye { animation: none !important; height: 8px !important; margin-top: -2px; }
         #pulse-list::-webkit-scrollbar { width: 8px; }
         #pulse-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+        .preload-theme { transition: none !important; animation: none !important; }
         .fast-theme { transition: --bg 1.5s ease, --accent 1.5s ease, --dim 1.5s ease, --buddy-blue 1.5s ease, --text-main 1.5s ease, --pod-border 1.5s ease, --pod-bg 1.5s ease, --pod-hover-glow 1.5s ease, --pod-active-bg 1.5s ease, --shadow-color 1.5s ease, background 1.5s ease, color 1.5s ease !important; }
         @keyframes theme-fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }
         @keyframes read-scan { 0%, 5% { height: 8px; width: 10px; transform: translateY(-3px); } 10%, 15% { height: 2px; width: 6px; transform: translateY(2px) scaleX(0.8); } 20% { height: 5px; width: 5px; transform: translateX(-4px); } 35% { height: 5px; width: 5px; transform: translateX(4px); } 50% { height: 5px; width: 5px; transform: translateX(-4px); } 65% { height: 5px; width: 5px; transform: translateX(4px); } 80% { height: 5px; width: 5px; transform: translateX(-4px); } 100% { height: 5px; width: 5px; transform: translateX(4px); } }
@@ -245,7 +246,7 @@
         #buddy-container.dragging { transition: none !important; z-index: 3000 !important; cursor: grabbing !important; }
     </style>
 </head>
-<body class="{% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
+<body class="preload-theme {% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
     <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: 1; pointer-events: none; opacity: 0.45; transition: opacity 1s ease;">
         <canvas id="hourly-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
     </div>
@@ -1517,6 +1518,13 @@
                     }
                 });
 
+                // Once the correct theme is locked in, strip the preload class to re-enable the 120s transitions
+                if (document.body.classList.contains('preload-theme')) {
+                    requestAnimationFrame(() => {
+                        setTimeout(() => document.body.classList.remove('preload-theme'), 100);
+                    });
+                }
+
                 const loreTrigger = document.getElementById('lore-trigger');
                 const managedLink = document.getElementById('managed-theme-link');
                 if (serverTheme && localTheme !== null && localTheme !== serverTheme) {
@@ -1837,6 +1845,7 @@
         }
 
         fetchState();
+        setTimeout(() => document.body.classList.remove('preload-theme'), 2000); // Failsafe fallback
         
         // Client-Side Telemetry (Phones home if the dashboard leaks memory)
         let telemetrySent = false;
