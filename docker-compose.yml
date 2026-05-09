@@ -1,8 +1,19 @@
 services:
   weather-dashboard:
     build: .
-    ports:
-      - "5000:5000" # Explicit port mapping for security and isolation
     restart: always
     volumes:
       - ./data:/app/data # Mount persistent data securely
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro
+      - /run/systemd:/run/systemd:ro
+
+  slim-proxy:
+    build: .
+    command: python slim_proxy.py
+    ports:
+      - "5000:8080" # Exposes proxy on 5000, passing clean traffic internally to weather-dashboard:5000
+    restart: always
+    volumes:
+      - ./data:/app/data # Allows the proxy to log dropped traffic to the SQLite database!
+    depends_on:
+      - weather-dashboard

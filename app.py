@@ -75,6 +75,13 @@ def init_db():
                                 message TEXT,
                                 details TEXT
                              )''')
+            log_conn.execute('''CREATE TABLE IF NOT EXISTS metrics (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                load_avg REAL,
+                                mem_used_mb REAL,
+                                cache_mb REAL
+                             )''')
 init_db()
 
 def get_beacon_pages():
@@ -562,6 +569,37 @@ def dynamic_school(slug):
         page_state['page_title'] = page['title']
         page_state['page_slug'] = slug
         return render_template('school_dashboard.html', **page_state)
+
+@app.route('/joeyadmin')
+def joeyadmin():
+    auth = request.authorization
+    if not auth or auth.password != admin_password:
+        return "Overlord Access Denied", 401, {'WWW-Authenticate': 'Basic realm="JoeyAdmin Login Required"'}
+        
+    import subprocess
+    services_to_check = ['docker', 'cloudflared', 'cron', 'systemd-journald']
+    service_status = []
+    for s in services_to_check:
+        try:
+            res = subprocess.run(['systemctl', 'is-active', s], capture_output=True, text=True, timeout=2)
+            status_text = res.stdout.strip()
+            is_active = (status_text == 'active')
+            context = ""
+            if not is_active:
+                status_res = subprocess.run(['systemctl', 'status', s], capture_output=True, text=True, timeout=2)
+                context = status_res.stdout.strip()[:300] + "..." if status_res.stdout else "No context available."
+            service_status.append({"name": s, "active": is_active, "status": status_text, "context": context})
+        except Exception as e:
+            service_status.append({"name": s, "active": False, "status": "isolated", "context": f"Container isolation or systemctl unavailable: {e}"})
+            
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT timestamp, load_avg, mem_used_mb, cache_mb FROM metrics WHERE timestamp >= datetime('now', '-7 days') ORDER BY timestamp ASC")
+            metrics = [{"time": r[0], "load": r[1], "mem": r[2], "cache": r[3]} for r in c.fetchall()]
+    except:
+        metrics = []
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages())
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():

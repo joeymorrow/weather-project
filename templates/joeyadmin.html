@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joey Admin | Overlord Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Cyberpunk Overlord Aesthetic */
+        body { margin: 0; padding: 20px; background: #050510; color: #00ffff; font-family: 'Courier New', Courier, monospace; }
+        h1 { text-align: center; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 0 10px #00ffff; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; max-width: 1400px; margin: auto; }
+        .card { background: rgba(0, 50, 50, 0.2); border: 1px solid #00ffff; border-radius: 8px; padding: 20px; box-shadow: 0 0 15px rgba(0, 255, 255, 0.1); backdrop-filter: blur(5px); }
+        .card h2 { margin-top: 0; border-bottom: 1px dashed #00ffff; padding-bottom: 10px; font-size: 1.2rem; text-transform: uppercase; }
+        .service-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(0,255,255,0.2); align-items: center; }
+        .status-badge { padding: 5px 10px; border-radius: 4px; font-weight: bold; text-transform: uppercase; font-size: 0.8rem; }
+        .active { background: #00ff00; color: #000; box-shadow: 0 0 10px #00ff00; }
+        .inactive { background: #ff0000; color: #fff; box-shadow: 0 0 10px #ff0000; cursor: help; }
+        .isolated { background: #aaaaaa; color: #000; box-shadow: 0 0 10px #aaaaaa; cursor: help; }
+        .context-box { background: #111; color: #ff5555; padding: 10px; margin-top: 5px; font-size: 0.8rem; border-left: 3px solid #ff0000; display: none; overflow-x: auto; }
+        
+        .site-link { display: flex; justify-content: space-between; background: rgba(0,255,255,0.1); padding: 10px; margin-bottom: 10px; border-radius: 4px; border: 1px solid rgba(0,255,255,0.3); transition: 0.3s; align-items: center; text-decoration: none; color: #fff; }
+        .site-link:hover { background: rgba(0,255,255,0.3); box-shadow: 0 0 15px #00ffff; transform: translateX(5px); }
+        .site-link strong { font-size: 1.1rem; color: #00ffff; }
+        .manage-btn { background: #00ffff; color: #000; padding: 5px 10px; text-decoration: none; font-weight: bold; border-radius: 4px; font-size: 0.8rem; transition: 0.3s; }
+        .manage-btn:hover { background: #fff; box-shadow: 0 0 10px #fff; }
+        .nav-home { display: block; text-align: center; margin-top: 30px; color: #00ffff; text-decoration: none; font-weight: bold; font-size: 1.2rem; transition: 0.3s; }
+        .nav-home:hover { text-shadow: 0 0 10px #00ffff; }
+    </style>
+</head>
+<body>
+    <h1>Joey's Overlord Interface</h1>
+    <div class="grid">
+        <!-- System Services -->
+        <div class="card">
+            <h2>⚙️ Core Services Status</h2>
+            {% for s in services %}
+            <div style="margin-bottom: 10px;">
+                <div class="service-row">
+                    <span style="font-weight: bold;">{{ s.name }}</span>
+                    <span class="status-badge {% if s.active %}active{% elif s.status == 'isolated' %}isolated{% else %}inactive{% endif %}" 
+                          {% if not s.active %}onclick="document.getElementById('ctx-{{ loop.index }}').style.display = document.getElementById('ctx-{{ loop.index }}').style.display === 'block' ? 'none' : 'block'"{% endif %}>
+                        {{ s.status }}
+                    </span>
+                </div>
+                {% if not s.active %}
+                <div id="ctx-{{ loop.index }}" class="context-box">
+                    <strong>Error/Isolation Context:</strong><br>
+                    <pre style="white-space: pre-wrap; margin: 5px 0 0 0; font-family: monospace;">{{ s.context }}</pre>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <p style="font-size: 0.8rem; color: #888; margin-top: 20px;">* Click on inactive/isolated badges for failure context.</p>
+        </div>
+
+        <!-- Managed Sites -->
+        <div class="card">
+            <h2>🌐 Active Endpoints & Sites</h2>
+            <div class="site-link">
+                <div>
+                    <strong>Sault Ste. Marie Dashboard</strong><br>
+                    <span style="font-size: 0.8rem; color: #ccc;">Route: /</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <a href="/" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
+                    <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
+                </div>
+            </div>
+            <div class="site-link">
+                <div>
+                    <strong>Sault Schools</strong><br>
+                    <span style="font-size: 0.8rem; color: #ccc;">Route: /sault-schools</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <a href="/sault-schools" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
+                    <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
+                </div>
+            </div>
+            <div class="site-link">
+                <div>
+                    <strong>Pickford Schools</strong><br>
+                    <span style="font-size: 0.8rem; color: #ccc;">Route: /pickford-schools</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <a href="/pickford-schools" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
+                    <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
+                </div>
+            </div>
+            <div class="site-link">
+                <div>
+                    <strong>Buddy's 3D World</strong><br>
+                    <span style="font-size: 0.8rem; color: #ccc;">Route: /rpg</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <a href="/rpg" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
+                </div>
+            </div>
+            <h3 style="margin-top: 20px; font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Dynamic Beacons</h3>
+            {% for page in beacon_pages %}
+            <div class="site-link">
+                <div>
+                    <strong>{{ page.title }}</strong><br>
+                    <span style="font-size: 0.8rem; color: #ccc;">Route: /schools/{{ page.slug }}</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <a href="/schools/{{ page.slug }}" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
+                    <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
+                </div>
+            </div>
+            {% endfor %}
+            {% if not beacon_pages %}
+            <p style="font-size: 0.9rem; color: #666; font-style: italic;">No dynamic pages currently loaded.</p>
+            {% endif %}
+        </div>
+
+        <!-- Telemetry Graphs -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>📈 7-Day Resource Telemetry</h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
+                <div style="flex: 1; min-width: 300px; max-width: 600px;">
+                    <canvas id="memChart"></canvas>
+                </div>
+                <div style="flex: 1; min-width: 300px; max-width: 600px;">
+                    <canvas id="loadChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <a href="/" class="nav-home">← Return to Base</a>
+
+    <script>
+        const metrics = {{ metrics | tojson | safe }};
+        // The database stores records in UTC; appending " UTC" forces JS Date objects to adapt the time perfectly to Joey's local time zone!
+        const labels = metrics.map(m => new Date(m.time + " UTC").toLocaleString('en-US', {weekday:'short', hour:'numeric'}));
+        const memData = metrics.map(m => m.mem);
+        const cacheData = metrics.map(m => m.cache);
+        const loadData = metrics.map(m => m.load);
+
+        Chart.defaults.color = '#00ffff';
+        Chart.defaults.font.family = 'Courier New';
+
+        new Chart(document.getElementById('memChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Used Memory (MB)', data: memData, borderColor: '#ff00ff', backgroundColor: 'rgba(255, 0, 255, 0.1)', fill: true, tension: 0.4, pointRadius: 0 },
+                    { label: 'Cache Size (MB)', data: cacheData, borderColor: '#00ffff', backgroundColor: 'rgba(0, 255, 255, 0.1)', fill: true, tension: 0.4, pointRadius: 0 }
+                ]
+            },
+            options: { responsive: true, scales: { x: { grid: { color: 'rgba(0,255,255,0.1)' } }, y: { grid: { color: 'rgba(0,255,255,0.1)' }, beginAtZero: true } }, plugins: { legend: { position: 'top' } } }
+        });
+
+        new Chart(document.getElementById('loadChart'), {
+            type: 'line',
+            data: { labels: labels, datasets: [ { label: 'System Load (1m Avg)', data: loadData, borderColor: '#ffff00', backgroundColor: 'rgba(255, 255, 0, 0.1)', fill: true, tension: 0.4, pointRadius: 0 } ] },
+            options: { responsive: true, scales: { x: { grid: { color: 'rgba(0,255,255,0.1)' } }, y: { grid: { color: 'rgba(0,255,255,0.1)' }, beginAtZero: true } } }
+        });
+    </script>
+</body>
+</html>
