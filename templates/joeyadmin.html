@@ -24,6 +24,8 @@
         .site-link strong { font-size: 1.1rem; color: #00ffff; }
         .manage-btn { background: #00ffff; color: #000; padding: 5px 10px; text-decoration: none; font-weight: bold; border-radius: 4px; font-size: 0.8rem; transition: 0.3s; }
         .manage-btn:hover { background: #fff; box-shadow: 0 0 10px #fff; }
+        .danger-btn { background: transparent; color: #ff4444; border: 1px solid #ff4444; padding: 5px 10px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; cursor: pointer; transition: 0.3s; }
+        .danger-btn:hover { background: #ff4444; color: #fff; box-shadow: 0 0 10px #ff4444; }
         .nav-home { display: block; text-align: center; margin-top: 30px; color: #00ffff; text-decoration: none; font-weight: bold; font-size: 1.2rem; transition: 0.3s; }
         .nav-home:hover { text-shadow: 0 0 10px #00ffff; }
     </style>
@@ -112,6 +114,49 @@
             {% if not beacon_pages %}
             <p style="font-size: 0.9rem; color: #666; font-style: italic;">No dynamic pages currently loaded.</p>
             {% endif %}
+        </div>
+
+        <!-- Pulse Management -->
+        <div class="card">
+            <h2>📡 Pulse Archives & Management</h2>
+            <div style="margin-bottom: 15px;">
+                <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Current Pulse</h3>
+                {% if current_pulse %}
+                <div class="site-link" style="align-items: flex-start;">
+                    <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
+                        {{ current_pulse }}
+                    </div>
+                    <form method="POST" style="margin:0;">
+                        <input type="hidden" name="action" value="delete_pulse">
+                        <input type="hidden" name="pulse_text" value="{{ current_pulse }}">
+                        <button type="submit" class="danger-btn">Delete</button>
+                    </form>
+                </div>
+                {% else %}
+                <p style="font-size: 0.9rem; color: #666; font-style: italic;">Pulse is empty. Repopulating...</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Archived Pulses</h3>
+                <div style="max-height: 400px; overflow-y: auto; padding-right: 5px;">
+                    {% for p in pulse_history %}
+                    {% if p.text != current_pulse %}
+                    <div class="site-link" style="align-items: flex-start; margin-bottom: 5px;">
+                        <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
+                            <strong style="color: #00aaaa; font-size: 0.75rem;">{{ p.date }}</strong><br>
+                            {{ p.text }}
+                        </div>
+                        <form method="POST" style="margin:0;">
+                            <input type="hidden" name="action" value="delete_pulse">
+                            <input type="hidden" name="pulse_text" value="{{ p.text }}">
+                            <button type="submit" class="danger-btn">Delete</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
         </div>
 
         <!-- Telemetry Graphs -->

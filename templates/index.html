@@ -910,6 +910,27 @@
             document.getElementById('pulse-modal').style.display = 'none';
         };
 
+        window.submitAgendaVote = async function(itemLabel, voteType, btnEl) {
+            try {
+                let countSpan = btnEl.querySelector(voteType === 'up' ? '.up-count' : '.down-count');
+                if (countSpan) {
+                    countSpan.innerText = parseInt(countSpan.innerText) + 1;
+                }
+                
+                await fetch('/api/vote', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ item_id: itemLabel, vote_type: voteType })
+                });
+                
+                if (!window.agendaVotes) window.agendaVotes = {};
+                if (!window.agendaVotes[itemLabel]) window.agendaVotes[itemLabel] = {up: 0, down: 0};
+                window.agendaVotes[itemLabel][voteType] += 1;
+            } catch(e) {
+                console.error("Failed to cast vote:", e);
+            }
+        };
+
         window.openAgenda = function() {
             const content = document.getElementById('agenda-content');
             
@@ -1003,13 +1024,18 @@
                 let searchQuery = encodeURIComponent(ev.label + ' Sault Ste. Marie');
                 let searchLink = `<a href="https://www.google.com/search?q=${searchQuery}" target="_blank" tabindex="0" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(0, 255, 255, 0.1); border: 1px solid var(--accent); color: var(--accent); text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 1rem; font-weight: bold; transition: background 0.2s, box-shadow 0.2s; pointer-events: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.5);" onmouseover="this.style.background='var(--accent)'; this.style.color='#000';" onmouseout="this.style.background='rgba(0, 255, 255, 0.1)'; this.style.color='var(--accent)';" onfocus="this.style.background='var(--accent)'; this.style.color='#000';" onblur="this.style.background='rgba(0, 255, 255, 0.1)'; this.style.color='var(--accent)';">🔗 Search Google</a>`;
                 
+                let safeId = btoa(encodeURIComponent(ev.label)).replace(/=/g, '');
+                let upvotes = (window.agendaVotes && window.agendaVotes[ev.label] && window.agendaVotes[ev.label].up) || 0;
+                let downvotes = (window.agendaVotes && window.agendaVotes[ev.label] && window.agendaVotes[ev.label].down) || 0;
+                let voteHtml = `<div style="display: flex; gap: 10px;"><button class="vote-btn-up-${safeId}" onclick="submitAgendaVote('${ev.label.replace(/['"\\]/g, '\\$&')}', 'up', this)" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(0, 255, 0, 0.1); border: 1px solid #00ff00; color: #00ff00; padding: 8px 16px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5);" onmouseover="this.style.background='#00ff00'; this.style.color='#000';" onmouseout="this.style.background='rgba(0, 255, 0, 0.1)'; this.style.color='#00ff00';">👍 <span class="up-count" style="margin-left: 5px;">${upvotes}</span></button><button class="vote-btn-down-${safeId}" onclick="submitAgendaVote('${ev.label.replace(/['"\\]/g, '\\$&')}', 'down', this)" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; color: #ff4444; padding: 8px 16px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5);" onmouseover="this.style.background='#ff4444'; this.style.color='#000';" onmouseout="this.style.background='rgba(255, 0, 0, 0.1)'; this.style.color='#ff4444';">👎 <span class="down-count" style="margin-left: 5px;">${downvotes}</span></button></div>`;
+                
                 return `<div style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--pod-border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                         <div style="font-size: clamp(1.2rem, 3vw, 1.6rem); font-weight: bold; color: var(--accent); line-height: 1.2;">${ev.label}</div>
                         <div style="font-size: clamp(0.9rem, 2vw, 1.1rem); color: #ccc; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; white-space: nowrap;">🕒 ${timeLabel}</div>
                     </div>
                     <div style="font-size: clamp(1rem, 2.5vw, 1.2rem); color: var(--text-main); opacity: 0.9; line-height: 1.5;">${ev.text}</div>
-                    <div style="align-self: flex-start; margin-top: 5px;">${searchLink}</div>
+                    <div style="align-self: flex-start; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">${searchLink} ${voteHtml}</div>
                 </div>`;
             }).join('');
             
@@ -1569,6 +1595,19 @@
                             <div style="color: var(--text-main); font-size: 1.1rem;">${d.high}° <span style="opacity:0.5; font-size:0.9rem;">${d.low}°</span></div>
                         </div>
                     `).join('');
+                }
+                
+                if (s.agenda_votes) {
+                    window.agendaVotes = s.agenda_votes;
+                    if (document.getElementById('agenda-modal').style.display === 'flex') {
+                        for (let key in window.agendaVotes) {
+                            let safeId = btoa(encodeURIComponent(key)).replace(/=/g, '');
+                            let upCountEl = document.querySelector(`.vote-btn-up-${safeId} .up-count`);
+                            let downCountEl = document.querySelector(`.vote-btn-down-${safeId} .down-count`);
+                            if (upCountEl) upCountEl.innerText = window.agendaVotes[key].up;
+                            if (downCountEl) downCountEl.innerText = window.agendaVotes[key].down;
+                        }
+                    }
                 }
                 
                 if (!isInteracting) {

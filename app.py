@@ -137,7 +137,8 @@ state = {
     "slides": [],
     "managed_theme": "",
     "school_closings": {"sault_closed": False, "other_closings": []},
-    "school_alerts": {}
+    "school_alerts": {},
+    "agenda_votes": {}
 }
 
 if os.path.exists(STATE_FILE):
@@ -570,11 +571,38 @@ def dynamic_school(slug):
         page_state['page_slug'] = slug
         return render_template('school_dashboard.html', **page_state)
 
-@app.route('/joeyadmin')
+@app.route('/joeyadmin', methods=['GET', 'POST'])
 def joeyadmin():
     auth = request.authorization
     if not auth or auth.password != admin_password:
         return "Overlord Access Denied", 401, {'WWW-Authenticate': 'Basic realm="JoeyAdmin Login Required"'}
+        
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'delete_pulse':
+            pulse_text = request.form.get('pulse_text')
+            if pulse_text:
+                trigger_sync = False
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn:
+                            conn.execute("DELETE FROM pulses WHERE text = ?", (pulse_text,))
+                except Exception as e:
+                    pass
+                
+                with state_lock:
+                    if state.get('pulse') == pulse_text:
+                        state['pulse'] = ""
+                        state['bubble'] = "Recalibrating pulse..."
+                        trigger_sync = True
+                    state['pulse_history'] = load_history()
+                    try:
+                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                    except: pass
+                
+                if trigger_sync:
+                    threading.Thread(target=run_sync).start()
+            return redirect('/joeyadmin')
         
     import subprocess
     services_to_check = ['docker', 'cloudflared', 'cron', 'systemd-journald']
@@ -599,7 +627,12 @@ def joeyadmin():
             metrics = [{"time": r[0], "load": r[1], "mem": r[2], "cache": r[3]} for r in c.fetchall()]
     except:
         metrics = []
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages())
+        
+    with state_lock:
+        current_pulse = state.get('pulse', '')
+        pulse_history = state.get('pulse_history', [])
+        
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), current_pulse=current_pulse, pulse_history=pulse_history)
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
@@ -701,6 +734,24 @@ def get_state():
         out = state.copy()
         out["build_timestamp"] = os.environ.get("BUILD_TIMESTAMP", "Local Dev")
         return jsonify(out)
+
+@app.route('/api/vote', methods=['POST'])
+def submit_vote():
+    data = request.json
+    if not data: return jsonify(success=False), 400
+    item_id = data.get("item_id")
+    vote_type = data.get("vote_type")
+    if item_id and vote_type in ['up', 'down']:
+        with state_lock:
+            if 'agenda_votes' not in state:
+                state['agenda_votes'] = {}
+            if item_id not in state['agenda_votes']:
+                state['agenda_votes'][item_id] = {'up': 0, 'down': 0}
+            state['agenda_votes'][item_id][vote_type] += 1
+            try:
+                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+            except: pass
+    return jsonify(success=True)
 
 @app.route('/api/system/logs')
 def get_system_logs():
