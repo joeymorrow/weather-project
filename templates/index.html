@@ -62,7 +62,7 @@
         #pos-bed.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); pointer-events: none; z-index: 6; }
         #center-info { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 60vw; max-width: 760px; pointer-events: none; z-index: 10; }
         .date-line { font-size: clamp(0.9rem, 1.2vw, 1.5rem); color: var(--accent); opacity: 0.6; margin-bottom: 1vh; text-align: center; }
-        .clock { font-size: clamp(2rem, 4vw, 3.5rem); color: var(--accent); margin-bottom: -5px; } .temp { font-size: clamp(4rem, 8vw, 8rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; }
+        .clock { font-size: clamp(2rem, 4vw, 3.5rem); color: var(--accent); margin-bottom: -5px; text-shadow: 0 2px 10px rgba(0,0,0,0.5); } .temp { font-size: clamp(4rem, 8vw, 8rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; text-shadow: 0 4px 20px rgba(0,0,0,0.5); }
         .suggestion { font-size: clamp(0.9rem, 1.4vw, 1.2rem); color: var(--accent); font-weight: bold; margin: 2px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 4px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; }
         .forecast-line { font-size: clamp(0.85rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.9; margin: 2px auto; width: fit-content; max-width: clamp(280px, 75%, 700px); line-height: 1.5; font-style: italic; background: rgba(0,0,0,0.3); padding: clamp(4px, 1vh, 8px) clamp(16px, 3vw, 40px); border-radius: 8px; }
         .pulse-line { font-size: clamp(0.8rem, 1.2vw, 1rem); color: var(--accent); opacity: 0.85; margin: 4px auto 0; font-style: italic; font-weight: normal; border: 1px solid var(--pod-border); background: var(--pod-bg); padding: clamp(8px, 1.5vh, 12px) clamp(16px, 3vw, 24px); width: fit-content; max-width: clamp(280px, 85%, 650px); line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; pointer-events: auto; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -664,7 +664,7 @@
             // 2. Track Labels (Watermarked in the background)
             const labelFontSize = Math.max(24, Math.min(w * 0.04, 60));
             ctx.font = `bold ${labelFontSize}px "Segoe UI", sans-serif`; 
-            ctx.fillStyle = textMain; ctx.globalAlpha = 0.04;
+            ctx.fillStyle = textMain; ctx.globalAlpha = 0.08;
             ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
             ctx.fillText('TEMPERATURE', 20, t1_bot - 10);
             ctx.fillText('SKY COVER', 20, t2_bot - 10);
@@ -685,15 +685,15 @@
             });
             tFill.lineTo(padX + (data.length - 1) * stepX, t1_bot); tFill.closePath();
             const gradT = ctx.createLinearGradient(0, t1_bot - trackH, 0, t1_bot);
-            gradT.addColorStop(0, 'rgba(255,255,255,0.15)'); gradT.addColorStop(1, 'rgba(255,255,255,0)');
+            gradT.addColorStop(0, 'rgba(255,255,255,0.1)'); gradT.addColorStop(1, 'rgba(255,255,255,0)');
             ctx.fillStyle = gradT; ctx.globalAlpha = 1.0; ctx.fill(tFill);
-            ctx.strokeStyle = accent; ctx.lineWidth = 4; ctx.globalAlpha = 0.8; ctx.stroke(tLine);
+            ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.globalAlpha = 0.4; ctx.stroke(tLine);
             
             data.forEach((d, i) => {
                 const cx = padX + i * stepX; const cy = t1_bot - ((d.temp - minT) / range) * (trackH * 0.6) - (trackH * 0.2);
-                ctx.fillStyle = '#000'; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = accent; ctx.globalAlpha = 1.0; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
-                ctx.font = 'bold 18px "Segoe UI", sans-serif'; ctx.fillText(d.temp + '°', cx, cy - 22);
+                ctx.fillStyle = '#000'; ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = accent; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI*2); ctx.fill();
+                ctx.font = 'bold 16px "Segoe UI", sans-serif'; ctx.globalAlpha = 0.8; ctx.fillText(d.temp + '°', cx, cy - 18);
             });
 
             // 4. Sky / Cloud Cover (Middle Track)
@@ -709,14 +709,14 @@
             });
             cFill.lineTo(padX + (data.length - 1) * stepX, t2_bot); cFill.closePath();
             const gradC = ctx.createLinearGradient(0, t1_bot, 0, t2_bot);
-            gradC.addColorStop(0, 'rgba(255,255,255,0.1)'); gradC.addColorStop(1, 'rgba(255,255,255,0)');
+            gradC.addColorStop(0, 'rgba(255,255,255,0.25)'); gradC.addColorStop(1, 'rgba(255,255,255,0.02)');
             ctx.fillStyle = gradC; ctx.globalAlpha = 1.0; ctx.fill(cFill);
-            ctx.strokeStyle = textMain; ctx.lineWidth = 2; ctx.globalAlpha = 0.3; ctx.stroke(cLine);
+            ctx.strokeStyle = textMain; ctx.lineWidth = 2; ctx.globalAlpha = 0.5; ctx.stroke(cLine);
             
             data.forEach((d, i) => {
                 const cx = padX + i * stepX; const cy = t2_bot - (d.clouds / 100) * (trackH * 0.6) - (trackH * 0.1);
-                ctx.fillStyle = textMain; ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
-                ctx.font = 'bold 14px "Segoe UI", sans-serif'; ctx.globalAlpha = 0.6; ctx.fillText(d.clouds + '%', cx, cy - 15);
+                ctx.fillStyle = textMain; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
+                ctx.font = 'bold 14px "Segoe UI", sans-serif'; ctx.globalAlpha = 0.8; ctx.fillText(d.clouds + '%', cx, cy - 15);
             });
 
             // 5. Precipitation (Bottom Track) & Timeline
@@ -724,15 +724,16 @@
                 const cx = padX + i * stepX;
                 if (d.pop > 0) {
                     const popH = Math.max(4, (d.pop / 100) * (trackH * 0.6)); 
-                    ctx.fillStyle = d.desc.includes('snow') ? '#ffffff' : accent;
-                    ctx.globalAlpha = d.desc.includes('snow') ? 0.6 : 0.3;
+                    ctx.strokeStyle = d.desc.includes('snow') ? '#ffffff' : accent;
+                    ctx.globalAlpha = d.desc.includes('snow') ? 0.7 : 0.5;
+                    ctx.lineWidth = 6; ctx.lineCap = 'round';
                     ctx.beginPath();
-                    if(ctx.roundRect) { ctx.roundRect(cx - stepX*0.2, t3_bot - popH - (trackH * 0.15), stepX*0.4, popH, [8, 8, 0, 0]); }
-                    else { ctx.fillRect(cx - stepX*0.2, t3_bot - popH - (trackH * 0.15), stepX*0.4, popH); }
-                    ctx.fill();
+                    ctx.moveTo(cx, t3_bot - (trackH * 0.15));
+                    ctx.lineTo(cx, t3_bot - popH - (trackH * 0.15));
+                    ctx.stroke();
                     
-                    ctx.fillStyle = textMain; ctx.globalAlpha = 0.9; ctx.font = 'bold 15px "Segoe UI", sans-serif';
-                    ctx.fillText(d.pop + '%', cx, t3_bot - popH - (trackH * 0.15) - 12);
+                    ctx.fillStyle = textMain; ctx.globalAlpha = 0.8; ctx.font = 'bold 14px "Segoe UI", sans-serif';
+                    ctx.fillText(d.pop + '%', cx, t3_bot - popH - (trackH * 0.15) - 15);
                 }
                 
                 ctx.fillStyle = textMain; ctx.globalAlpha = 0.7; ctx.font = 'bold 16px "Segoe UI", sans-serif';
