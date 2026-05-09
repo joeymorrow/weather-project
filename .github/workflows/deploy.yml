@@ -26,11 +26,11 @@ jobs:
         run: |
           pip install flake8
           # F821 catches undefined variables in Python!
-          flake8 app.py --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --select=E9,F63,F7,F82 --show-source --statistics
           
       - name: Python Basic Syntax Check
         run: |
-          python -m py_compile app.py
+          python -m compileall .
           
       - name: Jinja2 Template Validation
         run: |
@@ -194,6 +194,31 @@ jobs:
             } catch (e) {
               console.error('[QA PAGE ERROR] Sault Schools load failed:', e.message); errors++;
             }
+
+          try {
+            console.log('Testing /pickford-schools ...');
+            await page.goto('http://127.0.0.1:5000/pickford-schools', {waitUntil: 'domcontentloaded', timeout: 15000});
+            await new Promise(r => setTimeout(r, 1000));
+            await runClashCheck('Pickford Schools 16:9');
+          } catch (e) {
+            console.error('[QA PAGE ERROR] Pickford Schools load failed:', e.message); errors++;
+          }
+
+          try {
+            console.log('Testing /joeyadmin ...');
+            await page.goto('http://127.0.0.1:5000/joeyadmin', {waitUntil: 'domcontentloaded', timeout: 15000});
+            await new Promise(r => setTimeout(r, 1000));
+          } catch (e) {
+            console.error('[QA PAGE ERROR] JoeyAdmin load failed:', e.message); errors++;
+          }
+
+          try {
+            console.log('Testing /admin ...');
+            await page.goto('http://127.0.0.1:5000/admin', {waitUntil: 'domcontentloaded', timeout: 15000});
+            await new Promise(r => setTimeout(r, 1000));
+          } catch (e) {
+            console.error('[QA PAGE ERROR] Admin load failed:', e.message); errors++;
+          }
 
             try {
               console.log('Testing /rpg ...');
