@@ -252,10 +252,17 @@ def run_sync():
         st_id = "bed" if is_sleep else next((v for k,v in {21:"kitchen", 20:"garage", 19:"library", 17:"store", 16:"gym", 8:"office", 6:"coffee"}.items() if h >= k), "coffee")
         
         # Calculate dynamic daylight state and precipitation
-        sunrise = w['sys']['sunrise']
-        sunset = w['sys']['sunset']
+        raw_sunrise = w['sys']['sunrise']
+        raw_sunset = w['sys']['sunset']
         now_ts = now.timestamp()
         clouds = w.get('clouds', {}).get('all', 0)
+        
+        # Force sunrise and sunset to the current local day to prevent OpenWeatherMap rollover bugs
+        sunrise_dt = datetime.fromtimestamp(raw_sunrise, pytz.utc).astimezone(TZ).replace(year=now.year, month=now.month, day=now.day)
+        sunset_dt = datetime.fromtimestamp(raw_sunset, pytz.utc).astimezone(TZ).replace(year=now.year, month=now.month, day=now.day)
+        
+        sunrise = sunrise_dt.timestamp()
+        sunset = sunset_dt.timestamp()
         
         is_morning_golden = (sunrise - 900 <= now_ts < sunrise + 2700)
         is_evening_golden = (sunset - 2700 <= now_ts < sunset + 900)
@@ -263,8 +270,6 @@ def run_sync():
         is_day = (sunrise <= now_ts < sunset) and not is_golden
         pop = int(f['list'][0].get('pop', 0) * 100)
         
-        sunrise_dt = datetime.fromtimestamp(sunrise, pytz.utc).astimezone(TZ)
-        sunset_dt = datetime.fromtimestamp(sunset, pytz.utc).astimezone(TZ)
         sunrise_str = sunrise_dt.strftime('%I:%M %p').lstrip('0')
         sunset_str = sunset_dt.strftime('%I:%M %p').lstrip('0')
         
