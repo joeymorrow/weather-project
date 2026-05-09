@@ -73,6 +73,8 @@
         #weekly-trigger:hover, #weekly-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         #agenda-trigger { position: absolute; top: 20px; left: 90px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; }
         #agenda-trigger:hover, #agenda-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #mobile-nav-btn { position: absolute; top: 20px; right: 20px; font-size: 1.2rem; color: var(--accent); z-index: 3500; cursor: pointer; display: none; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 50%; background: rgba(0,0,0,0.5); transition: 0.3s; }
+        #mobile-nav-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 10px var(--accent); }
         .pod { position: absolute; width: clamp(60px, 8vmin, 180px); height: clamp(60px, 8vmin, 180px); border-radius: 50%; border: 1px solid var(--pod-border); background: var(--pod-bg); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 5rem); filter: grayscale(80%) opacity(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
         .pod:hover { filter: grayscale(0%) opacity(1); transform: scale(1.1); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100 !important; }
         .pod.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); z-index: 6; pointer-events: none; }
@@ -225,6 +227,10 @@
             .pods { gap: 6px !important; padding-bottom: max(10px, env(safe-area-inset-bottom)) !important; }
             .pod, #pos-bed { margin: -2px 0 !important; transform: scale(0.65) !important; }
             #buddy-container:not(.kaiju-mode):not(.on-date) { transform: scale(0.8) !important; margin-top: -10px !important; margin-bottom: -30px !important; }
+
+            #mobile-nav-btn { display: flex !important; }
+            #hourly-container { opacity: 0 !important; background: var(--bg) !important; z-index: 3000 !important; pointer-events: auto !important; transition: opacity 0.3s ease !important; }
+            #hourly-container.active { opacity: 1 !important; }
         }
         
         /* High Contrast Theme Override */
@@ -261,6 +267,7 @@
     </div>
     <div id="weekly-trigger" role="button" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('weekly-modal').style.display='flex'" title="5-Day Outlook">📅</div>
     <div id="agenda-trigger" role="button" tabindex="0" onclick="openAgenda()" onkeydown="if(event.key==='Enter')openAgenda()" title="Daily Agenda">🗓️</div>
+    <div id="mobile-nav-btn" role="button" tabindex="0" onclick="toggleMobileGraph()" onkeydown="if(event.key==='Enter')toggleMobileGraph()" title="View Hourly Graph">▶</div>
     <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
     <div class="pods"><div class="pod" role="button" id="pos-coffee" tabindex="0" onclick="moveBuddy('coffee')" onkeydown="if(event.key==='Enter')moveBuddy('coffee')">☕</div><div class="pod" role="button" tabindex="0" id="pos-office" onclick="moveBuddy('office')" onkeydown="if(event.key==='Enter')moveBuddy('office')">💻</div><div class="pod" role="button" tabindex="0" id="pos-gym" onclick="moveBuddy('gym')" onkeydown="if(event.key==='Enter')moveBuddy('gym')">💪</div><div class="pod" role="button" tabindex="0" id="pos-store" onclick="moveBuddy('store')" onkeydown="if(event.key==='Enter')moveBuddy('store')">🛍️</div><div class="pod" role="button" tabindex="0" id="pos-library" onclick="moveBuddy('library')" onkeydown="if(event.key==='Enter')moveBuddy('library')">📖</div><div class="pod" role="button" tabindex="0" id="pos-garage" onclick="moveBuddy('garage')" onkeydown="if(event.key==='Enter')moveBuddy('garage')">🔧</div><div class="pod" role="button" tabindex="0" id="pos-park" onclick="moveBuddy('park')" onkeydown="if(event.key==='Enter')moveBuddy('park')">🚲</div><div class="pod" role="button" tabindex="0" id="pos-kitchen" onclick="moveBuddy('kitchen')" onkeydown="if(event.key==='Enter')moveBuddy('kitchen')">🍳</div><div id="pos-bed" role="button" tabindex="0" onclick="moveBuddy('bed')" onkeydown="if(event.key==='Enter')moveBuddy('bed')">🛏️</div></div>
     <div id="egg-modal" onclick="if(event.target === this) triggerEgg('close')">
@@ -366,6 +373,7 @@
         let pulseHistory = JSON.parse(decodeURIComponent("{{ pulse_history | default([]) | tojson | urlencode }}"));
         let currentHourly = JSON.parse(decodeURIComponent("{{ hourly_list | default([]) | tojson | urlencode }}"));
         const podOrder = ['coffee', 'office', 'gym', 'store', 'library', 'garage', 'park', 'kitchen'];
+        const defaultBubbles = { "coffee": "Grabbing a brew...", "office": "Compiling data...", "gym": "Gaining processing power...", "store": "Running errands...", "library": "Parsing archives...", "garage": "Diagnostic mode...", "park": "Nature protocol engaged...", "kitchen": "Refueling...", "bed": "Powering down..." };
         let signageSlides = [];
         let activeSlideTimer = null;
         let slideIndex = -1; // -1 means Dashboard
@@ -390,13 +398,13 @@
             let tOrigin = 'bottom center';
             
             // 1. Horizontal check: shift the text box to the opposite side if near edges
-            if (bX < window.innerWidth / 3) {
-                bbl.style.setProperty('left', '10%', 'important');
+            if (bX < 150) {
+                bbl.style.setProperty('left', '20px', 'important');
                 bbl.style.setProperty('right', 'auto', 'important');
                 tX = 'translateX(0)'; tOrigin = 'bottom left';
-            } else if (bX > (window.innerWidth / 3) * 2) {
+            } else if (bX > window.innerWidth - 150) {
                 bbl.style.setProperty('left', 'auto', 'important');
-                bbl.style.setProperty('right', '10%', 'important');
+                bbl.style.setProperty('right', '20px', 'important');
                 tX = 'translateX(0)'; tOrigin = 'bottom right';
             } else {
                 bbl.style.setProperty('left', '50%', 'important');
@@ -799,6 +807,22 @@
             }
         };
 
+        let showingGraph = false;
+        window.toggleMobileGraph = function() {
+            showingGraph = !showingGraph;
+            const navBtn = document.getElementById('mobile-nav-btn');
+            const graphContainer = document.getElementById('hourly-container');
+            
+            if (showingGraph) {
+                navBtn.innerText = '◀';
+                graphContainer.classList.add('active');
+            } else {
+                navBtn.innerText = '▶';
+                graphContainer.classList.remove('active');
+            }
+            setTimeout(() => drawHourlyGraph(currentHourly), 50);
+        };
+
     window.startCast = function() {
         if (navigator.presentation && navigator.presentation.receiver === null) {
             try {
@@ -1023,6 +1047,11 @@
             }
             container.style.display = 'block';
             
+            let drawData = data;
+            if (window.innerWidth <= 600 && data.length > 7) {
+                drawData = data.slice(0, 7);
+            }
+
             const dpr = window.devicePixelRatio || 1;
             const rect = container.getBoundingClientRect();
             if(rect.width === 0) return;
@@ -1041,14 +1070,14 @@
             const accent = style.getPropertyValue('--accent').trim() || '#00ffff';
             const textMain = style.getPropertyValue('--text-main').trim() || '#ffffff';
             
-            const temps = data.map(d => d.temp);
+            const temps = drawData.map(d => d.temp);
             const minT = Math.min(...temps);
             const maxT = Math.max(...temps);
             const range = (maxT - minT) || 1;
             
             const padX = w * 0.08;
             const padRight = w * 0.05;
-            const stepX = (w - padX - padRight) / Math.max(1, data.length - 1);
+            const stepX = (w - padX - padRight) / Math.max(1, drawData.length - 1);
             const topPad = h * 0.1;
             const bottomPad = h * 0.05;
             const graphH = h - topPad - bottomPad;
@@ -1065,7 +1094,7 @@
             ctx.moveTo(0, t1_bot); ctx.lineTo(w, t1_bot);
             ctx.moveTo(0, t2_bot); ctx.lineTo(w, t2_bot);
             ctx.globalAlpha = 0.03;
-            data.forEach((d, i) => { const cx = padX + i * stepX; ctx.moveTo(cx, topPad); ctx.lineTo(cx, t3_bot); });
+            drawData.forEach((d, i) => { const cx = padX + i * stepX; ctx.moveTo(cx, topPad); ctx.lineTo(cx, t3_bot); });
             ctx.stroke();
             
             // 2. Track Labels (Watermarked in the background)
@@ -1081,57 +1110,57 @@
             
             // 3. Temperature (Top Track)
             const tLine = new Path2D(); const tFill = new Path2D(); tFill.moveTo(padX, t1_bot);
-            data.forEach((d, i) => {
+            drawData.forEach((d, i) => {
                 const cx = padX + i * stepX; const cy = t1_bot - ((d.temp - minT) / range) * (trackH * 0.6) - (trackH * 0.2);
                 if (i === 0) { tLine.moveTo(cx, cy); tFill.lineTo(cx, cy); }
                 else {
                     const cpX = padX + (i - 1) * stepX + stepX / 2;
-                    const prevY = t1_bot - ((data[i-1].temp - minT) / range) * (trackH * 0.6) - (trackH * 0.2);
+                    const prevY = t1_bot - ((drawData[i-1].temp - minT) / range) * (trackH * 0.6) - (trackH * 0.2);
                     tLine.bezierCurveTo(cpX, prevY, cpX, cy, cx, cy); tFill.bezierCurveTo(cpX, prevY, cpX, cy, cx, cy);
                 }
             });
-            tFill.lineTo(padX + (data.length - 1) * stepX, t1_bot); tFill.closePath();
+            tFill.lineTo(padX + (drawData.length - 1) * stepX, t1_bot); tFill.closePath();
             const gradT = ctx.createLinearGradient(0, t1_bot - trackH, 0, t1_bot);
             gradT.addColorStop(0, 'rgba(255,255,255,0.1)'); gradT.addColorStop(1, 'rgba(255,255,255,0)');
             ctx.fillStyle = gradT; ctx.globalAlpha = 1.0; ctx.fill(tFill);
             ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.globalAlpha = 0.4; ctx.stroke(tLine);
             
-            data.forEach((d, i) => {
+            drawData.forEach((d, i) => {
                 const cx = padX + i * stepX; const cy = t1_bot - ((d.temp - minT) / range) * (trackH * 0.6) - (trackH * 0.2);
                 ctx.fillStyle = '#000'; ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = accent; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, Math.PI*2); ctx.fill();
-                if (i % 3 === 0 || i === data.length - 1) {
+                if (i % 3 === 0 || i === drawData.length - 1) {
                     ctx.font = 'bold 15px "Segoe UI", sans-serif'; ctx.globalAlpha = 0.9; ctx.fillText(d.temp + '°', cx, cy - 14);
                 }
             });
 
             // 4. Sky / Cloud Cover (Middle Track)
             const cFill = new Path2D(); cFill.moveTo(padX, t2_bot); const cLine = new Path2D();
-            data.forEach((d, i) => {
+            drawData.forEach((d, i) => {
                 const cx = padX + i * stepX; const cy = t2_bot - (d.clouds / 100) * (trackH * 0.6) - (trackH * 0.1);
                 if (i === 0) { cFill.lineTo(cx, cy); cLine.moveTo(cx, cy); }
                 else {
                     const cpX = padX + (i - 1) * stepX + stepX / 2;
-                    const prevY = t2_bot - (data[i-1].clouds / 100) * (trackH * 0.6) - (trackH * 0.1);
+                    const prevY = t2_bot - (drawData[i-1].clouds / 100) * (trackH * 0.6) - (trackH * 0.1);
                     cFill.bezierCurveTo(cpX, prevY, cpX, cy, cx, cy); cLine.bezierCurveTo(cpX, prevY, cpX, cy, cx, cy);
                 }
             });
-            cFill.lineTo(padX + (data.length - 1) * stepX, t2_bot); cFill.closePath();
+            cFill.lineTo(padX + (drawData.length - 1) * stepX, t2_bot); cFill.closePath();
             const gradC = ctx.createLinearGradient(0, t1_bot, 0, t2_bot);
             gradC.addColorStop(0, 'rgba(255,255,255,0.25)'); gradC.addColorStop(1, 'rgba(255,255,255,0.02)');
             ctx.fillStyle = gradC; ctx.globalAlpha = 1.0; ctx.fill(cFill);
             ctx.strokeStyle = textMain; ctx.lineWidth = 2; ctx.globalAlpha = 0.5; ctx.stroke(cLine);
             
-            data.forEach((d, i) => {
+            drawData.forEach((d, i) => {
                 const cx = padX + i * stepX; const cy = t2_bot - (d.clouds / 100) * (trackH * 0.6) - (trackH * 0.1);
                 ctx.fillStyle = textMain; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI*2); ctx.fill();
-                if (i % 3 === 0 || i === data.length - 1) {
+                if (i % 3 === 0 || i === drawData.length - 1) {
                     ctx.font = 'bold 13px "Segoe UI", sans-serif'; ctx.globalAlpha = 0.8; ctx.fillText(d.clouds + '%', cx, cy - 12);
                 }
             });
 
             // 5. Precipitation (Bottom Track) & Timeline
-            data.forEach((d, i) => {
+            drawData.forEach((d, i) => {
                 const cx = padX + i * stepX;
                 if (d.pop > 0) {
                     const popH = Math.max(4, (d.pop / 100) * (trackH * 0.6)); 
@@ -1143,13 +1172,13 @@
                     ctx.lineTo(cx, t3_bot - popH - (trackH * 0.15));
                     ctx.stroke();
                     
-                    if (i % 3 === 0 || i === data.length - 1) {
+                    if (i % 3 === 0 || i === drawData.length - 1) {
                         ctx.fillStyle = textMain; ctx.globalAlpha = 0.8; ctx.font = 'bold 12px "Segoe UI", sans-serif';
                         ctx.fillText(d.pop + '%', cx, t3_bot - popH - (trackH * 0.15) - 10);
                     }
                 }
                 
-                if (i % 3 === 0 || i === data.length - 1) {
+                if (i % 3 === 0 || i === drawData.length - 1) {
                     ctx.fillStyle = textMain; ctx.globalAlpha = 0.7; ctx.font = 'bold 14px "Segoe UI", sans-serif';
                     ctx.fillText(d.time, cx, t3_bot + 25);
                 }
@@ -1184,14 +1213,14 @@
                 b.classList.add('waking-up');
                 setTimeout(() => {
                     b.classList.remove('waking-up');
-                    bbl.innerText = "Rerouting...";
+                    bbl.innerText = (window.innerWidth <= 600 && station !== 'bed') ? (defaultBubbles[station] || "Rerouting...") : "Rerouting...";
                     bbl.classList.remove('bubble-update');
                     void bbl.offsetWidth;
                     bbl.classList.add('bubble-update');
                     syncBuddy();
                 }, 1200);
             } else {
-                bbl.innerText = "Rerouting...";
+                bbl.innerText = (window.innerWidth <= 600 && station !== 'bed') ? (defaultBubbles[station] || "Rerouting...") : "Rerouting...";
                 bbl.classList.remove('bubble-update');
                 void bbl.offsetWidth;
                 bbl.classList.add('bubble-update');
@@ -1350,10 +1379,14 @@
                     softUpdate('ui-pulse', s.pulse);
                     
                     const bbl = document.getElementById('ui-bbl');
-                    if (bbl && s.bubble && bbl.innerText !== s.bubble && (!s.emergency || !s.emergency.active) && (!s.school_closings || !s.school_closings.sault_closed)) {
+                    
+                    let displayBubble = s.bubble;
+                    if (window.innerWidth <= 600 && s.station !== 'bed') displayBubble = defaultBubbles[s.station] || 'Rerouting...';
+                    
+                    if (bbl && s.bubble && bbl.innerText !== displayBubble && (!s.emergency || !s.emergency.active) && (!s.school_closings || !s.school_closings.sault_closed)) {
                         bbl.classList.remove('bubble-update');
                         void bbl.offsetWidth; // Trigger reflow to reset animation
-                        bbl.innerText = s.bubble;
+                        bbl.innerText = displayBubble;
                         bbl.classList.add('bubble-update');
                     }
                 }
@@ -1387,7 +1420,9 @@
                 
                 if (wakingUp && s.station !== 'bed') {
                     const bbl = document.getElementById('ui-bbl');
-                    const nextTask = s.bubble || '';
+                    let nextTask = s.bubble || '';
+                    if (window.innerWidth <= 600 && s.station !== 'bed') nextTask = defaultBubbles[s.station] || 'Rerouting...';
+                    
                     bbl.innerText = "*Stretches*";
                     bbl.classList.remove('bubble-update');
                     void bbl.offsetWidth;
@@ -1473,6 +1508,11 @@
                         xOffset = b.dataset.orbitSide === 'left' ? -55 : 55;
                     }
                     destLeft = r.left + (r.width/2) - (b.offsetWidth/2) + xOffset;
+                    
+                    if (currentStation !== 'bed') {
+                        destLeft = Math.max(10, Math.min(window.innerWidth - b.offsetWidth - 10, destLeft));
+                    }
+                    
                     destTop = r.top + (r.height/2) - (b.offsetHeight/2) - (currentStation === 'bed' ? 0 : 10);
                 }
                 
