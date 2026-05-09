@@ -575,11 +575,16 @@
             const groovyBtn = document.getElementById('theme-groovy');
             const contrastBtn = document.getElementById('theme-contrast');
             const fullBtn = document.getElementById('theme-fullscreen');
+            const standardBtn = document.getElementById('theme-standard');
             
-            if (oceanBtn) oceanBtn.innerHTML = (localStorage.getItem('beacon_themepack') === 'ocean-mode' ? '✓ ' : '') + 'Deep Sea';
-            if (groovyBtn) groovyBtn.innerHTML = (localStorage.getItem('beacon_themepack') === 'groovy-mode' ? '✓ ' : '') + 'Groovy';
-            if (contrastBtn) contrastBtn.innerHTML = (localStorage.getItem('beacon_hc') === 'true' ? '✓ ' : '') + 'High Contrast';
+            let tp = localStorage.getItem('beacon_themepack');
+            let hc = localStorage.getItem('beacon_hc') === 'true';
+
+            if (oceanBtn) oceanBtn.innerHTML = (tp === 'ocean-mode' ? '✓ ' : '') + 'Deep Sea';
+            if (groovyBtn) groovyBtn.innerHTML = (tp === 'groovy-mode' ? '✓ ' : '') + 'Groovy';
+            if (contrastBtn) contrastBtn.innerHTML = (hc ? '✓ ' : '') + 'High Contrast';
             if (fullBtn) fullBtn.innerHTML = (document.fullscreenElement ? '✓ ' : '') + 'Fullscreen';
+            if (standardBtn) standardBtn.innerHTML = ((!tp || tp === '') && !hc ? '✓ ' : '') + 'Standard';
         };
 
         window.toggleContrast = function() {
@@ -946,6 +951,45 @@
                 fetchState(true);
             }, 7000);
             return "Oh no... what have you done?";
+        };
+
+        // 🍪 EASTER EGG: Feed Buddy
+        window.feedBuddy = function() {
+            if (window.onDate || window.isRaving || window.isKaiju) return "Buddy is busy!";
+            const b = document.getElementById('buddy-container');
+            const bbl = document.getElementById('ui-bbl');
+            
+            const cookie = document.createElement('div');
+            cookie.innerHTML = '🍪';
+            cookie.style.cssText = 'position: absolute; font-size: 3rem; z-index: 4000; filter: drop-shadow(0 0 15px #fff) brightness(1.5); transition: top 1s cubic-bezier(0.4, 0, 1, 1), opacity 0.5s ease-out;';
+            
+            const bRect = b.getBoundingClientRect();
+            cookie.style.left = (bRect.left + bRect.width / 2 - 24) + 'px';
+            cookie.style.top = '-50px';
+            document.body.appendChild(cookie);
+            
+            setTimeout(() => {
+                const newRect = b.getBoundingClientRect();
+                cookie.style.left = (newRect.left + newRect.width / 2 - 24) + 'px';
+                cookie.style.top = (newRect.top + 20) + 'px';
+            }, 50);
+            
+            setTimeout(() => {
+                cookie.style.opacity = '0';
+                b.classList.add('waking-up'); // We can reuse his waking-up "wiggle" animation for a happy food dance!
+                bbl.innerText = "Yum! An ultralight whitebeam cookie!";
+                bbl.classList.remove('bubble-update');
+                void bbl.offsetWidth;
+                bbl.classList.add('bubble-update');
+            }, 1050);
+            
+            setTimeout(() => {
+                cookie.remove();
+                b.classList.remove('waking-up');
+                fetchState(true);
+            }, 4000);
+            
+            return "Feeding Buddy...";
         };
 
         function drawHourlyGraph(data) {
