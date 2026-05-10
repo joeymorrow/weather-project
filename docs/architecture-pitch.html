@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BEACON Architecture - 16:9 Pitch Slide</title>
+    <style>
+        /* Set exactly to 16:9 aspect ratio */
+        :root {
+            --cyan: #22d3ee;
+            --cyan-dark: #0891b2;
+            --bg-dark: #0b0f19;
+            --card-bg: rgba(15, 23, 42, 0.8);
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg-dark);
+            color: #f8fafc;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .slide-container {
+            width: 1920px;
+            height: 1080px;
+            background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+            border: 2px solid #1e293b;
+            box-shadow: 0 0 50px rgba(34, 211, 238, 0.1);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 60px;
+            box-sizing: border-box;
+        }
+        header {
+            border-bottom: 2px solid var(--cyan-dark);
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 3.5rem;
+            color: var(--cyan);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        h2.subtitle {
+            margin: 10px 0 0 0;
+            font-size: 1.8rem;
+            color: #94a3b8;
+            font-weight: 300;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 30px;
+            flex: 1;
+        }
+        .column {
+            background: var(--card-bg);
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 30px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .column::after {
+            content: '➔';
+            position: absolute;
+            right: -25px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 2rem;
+            color: var(--cyan-dark);
+            z-index: 10;
+        }
+        .column:last-child::after {
+            content: '';
+        }
+        .col-header {
+            font-size: 1.8rem;
+            color: #38bdf8;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed #334155;
+        }
+        .item {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .item-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+            width: 40px;
+            text-align: center;
+        }
+        .item-text {
+            font-size: 1.3rem;
+            color: #cbd5e1;
+            line-height: 1.4;
+        }
+        .highlight { color: #fff; font-weight: bold; }
+        footer { text-align: right; margin-top: 20px; color: #475569; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <header>
+            <h1>Morrow Edge | BEACON Architecture</h1>
+            <h2 class="subtitle">End-to-End Enterprise CI/CD Pipeline & Delivery</h2>
+        </header>
+        <div class="grid">
+            <div class="column">
+                <div class="col-header">1. Development</div>
+                <div class="item"><div class="item-icon">💻</div><div class="item-text"><span class="highlight">VS Code</span> w/ Gemini AI</div></div>
+                <div class="item"><div class="item-icon">🐍</div><div class="item-text">Python / Flask Core</div></div>
+                <div class="item"><div class="item-icon">🎨</div><div class="item-text">HTML / CSS / Jinja2</div></div>
+                <div class="item"><div class="item-icon">🧊</div><div class="item-text">Three.js 3D WebGL</div></div>
+                <div class="item"><div class="item-icon">🐙</div><div class="item-text">Git & GitHub VC</div></div>
+            </div>
+            <div class="column">
+                <div class="col-header">2. Continuous Integration</div>
+                <div class="item"><div class="item-icon">⚡</div><div class="item-text">GitHub Actions Trigger</div></div>
+                <div class="item"><div class="item-icon">🖥️</div><div class="item-text">Self-Hosted Runner</div></div>
+                <div class="item"><div class="item-icon">🧹</div><div class="item-text">Flake8 & Syntax Lint</div></div>
+                <div class="item"><div class="item-icon">🤖</div><div class="item-text"><span class="highlight">Puppeteer QA</span><br><small>Headless UI / DOM Testing</small></div></div>
+            </div>
+            <div class="column">
+                <div class="col-header">3. Deployment</div>
+                <div class="item"><div class="item-icon">🔑</div><div class="item-text">GitHub Secrets to <span class="highlight">.env</span></div></div>
+                <div class="item"><div class="item-icon">🐳</div><div class="item-text">Docker Compose Build</div></div>
+                <div class="item"><div class="item-icon">🚢</div><div class="item-text">Container Start & Sync</div></div>
+                <div class="item"><div class="item-icon">🔥</div><div class="item-text">Smoke Tests (cURL)</div></div>
+            </div>
+            <div class="column">
+                <div class="col-header">4. Edge Delivery</div>
+                <div class="item"><div class="item-icon">☁️</div><div class="item-text"><span class="highlight">Cloudflare Tunnel</span><br><small>Zero Trust Network Access</small></div></div>
+                <div class="item"><div class="item-icon">🌐</div><div class="item-text">MorrowEdge.com</div></div>
+                <div class="item"><div class="item-icon">📺</div><div class="item-text">Local TV Displays (ADB)</div></div>
+                <div class="item"><div class="item-icon">📱</div><div class="item-text">Mobile & Desktop Users</div></div>
+            </div>
+        </div>
+        <footer>Morrow Edge Infrastructure | Internal Use Only</footer>
+    </div>
+</body>
+</html>
