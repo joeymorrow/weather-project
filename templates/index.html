@@ -61,6 +61,8 @@
         #hourly-container { opacity: 0; } #hourly-container.active { opacity: 0.45; }
         #mobile-nav-btn { position: absolute; top: 20px; right: 20px; font-size: 1.2rem; color: var(--accent); z-index: 3500; cursor: pointer; display: none; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 50%; background: rgba(0,0,0,0.5); transition: 0.3s; }
         #mobile-nav-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 10px var(--accent); }
+        #fs-toggle-main { position: absolute; top: 20px; right: 20px; font-size: 1.4rem; opacity: 0.3; color: var(--accent); cursor: pointer; z-index: 3500; transition: opacity 0.3s, text-shadow 0.3s; font-family: monospace; font-weight: bold; user-select: none; border: none; background: none; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; text-decoration: none; letter-spacing: 1px; }
+        #fs-toggle-main:hover, #fs-toggle-main:focus { opacity: 1; text-shadow: 0 0 10px var(--accent); outline: none; }
         .pod { position: absolute; width: clamp(60px, 8vmin, 180px); height: clamp(60px, 8vmin, 180px); border-radius: 50%; border: 1px solid var(--pod-border); background: var(--pod-bg); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 5rem); filter: grayscale(80%) opacity(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
         .pod:hover { filter: grayscale(0%) opacity(1); transform: scale(1.1); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100 !important; }
         .pod.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); z-index: 6; pointer-events: none; }
@@ -84,7 +86,11 @@
         #build-stamp:hover, #build-stamp:focus { opacity: 0.8; outline: none; }
         /* Ambient Mode (Fullscreen) - Hide UI Overlays */
         :fullscreen body:not(.ambient-awake) .ambient-hide, :-webkit-full-screen body:not(.ambient-awake) .ambient-hide { opacity: 0 !important; pointer-events: none !important; }
-        @media (display-mode: fullscreen) { body:not(.ambient-awake) .ambient-hide { opacity: 0 !important; pointer-events: none !important; } }
+        :fullscreen body:not(.ambient-awake), :fullscreen body:not(.ambient-awake) *, :-webkit-full-screen body:not(.ambient-awake), :-webkit-full-screen body:not(.ambient-awake) * { cursor: none !important; }
+        @media (display-mode: fullscreen) { 
+            body:not(.ambient-awake) .ambient-hide { opacity: 0 !important; pointer-events: none !important; }
+            body:not(.ambient-awake), body:not(.ambient-awake) * { cursor: none !important; }
+        }
         #egg-modal, #pulse-modal, #weekly-modal, #agenda-modal, #cast-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 2vh, 15px); pointer-events: auto; overflow-y: auto; padding: 5vh 5vw; box-sizing: border-box; }
         .egg-btn { background: rgba(0,255,255,0.1); border: 2px solid var(--accent); color: var(--accent); padding: clamp(10px, 1.5vh, 15px) clamp(15px, 3vw, 30px); font-size: clamp(0.9rem, 2vh, 1.2rem); border-radius: 10px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: clamp(150px, 25vw, 200px); text-align: center; flex-shrink: 0; }
         .egg-btn:hover, .egg-btn:focus { background: var(--accent); color: #000; outline: none; }
@@ -232,6 +238,7 @@
             #mobile-nav-btn { display: flex !important; }
             #hourly-container { opacity: 0 !important; background: var(--bg) !important; z-index: 3000 !important; pointer-events: auto !important; transition: opacity 0.3s ease !important; }
             #hourly-container.active { opacity: 1 !important; }
+            #fs-toggle-main { right: 60px !important; }
         }
         
         /* High Contrast Theme Override */
@@ -272,6 +279,7 @@
     <div id="docs-trigger" class="ambient-hide" role="link" tabindex="0" onclick="window.open('/docs/dashboard', '_blank')" onkeydown="if(event.key==='Enter')window.open('/docs/dashboard', '_blank')" title="Documentation">?</div>
     <div id="graph-trigger" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="Toggle Hourly Graph">📈</div>
     <div id="mobile-nav-btn" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="View Hourly Graph">▶</div>
+    <div id="fs-toggle-main" class="ambient-hide" role="button" tabindex="0" onclick="toggleFullscreen()" onkeydown="if(event.key==='Enter')toggleFullscreen()" title="Toggle Fullscreen">[ ]</div>
     <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
     <div class="pods"><div class="pod" role="button" id="pos-coffee" tabindex="0" onclick="moveBuddy('coffee')" onkeydown="if(event.key==='Enter')moveBuddy('coffee')">☕</div><div class="pod" role="button" tabindex="0" id="pos-office" onclick="moveBuddy('office')" onkeydown="if(event.key==='Enter')moveBuddy('office')">💻</div><div class="pod" role="button" tabindex="0" id="pos-gym" onclick="moveBuddy('gym')" onkeydown="if(event.key==='Enter')moveBuddy('gym')">💪</div><div class="pod" role="button" tabindex="0" id="pos-store" onclick="moveBuddy('store')" onkeydown="if(event.key==='Enter')moveBuddy('store')">🛍️</div><div class="pod" role="button" tabindex="0" id="pos-library" onclick="moveBuddy('library')" onkeydown="if(event.key==='Enter')moveBuddy('library')">📖</div><div class="pod" role="button" tabindex="0" id="pos-garage" onclick="moveBuddy('garage')" onkeydown="if(event.key==='Enter')moveBuddy('garage')">🔧</div><div class="pod" role="button" tabindex="0" id="pos-park" onclick="moveBuddy('park')" onkeydown="if(event.key==='Enter')moveBuddy('park')">🚲</div><div class="pod" role="button" tabindex="0" id="pos-kitchen" onclick="moveBuddy('kitchen')" onkeydown="if(event.key==='Enter')moveBuddy('kitchen')">🍳</div><div id="pos-bed" role="button" tabindex="0" onclick="moveBuddy('bed')" onkeydown="if(event.key==='Enter')moveBuddy('bed')">🛏️</div></div>
     <div id="egg-modal" onclick="if(event.target === this) triggerEgg('close')">
@@ -818,10 +826,10 @@
         }
         document.addEventListener('fullscreenchange', () => {
             if (window.updateSecretMenuUI) window.updateSecretMenuUI();
-        const fsBtn = document.getElementById('fs-toggle');
-        if (fsBtn) {
-            fsBtn.innerHTML = document.fullscreenElement ? '⌧' : '⛶';
-        }
+            const fsBtnMain = document.getElementById('fs-toggle-main');
+            if (fsBtnMain) {
+                fsBtnMain.innerHTML = document.fullscreenElement ? '&minus;' : '[ ]';
+            }
         });
         
         window.updateSecretMenuUI = function() {
