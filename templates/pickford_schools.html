@@ -182,11 +182,36 @@
             z-index: 999;
             cursor: pointer;
         }
+        #docs-trigger {
+            position: absolute;
+            top: 2cqw;
+            right: 2cqw;
+            font-size: 1.8cqw;
+            color: #0066b2;
+            border: 0.2cqw solid #0066b2;
+            border-radius: 50%;
+            width: 2.5cqw;
+            height: 2.5cqw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1001;
+            text-decoration: none;
+            font-weight: 700;
+            background: rgba(240, 240, 240, 0.8);
+            transition: 0.2s ease;
+        }
+        #docs-trigger:hover {
+            background: #0066b2;
+            color: #ffffff;
+        }
     </style>
 </head>
 <body>
     <div class="dashboard">
         <div id="eap-trigger" onclick="setEap()"></div>
+        <a id="docs-trigger" href="/docs/school" target="_blank" title="School Documentation">?</a>
         <div class="banners">
             <div id="eap-banner" class="alert-banner" style="display:none;" onclick="clearEap(event)"></div>
             {% set srp = school_alerts.get('pickford-schools') if school_alerts else None %}
