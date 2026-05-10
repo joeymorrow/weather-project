@@ -279,7 +279,7 @@
     <div id="docs-trigger" class="ambient-hide" role="link" tabindex="0" onclick="window.open('/docs/dashboard', '_blank')" onkeydown="if(event.key==='Enter')window.open('/docs/dashboard', '_blank')" title="Documentation">?</div>
     <div id="graph-trigger" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="Toggle Hourly Graph">📈</div>
     <div id="mobile-nav-btn" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="View Hourly Graph">▶</div>
-    <div id="fs-toggle-main" class="ambient-hide" role="button" tabindex="0" onclick="toggleFullscreen()" onkeydown="if(event.key==='Enter')toggleFullscreen()" title="Toggle Fullscreen">[ ]</div>
+    <div id="fs-toggle-main" class="ambient-hide" role="button" tabindex="0" onclick="toggleFullscreen()" onkeydown="if(event.key==='Enter')toggleFullscreen()" title="Toggle Fullscreen">⛶</div>
     <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
     <div class="pods"><div class="pod" role="button" id="pos-coffee" tabindex="0" onclick="moveBuddy('coffee')" onkeydown="if(event.key==='Enter')moveBuddy('coffee')">☕</div><div class="pod" role="button" tabindex="0" id="pos-office" onclick="moveBuddy('office')" onkeydown="if(event.key==='Enter')moveBuddy('office')">💻</div><div class="pod" role="button" tabindex="0" id="pos-gym" onclick="moveBuddy('gym')" onkeydown="if(event.key==='Enter')moveBuddy('gym')">💪</div><div class="pod" role="button" tabindex="0" id="pos-store" onclick="moveBuddy('store')" onkeydown="if(event.key==='Enter')moveBuddy('store')">🛍️</div><div class="pod" role="button" tabindex="0" id="pos-library" onclick="moveBuddy('library')" onkeydown="if(event.key==='Enter')moveBuddy('library')">📖</div><div class="pod" role="button" tabindex="0" id="pos-garage" onclick="moveBuddy('garage')" onkeydown="if(event.key==='Enter')moveBuddy('garage')">🔧</div><div class="pod" role="button" tabindex="0" id="pos-park" onclick="moveBuddy('park')" onkeydown="if(event.key==='Enter')moveBuddy('park')">🚲</div><div class="pod" role="button" tabindex="0" id="pos-kitchen" onclick="moveBuddy('kitchen')" onkeydown="if(event.key==='Enter')moveBuddy('kitchen')">🍳</div><div id="pos-bed" role="button" tabindex="0" onclick="moveBuddy('bed')" onkeydown="if(event.key==='Enter')moveBuddy('bed')">🛏️</div></div>
     <div id="egg-modal" onclick="if(event.target === this) triggerEgg('close')">
@@ -828,7 +828,7 @@
             if (window.updateSecretMenuUI) window.updateSecretMenuUI();
             const fsBtnMain = document.getElementById('fs-toggle-main');
             if (fsBtnMain) {
-                fsBtnMain.innerHTML = document.fullscreenElement ? '&minus;' : '[ ]';
+                fsBtnMain.innerHTML = document.fullscreenElement ? '&minus;' : '⛶';
             }
         });
         
