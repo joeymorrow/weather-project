@@ -433,7 +433,11 @@ def sync_for_location(slug, loc_name, query):
                     config=types.GenerateContentConfig(tools=[{"google_search": {}}])
                 )
                 text = resp.text
-                json_str = text[text.find('{'):text.rfind('}')+1]
+                json_start = text.find('{')
+                json_end = text.rfind('}')
+                if json_start == -1 or json_end == -1:
+                    raise ValueError("Invalid JSON boundaries from AI")
+                json_str = text[json_start:json_end+1]
                 ai = json.loads(json_str)
                 
                 new_pulse = ai.get("pulse", new_pulse)
@@ -455,7 +459,10 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                                     config=types.GenerateContentConfig(tools=[{"google_search": {}}])
                                 )
                                 check_text = check_resp.text
-                                check_data = json.loads(check_text[check_text.find('{'):check_text.rfind('}')+1])
+                                c_start = check_text.find('{')
+                                c_end = check_text.rfind('}')
+                                if c_start == -1 or c_end == -1: raise ValueError("No JSON in check")
+                                check_data = json.loads(check_text[c_start:c_end+1])
                                 
                                 if check_data.get("hallucinated"):
                                     print(f"[API] Hallucination caught in-flight for {slug}! Replacing with fallback.", flush=True)
@@ -674,7 +681,10 @@ def monitor_loop():
                 for m_id in get_best_models():
                     try:
                         resp = gemini_client.models.generate_content(model=m_id, contents=prompt)
-                        ai_eval = json.loads(resp.text[resp.text.find('{'):resp.text.rfind('}')+1])
+                        t_start = resp.text.find('{')
+                        t_end = resp.text.rfind('}')
+                        if t_start == -1 or t_end == -1: raise ValueError("No JSON in eval")
+                        ai_eval = json.loads(resp.text[t_start:t_end+1])
                     
                         if ai_eval.get("critical"):
                             send_alert_email("[CRITICAL - BEACON BUDDY] - Memory Leak", f"Reason: {ai_eval.get('reason')}\n\nPaste this into gemini to find the solution: \n{leak_details}\n\nPrompt Suggestion: \n{ai_eval.get('prompt_suggestion')} \n\n(Geared for your specific chat history context!)")

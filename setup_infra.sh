@@ -23,6 +23,7 @@ if [ ! -f .env ]; then
     echo "GEMINI_API_KEY=\"$GEMINI_API_KEY\"" > .env
     echo "OPENWEATHERMAP_API_KEY=\"$OWM_API_KEY\"" >> .env
     echo "ADMIN_PASSWORD=\"$ADMIN_PASS\"" >> .env
+    chmod 600 .env
     echo "✅ .env file generated securely."
 else
     echo "⚠️ .env already exists, skipping secret generation."
