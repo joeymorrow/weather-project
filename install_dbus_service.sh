@@ -58,6 +58,13 @@ EnvironmentFile=$PROJECT_DIR/.env
 WantedBy=multi-user.target
 EOL
 
+# Ensure .env file is readable by root, as the service runs as root
+if [ -f "$PROJECT_DIR/.env" ]; then
+    echo "Setting ownership of .env to root for service access..."
+    chown root:root "$PROJECT_DIR/.env"
+    chmod 600 "$PROJECT_DIR/.env" # Ensure only root can read it
+fi
+
 echo "[4/4] Enabling and starting the D-Bus listener service..."
 systemctl daemon-reload
 systemctl enable $SERVICE_NAME
