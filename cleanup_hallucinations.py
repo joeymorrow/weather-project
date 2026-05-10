@@ -109,22 +109,37 @@ def setup_db():
                             date TEXT,
                             text TEXT
                          )''')
+        conn.execute('''CREATE TABLE IF NOT EXISTS garage_sales (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            date TEXT,
+                            text TEXT UNIQUE,
+                            location TEXT
+                         )''')
 
-def check_hallucination(text, date_str):
+def check_hallucination(text, date_str, item_type="pulse"):
+    if item_type == "garage_sale":
+        rules = "- Buddy acts as a local scout for garage sales. He searches for VERIFIABLE garage, yard, or estate sales happening today or tomorrow. If the text mentions specific addresses, times, or sales that did not occur or are not scheduled, IT IS A HALLUCINATION."
+        instructions = "1. Search Google to see if this specific garage/yard sale was advertised for this location and date.\n2. If you cannot find any proof of a sale at this address/time, it is a hallucination."
+    else:
+        rules = """- During the daytime (6 AM - 9:30 PM), Buddy acts as a local speechwriter. He searches for VERIFIABLE recent local news, events, or acts of kindness. If the text mentions specific names, workshops, or times that did not occur in real life, IT IS A HALLUCINATION.
+- During late night (9:30 PM - 6 AM), Buddy acts as a poetic night-owl. He provides quiet, atmospheric observations about the city's nocturnal rhythm. These poetic, non-specific observations are INTENDED and are NOT hallucinations."""
+        instructions = "1. Determine if the text sounds like a poetic nighttime observation. If it does, it is NOT a hallucination (valid).\n2. If it sounds like specific daytime news, use Google Search to verify it. Fake events with specific unverified details are hallucinations."
+
     prompt = f"""
-You are a fact-checking assistant. Your task is to determine if a "Pulse" event for Sault Ste. Marie, Michigan was a real event or an AI hallucination.
-The event was reported on the date provided. Use Google Search to verify if the event actually happened on or around that date. The event is from the recent past (within the last 36 hours).
+You are a strict AI Hallucination Evaluator for Beacon Buddy, an ambient dashboard in Sault Ste. Marie, Michigan.
+Evaluate if the following generated text is a hallucination or an intended response.
 
-- **Date the Pulse was recorded:** {date_str}
+- **Date Recorded:** {date_str}
 - **Text to evaluate:** "{text}"
+- **Item Type:** {item_type}
+
+**BEACON BUDDY GENERATION RULES (Context):**
+{rules}
 
 **Instructions:**
-1.  Search to see if the specific event mentioned in the text was scheduled or occurred on or near the provided date in Sault Ste. Marie, MI.
-2.  Distinguish between specific, verifiable events (e.g., "concert at the park at 7 PM") and general seasonal observations (e.g., "freighters are moving through the locks"). General observations are NOT hallucinations.
-3.  Pay close attention to fake events with specific but unverified details, like "community art workshop from 9 AM to 1 PM." These are likely hallucinations.
-4.  Based on your search, determine if the event is real or hallucinated.
+{instructions}
+3. Return ONLY a valid JSON object in this exact format:
 
-Return ONLY a valid JSON object in this exact format:
 {{
   "hallucinated": true/false,
   "reason": "Brief explanation of why you made this determination. Mention what you searched for and what you found (or didn't find)."
@@ -210,11 +225,15 @@ def main():
         cursor = conn.cursor()
         cursor.execute("SELECT id, date, text FROM pulses")
         pulses = cursor.fetchall()
+        
+        cursor.execute("SELECT id, date, text FROM garage_sales")
+        garage_sales = cursor.fetchall()
 
-        pulses_to_check = []
+        items_to_check = []
         now = datetime.now(pytz.timezone('America/Detroit'))
         archived_count = 0
 
+        # Age out Pulses (> 36 hours)
         for pulse_id, date_str, text in pulses:
             try:
                 # Reconstruct datetime from pulse text ('May 09') assuming current year
@@ -232,22 +251,42 @@ def main():
                     continue
             except ValueError: pass # Skip unparsable or malformed legacy dates
                 
-            pulses_to_check.append((pulse_id, date_str, text))
+            items_to_check.append(("pulse", pulse_id, date_str, text))
+            
+        # Age out Garage Sales (> 48 hours to preserve today and tomorrow only)
+        for sale_id, date_str, text in garage_sales:
+            try:
+                dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
+                dt = pytz.timezone('America/Detroit').localize(dt_naive)
+                if dt > now: dt = dt.replace(year=now.year - 1)
+                
+                age = now - dt
+                if age > timedelta(hours=48):
+                    cursor.execute("DELETE FROM garage_sales WHERE id = ?", (sale_id,))
+                    conn.commit()
+                    archived_count += 1
+                    continue
+            except ValueError: pass
+                
+            items_to_check.append(("garage_sale", sale_id, date_str, text))
 
-        print(f"Found {len(pulses_to_check)} pulses to check for hallucinations (Archived {archived_count} old pulses).\n")
+        print(f"Found {len(items_to_check)} items to check for hallucinations (Archived/Deleted {archived_count} old items).\n")
         
         round_results = []
 
-        for pulse_id, date, text in pulses_to_check:
-            print(f"Analyzing [{pulse_id}] {date}: {text}", flush=True)
-            is_hallucinated, reason = check_hallucination(text, date)
+        for item_type, item_id, date, text in items_to_check:
+            print(f"Analyzing [{item_type.upper()} {item_id}] {date}: {text}", flush=True)
+            is_hallucinated, reason = check_hallucination(text, date, item_type)
             
             if is_hallucinated:
                 print(f"{RED}-> [HALLUCINATION DETECTED] {reason}{RESET}", flush=True)
                 cursor.execute("INSERT INTO hallucinations_log (date, text, reason) VALUES (?, ?, ?)", (date, text, reason))
-                cursor.execute("DELETE FROM pulses WHERE id = ?", (pulse_id,))
+                if item_type == "pulse":
+                    cursor.execute("DELETE FROM pulses WHERE id = ?", (item_id,))
+                else:
+                    cursor.execute("DELETE FROM garage_sales WHERE id = ?", (item_id,))
                 conn.commit()
-                print(f"{RED}-> Deleted Pulse ID: {pulse_id}\n{RESET}", flush=True)
+                print(f"{RED}-> Deleted {item_type} ID: {item_id}\n{RESET}", flush=True)
                 round_results.append((date, text, reason))
             else:
                 print(f"-> [VALID] {reason}\n", flush=True)

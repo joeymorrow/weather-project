@@ -59,7 +59,7 @@ LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 manual_override = None
 override_expiry = 0
 state_lock = threading.Lock()
-slide_history = {'undo': [], 'redo': []}
+slide_history = {}
 admin_username = os.environ.get("ADMIN_USERNAME", "admin")
 admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET")
@@ -93,6 +93,16 @@ def init_db():
                                 archived_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                                 date TEXT,
                                 text TEXT
+                             )''')
+            try:
+                pulse_conn.execute("ALTER TABLE pulses ADD COLUMN location TEXT DEFAULT ''")
+            except sqlite3.OperationalError:
+                pass
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS garage_sales (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                date TEXT,
+                                text TEXT UNIQUE,
+                                location TEXT
                              )''')
             pulse_conn.execute('''CREATE TABLE IF NOT EXISTS eap_subscriptions (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,17 +194,27 @@ def load_history(today_str=None, yesterday_str=None):
             c = conn.cursor()
             if today_str and yesterday_str:
                 c.execute("""
-                    SELECT date, text FROM pulses 
+                        SELECT date, text, location FROM pulses 
                     WHERE date = ? OR date = ? OR id IN (
                         SELECT id FROM pulses ORDER BY id DESC LIMIT 21
                     )
                     ORDER BY id DESC
                 """, (today_str, yesterday_str))
             else:
-                c.execute("SELECT date, text FROM pulses ORDER BY id DESC LIMIT 21")
-            return [{"date": r[0], "text": r[1]} for r in c.fetchall()]
+                    c.execute("SELECT date, text, location FROM pulses ORDER BY id DESC LIMIT 21")
+                return [{"date": r[0], "text": r[1], "location": r[2] if len(r)>2 and r[2] else ""} for r in c.fetchall()]
     except Exception as e:
         print(f"[ERROR] load_history: {e}", flush=True)
+        return []
+
+def load_garage_sales():
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT date, text, location FROM garage_sales ORDER BY id DESC LIMIT 20")
+            return [{"date": r[0], "text": r[1], "location": r[2] if len(r)>2 and r[2] else ""} for r in c.fetchall()]
+    except Exception as e:
+        print(f"[ERROR] load_garage_sales: {e}", flush=True)
         return []
 
 def log_system_event(log_type, message, details=""):
@@ -227,6 +247,7 @@ state = {
     "weekly_list": [], "weekly_summary": "Analyzing weekly patterns...",
     "emergency": {"active": False, "message": "", "color": "#ff0000"},
     "branding": {"text": "", "color": "#00ffff"},
+    "garage_sales": load_garage_sales(),
     "main_config": {"header": "MORROW EDGE | BEACON Buddy", "location": "SAULT STE. MARIE, MICHIGAN", "query": "Sault+Ste.+Marie,MI,US"},
     "slides": [],
     "managed_theme": "",
@@ -488,7 +509,9 @@ def sync_for_location(slug, loc_name, query):
                 ai = json.loads(json_str)
                 
                 new_pulse = ai.get("pulse", new_pulse)
+                new_pulse_loc = ai.get("location", "")
                 is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
+                ai_garage_sales = ai.get("garage_sales", [])
                 
                 if is_news and new_pulse and "Anchoring" not in new_pulse:
                     try:
@@ -546,9 +569,21 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                         try:
                             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                 with conn:
-                                    conn.execute("INSERT INTO pulses (date, text) VALUES (?, ?)", (date_str, new_pulse))
+                                    conn.execute("INSERT INTO pulses (date, text, location) VALUES (?, ?, ?)", (date_str, new_pulse, new_pulse_loc))
                         except sqlite3.IntegrityError:
                             pass
+                            
+                if slug == "main" and isinstance(ai_garage_sales, list):
+                    for sale in ai_garage_sales:
+                        s_text = sale.get("text", "")
+                        s_loc = sale.get("location", "")
+                        if s_text:
+                            try:
+                                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                    with conn:
+                                        conn.execute("INSERT INTO garage_sales (date, text, location) VALUES (?, ?, ?)", (date_str, s_text, s_loc))
+                            except sqlite3.IntegrityError:
+                                pass
                 
                 print(f"[API] Success via {m_id} for {slug}", flush=True)
                 success = True; break
@@ -581,6 +616,7 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 "forecast": ai.get("forecast", "Weather data processing..."), 
                 "weekly_summary": ai.get("weekly_summary", "Weekly pattern steady."),
                 "pulse_history": hist,
+                "garage_sales": load_garage_sales(),
                 "school_closings": {"sault_closed": sault_closed, "other_closings": other_closings}
         }
 
@@ -614,6 +650,7 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 state['tenants'][slug].update(err_dict)
 
 def run_sync():
+    now_ts = time.time()
     # Scrape closings once globally
     now = datetime.now(TZ)
     sault_closed = False
@@ -624,6 +661,20 @@ def run_sync():
     with state_lock:
         state['school_closings'] = {"sault_closed": sault_closed, "other_closings": other_closings}
         state['agenda_item_count'] = get_agenda_item_count()
+        
+        # Handle EAP All Clear Timeouts (10 mins)
+        alerts = state.get('school_alerts', {})
+        keys_to_del = []
+        for t, alert in alerts.items():
+            if alert.get('color') == "#388e3c" or "clear" in alert.get('type', '').lower():
+                if now_ts - alert.get('timestamp', now_ts) > 600:
+                    keys_to_del.append(t)
+        for k in keys_to_del:
+            del state['school_alerts'][k]
+        if keys_to_del:
+            try:
+                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+            except: pass
 
     # Gather all locations to sync
     locations = []
@@ -783,13 +834,16 @@ def handle_eap_message(msg_text):
     if "secure" in msg_lower or "hazard" in msg_lower or "weather" in msg_lower: color = "#ff8c00"
     elif "hold" in msg_lower: color = "#800080"
     elif "shelter" in msg_lower or "medical" in msg_lower: color = "#1976d2"
-    elif "clear" in msg_lower: color = "#388e3c"
+    elif "clear" in msg_lower:
+        color = "#388e3c"
+        if "ALL CLEAR" not in msg_type:
+            msg_type = "ALL CLEAR"
 
     with state_lock:
         if 'school_alerts' not in state: state['school_alerts'] = {}
         tenants = ['sault-schools', 'pickford-schools'] + [p['slug'] for p in get_beacon_pages()]
         for t in tenants:
-            state['school_alerts'][t] = {'type': msg_type, 'color': color, 'message': msg}
+            state['school_alerts'][t] = {'type': msg_type, 'color': color, 'message': msg, 'timestamp': time.time()}
         try:
             with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
         except: pass
@@ -886,8 +940,10 @@ def eap_webhook():
     return jsonify(success=True)
 
 @app.route('/dispatch')
-def dispatch_pwa():
-    return render_template('dispatch.html')
+@app.route('/<slug>/dispatch')
+@app.route('/schools/<slug>/dispatch')
+def dispatch_pwa(slug="main"):
+    return render_template('dispatch.html', slug=slug)
 
 @app.route('/sw.js')
 def service_worker():
@@ -1022,18 +1078,32 @@ def favicon():
     return "", 204
 
 @app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login_page():
+    if request.method == 'POST':
+        if request.form.get('username') == admin_username and request.form.get('password') == admin_password:
+            session['admin_auth'] = True
+            session['role'] = 'Admin' # Local admin bypasses RBAC globally
+            return redirect('/cooladmin')
+        return f"<script>alert('Invalid credentials'); window.history.back();</script>"
+
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
             c.execute("SELECT provider FROM sso_configs WHERE enabled=1")
             ssos = [r[0] for r in c.fetchall()]
     except: ssos = []
-    if not ssos: return "SSO is not enabled. Please use basic authentication for /cooladmin.", 403
     
     buttons = "".join([f"<a href='/login/{p.lower()}' style='display:block; padding:10px; background:#00ffff; color:#000; text-decoration:none; text-align:center; margin-bottom:10px; border-radius:4px; font-weight:bold;'>Login with {p}</a>" for p in ssos])
-    buttons += "<br><a href='/cooladmin?basic_auth=true' style='display:block; text-align:center; color:#00aaaa; font-size:0.9rem; text-decoration:none;'>Local Admin Bypass</a>"
-    return f"<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><div style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px; box-shadow:0 0 15px rgba(0,255,255,0.1); width:300px;'><h2 style='text-align:center; margin-top:0;'>BEACON SSO</h2>{buttons}</div></body>"
+    
+    native_form = f"""
+    <form method="POST" action="/login" style='margin-top:20px; text-align:left;'>
+        <input type="text" name="username" placeholder="Username" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #00ffff; background:#000; color:#0ff; border-radius:4px; box-sizing:border-box;">
+        <input type="password" name="password" placeholder="Password" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #00ffff; background:#000; color:#0ff; border-radius:4px; box-sizing:border-box;">
+        <button type="submit" style="width:100%; padding:10px; background:transparent; border:1px solid #00ffff; color:#00ffff; border-radius:4px; font-weight:bold; cursor:pointer;">Native Login</button>
+    </form>
+    """
+    return f"<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><div style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px; box-shadow:0 0 15px rgba(0,255,255,0.1); width:300px;'><h2 style='text-align:center; margin-top:0;'>BEACON LOGIN</h2>{buttons}{native_form}</div></body>"
 
 @app.route('/logout')
 def logout():
@@ -1090,7 +1160,17 @@ def auth_callback(provider):
 
 @app.route('/')
 def index():
-    with state_lock: return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state.copy())
+    ua = request.headers.get('User-Agent', '').lower()
+    # Detect Fermata Auto, general WebView, or a manual ?auto=true parameter
+    is_car = 'fermata' in ua or 'wv' in ua or request.args.get('auto') == 'true'
+    with state_lock: 
+        return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), is_car_display=is_car, **state.copy())
+
+@app.route('/auto')
+def auto_display():
+    # Dedicated route to easily bookmark in the car without relying on User-Agent
+    with state_lock: 
+        return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), is_car_display=True, **state.copy())
 
 @app.route('/index')
 @app.route('/index.html')
@@ -1151,20 +1231,11 @@ def cooladmin():
     auth = request.authorization
         
     is_basic = auth and auth.username == admin_username and auth.password == admin_password
+    is_native = session.get("admin_auth") is True
     is_sso = session.get("role") == "Admin"
     
-    if not (is_basic or is_sso):
-        try:
-            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                c = conn.cursor()
-                c.execute("SELECT provider FROM sso_configs WHERE enabled=1")
-                enabled_ssos = [r[0] for r in c.fetchall()]
-        except: enabled_ssos = []
-        
-        force_basic = request.args.get("basic_auth") == "true"
-        if enabled_ssos and not force_basic:
-            return redirect('/login')
-        return "Administrator Access Denied", 401, {'WWW-Authenticate': 'Basic realm="CoolAdmin Login Required"'}
+    if not (is_basic or is_native or is_sso):
+        return redirect('/login')
 
     cleanup_summary = None
 
@@ -1410,232 +1481,294 @@ def cooladmin():
     return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin)
 
 @app.route('/admin', methods=['GET', 'POST'], strict_slashes=False)
-def admin():
+@app.route('/<slug>/admin', methods=['GET', 'POST'], strict_slashes=False)
+@app.route('/schools/<slug>/admin', methods=['GET', 'POST'], strict_slashes=False)
+def admin(slug="main"):
+    if slug == 'schools':
+        return redirect('/admin')
+        
     is_sso_editor = session.get("role") in ["Admin", "Editor", "Sales"]
-    if request.method == 'POST':
-        if request.form.get('password') == admin_password or is_sso_editor:
-            action = request.form.get('action')
-            audit_details = request.form.to_dict()
-            if 'password' in audit_details: audit_details['password'] = '***'
-            user_id = session.get("user") if session.get("user") else "local_admin"
-            log_audit_event(user_id, action, audit_details)
+    is_native_auth = session.get("admin_auth") is True
+    
+    def render_login(error=False):
+        border_color = "#ff0000" if error else "#00ffff"
+        msg = "⚠️ Incorrect Password" if error else "Admin Login"
+        hidden_inputs = ""
+        if request.method == 'POST':
+            import html
+            for k, v in request.form.items():
+                if k != 'password':
+                    hidden_inputs += f'<input type="hidden" name="{html.escape(str(k))}" value="{html.escape(str(v))}">'
+        else:
+            hidden_inputs = '<input type="hidden" name="action" value="login">'
             
-            with state_lock:
-                # Capture current state to the undo stack prior to modifying it natively!
-                if action in ['add_text_slide', 'add_image_slide', 'add_video_slide', 'add_iframe_slide', 'move_slide_up', 'move_slide_down', 'toggle_slide', 'delete_slide', 'update_dashboard_slide']:
-                    slide_history['undo'].append(copy.deepcopy(state.get('slides', [])))
-                    slide_history['redo'].clear()
+        return f'''
+        <body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'>
+            <form method="POST" action="" style='background:rgba(0,50,50,0.2); border:1px solid {border_color}; padding:30px; border-radius:8px; box-shadow:0 0 15px {border_color}44; width:300px; text-align:center;'>
+                <h2 style='margin-top:0; color:{border_color};'>{msg}</h2>
+                {hidden_inputs}
+                <input type="password" name="password" placeholder="Enter Password" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid {border_color}; background:#000; color:#0ff; border-radius:4px; box-sizing:border-box;" autofocus>
+                <button type="submit" style="width:100%; padding:10px; background:{border_color}; color:#000; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">{"Retry Action" if error else "Login"}</button>
+                <br><br><a href="/login" style="color:#00aaaa; text-decoration:none; font-size:0.9rem;">Or use SSO</a>
+            </form>
+        </body>
+        ''', 401 if error else 200
 
-                if action == 'update_flare':
-                    if request.form.get('flare_active') == 'yes':
-                        state['emergency'] = {"active": True, "message": request.form.get('message', ''), "color": request.form.get('color', '#ff0000')}
-                    else:
-                        state['emergency']['active'] = False
-                elif action == 'update_branding':
-                    state['branding'] = {
-                        "text": request.form.get('branding_text', '').strip(),
-                        "color": request.form.get('branding_color', '#00ffff')
-                    }
-                elif action == 'update_main_config':
-                    state['main_config'] = {
-                        "header": request.form.get('header_text', 'MORROW EDGE | BEACON Buddy').strip(),
-                        "location": request.form.get('location_text', 'SAULT STE. MARIE, MICHIGAN').strip(),
-                        "query": request.form.get('query_text', 'Sault+Ste.+Marie,MI,US').strip()
-                    }
-                elif action == 'update_theme':
-                    state['managed_theme'] = request.form.get('managed_theme', '')
-                elif action == 'add_text_slide':
-                    slide = {
-                        "id": str(int(time.time())),
-                        "type": "text",
-                        "text": request.form.get('text', ''),
-                        "bg_color": request.form.get('bg_color', '#000000'),
-                        "text_color": request.form.get('text_color', '#ffffff'),
-                        "strobe": request.form.get('strobe') == 'yes',
-                        "duration": int(request.form.get('duration', 15)),
-                        "start_time": request.form.get('start_time', ''),
-                        "end_time": request.form.get('end_time', '')
-                    }
-                    state.setdefault('slides', []).append(slide)
-                elif action == 'add_image_slide':
-                    file = request.files.get('image')
-                    if file and file.filename:
-                        fname = secure_filename(file.filename)
-                        fpath = os.path.join(UPLOAD_FOLDER, f"{int(time.time())}_{fname}")
-                        file.save(fpath)
-                        slide = {"id": str(int(time.time())), "type": "image", "url": "/" + fpath.replace("\\", "/"), "duration": int(request.form.get('duration', 15)), "start_time": request.form.get('start_time', ''), "end_time": request.form.get('end_time', '')}
-                        state.setdefault('slides', []).append(slide)
-                elif action == 'add_video_slide':
-                    slide = {
-                        "id": str(int(time.time())),
-                        "type": "video",
-                        "url": request.form.get('url', '').strip(),
-                        "pip": request.form.get('pip') == 'yes',
-                        "duration": int(request.form.get('duration', 15)),
-                        "start_time": request.form.get('start_time', ''),
-                        "end_time": request.form.get('end_time', '')
-                    }
-                    state.setdefault('slides', []).append(slide)
-                elif action == 'add_iframe_slide':
-                    raw_url = request.form.get('url', '').strip()
-                    parsed_url = raw_url
-                    content_type = request.form.get('content_type', 'custom')
-                    autoplay_req = request.form.get('autoplay') == 'yes'
-                    
-                    if '<iframe' in raw_url.lower() or '&lt;iframe' in raw_url.lower():
-                        import html
-                        raw_url = html.unescape(raw_url)
-                        match = re.search(r'<iframe.*?src=["\'](.*?)["\']', raw_url, re.IGNORECASE | re.DOTALL)
-                        if match:
-                            parsed_url = match.group(1)
+    if request.method == 'GET':
+        if not (is_sso_editor or is_native_auth):
+            return render_login()
+            
+    if request.method == 'POST':
+        provided_pw = request.form.get('password')
+        if not (is_sso_editor or is_native_auth or provided_pw == admin_password):
+            return render_login(error=True)
+            
+        if provided_pw == admin_password:
+            session["admin_auth"] = True
+            
+        action = request.form.get('action')
+        if action == 'login':
+            return redirect(request.path)
+            
+        audit_details = request.form.to_dict()
+        if 'password' in audit_details: audit_details['password'] = '***'
+        user_id = session.get("user") if session.get("user") else "local_admin"
+        log_audit_event(user_id, action, audit_details)
+        
+        with state_lock:
+            if slug == "main":
+                target_state = state
+            else:
+                if 'tenants' not in state: state['tenants'] = {}
+                if slug not in state['tenants']: state['tenants'][slug] = {}
+                target_state = state['tenants'][slug]
 
-                    if 'canva.com/design' in parsed_url and '/view' in parsed_url:
-                        if 'embed' not in parsed_url:
-                            if '?' in parsed_url:
-                                parsed_url = parsed_url.split('?')[0] + '?embed'
-                            else:
-                                parsed_url += '?embed'
-                                
-                    if 'youtube.com' in parsed_url or 'youtu.be' in parsed_url:
-                        if autoplay_req:
-                            if 'autoplay=1' not in parsed_url:
-                                sep = '&' if '?' in parsed_url else '?'
-                                parsed_url += f"{sep}autoplay=1&mute=1"
+            if action in ['add_text_slide', 'add_image_slide', 'add_video_slide', 'add_iframe_slide', 'move_slide_up', 'move_slide_down', 'toggle_slide', 'delete_slide', 'update_dashboard_slide']:
+                if slug not in slide_history:
+                    slide_history[slug] = {'undo': [], 'redo': []}
+                slide_history[slug]['undo'].append(copy.deepcopy(target_state.get('slides', [])))
+                slide_history[slug]['redo'].clear()
+
+            if action == 'update_flare':
+                if request.form.get('flare_active') == 'yes':
+                    target_state['emergency'] = {"active": True, "message": request.form.get('message', ''), "color": request.form.get('color', '#ff0000')}
+                else:
+                    if 'emergency' in target_state: target_state['emergency']['active'] = False
+            elif action == 'update_branding':
+                target_state['branding'] = {
+                    "text": request.form.get('branding_text', '').strip(),
+                    "color": request.form.get('branding_color', '#00ffff')
+                }
+            elif action == 'update_main_config':
+                target_state['main_config'] = {
+                    "header": request.form.get('header_text', 'MORROW EDGE | BEACON Buddy').strip(),
+                    "location": request.form.get('location_text', 'SAULT STE. MARIE, MICHIGAN').strip(),
+                    "query": request.form.get('query_text', 'Sault+Ste.+Marie,MI,US').strip()
+                }
+            elif action == 'update_theme':
+                target_state['managed_theme'] = request.form.get('managed_theme', '')
+            elif action == 'add_text_slide':
+                slide = {
+                    "id": str(int(time.time())),
+                    "type": "text",
+                    "text": request.form.get('text', ''),
+                    "bg_color": request.form.get('bg_color', '#000000'),
+                    "text_color": request.form.get('text_color', '#ffffff'),
+                    "strobe": request.form.get('strobe') == 'yes',
+                    "duration": int(request.form.get('duration', 15)),
+                    "start_time": request.form.get('start_time', ''),
+                    "end_time": request.form.get('end_time', '')
+                }
+                target_state.setdefault('slides', []).append(slide)
+            elif action == 'add_image_slide':
+                file = request.files.get('image')
+                if file and file.filename:
+                    fname = secure_filename(file.filename)
+                    fpath = os.path.join(UPLOAD_FOLDER, f"{int(time.time())}_{fname}")
+                    file.save(fpath)
+                    slide = {"id": str(int(time.time())), "type": "image", "url": "/" + fpath.replace("\\", "/"), "duration": int(request.form.get('duration', 15)), "start_time": request.form.get('start_time', ''), "end_time": request.form.get('end_time', '')}
+                    target_state.setdefault('slides', []).append(slide)
+            elif action == 'add_video_slide':
+                slide = {
+                    "id": str(int(time.time())),
+                    "type": "video",
+                    "url": request.form.get('url', '').strip(),
+                    "pip": request.form.get('pip') == 'yes',
+                    "duration": int(request.form.get('duration', 15)),
+                    "start_time": request.form.get('start_time', ''),
+                    "end_time": request.form.get('end_time', '')
+                }
+                target_state.setdefault('slides', []).append(slide)
+            elif action == 'add_iframe_slide':
+                raw_url = request.form.get('url', '').strip()
+                parsed_url = raw_url
+                content_type = request.form.get('content_type', 'custom')
+                autoplay_req = request.form.get('autoplay') == 'yes'
+                
+                if '<iframe' in raw_url.lower() or '&lt;iframe' in raw_url.lower():
+                    import html
+                    raw_url = html.unescape(raw_url)
+                    match = re.search(r'<iframe.*?src=["\'](.*?)["\']', raw_url, re.IGNORECASE | re.DOTALL)
+                    if match:
+                        parsed_url = match.group(1)
+
+                if 'canva.com/design' in parsed_url and '/view' in parsed_url:
+                    if 'embed' not in parsed_url:
+                        if '?' in parsed_url:
+                            parsed_url = parsed_url.split('?')[0] + '?embed'
                         else:
-                            parsed_url = parsed_url.replace('autoplay=1', 'autoplay=0').replace('mute=1', '')
-                        if 'controls=' not in parsed_url:
-                            parsed_url += "&controls=0"
+                            parsed_url += '?embed'
+                            
+                if 'youtube.com' in parsed_url or 'youtu.be' in parsed_url:
+                    if autoplay_req:
+                        if 'autoplay=1' not in parsed_url:
+                            sep = '&' if '?' in parsed_url else '?'
+                            parsed_url += f"{sep}autoplay=1&mute=1"
+                    else:
+                        parsed_url = parsed_url.replace('autoplay=1', 'autoplay=0').replace('mute=1', '')
+                    if 'controls=' not in parsed_url:
+                        parsed_url += "&controls=0"
 
-                    # Handle Google Slides embed format automatically
-                    if 'docs.google.com/presentation/d/' in parsed_url:
-                        if '/edit' in parsed_url:
-                            parsed_url = parsed_url.split('/edit')[0] + '/embed'
-                        if autoplay_req and '?start=true' not in parsed_url:
-                            parsed_url += '?start=true&loop=true&delayms=3000'
+                # Handle Google Slides embed format automatically
+                if 'docs.google.com/presentation/d/' in parsed_url:
+                    if '/edit' in parsed_url:
+                        parsed_url = parsed_url.split('/edit')[0] + '/embed'
+                    if autoplay_req and '?start=true' not in parsed_url:
+                        parsed_url += '?start=true&loop=true&delayms=3000'
 
-                    slide = {
-                        "id": str(int(time.time())),
-                        "type": "iframe",
-                        "url": parsed_url,
-                        "content_type": content_type,
-                        "pip": request.form.get('pip') == 'yes',
-                        "autoplay": autoplay_req,
-                        "duration": int(request.form.get('duration', 15)),
-                        "canva_total_slides": int(request.form.get('canva_total_slides', 1)),
-                        "canva_slide_duration": int(request.form.get('canva_slide_duration', 10)),
-                        "refresh_3am": request.form.get('refresh_3am') == 'yes',
-                        "start_time": request.form.get('start_time', ''),
-                        "end_time": request.form.get('end_time', '')
-                    }
-                    state.setdefault('slides', []).append(slide)
-                elif action == 'move_slide_up':
-                    sid = request.form.get('slide_id')
-                    slides = state.get('slides', [])
-                    idx = next((i for i, s in enumerate(slides) if s.get('id') == sid), -1)
-                    if idx > 0:
-                        slides[idx], slides[idx-1] = slides[idx-1], slides[idx]
-                        state['slides'] = slides
-                elif action == 'move_slide_down':
-                    sid = request.form.get('slide_id')
-                    slides = state.get('slides', [])
-                    idx = next((i for i, s in enumerate(slides) if s.get('id') == sid), -1)
-                    if idx != -1 and idx < len(slides) - 1:
-                        slides[idx], slides[idx+1] = slides[idx+1], slides[idx]
-                        state['slides'] = slides
-                elif action == 'toggle_slide':
-                    sid = request.form.get('slide_id')
-                    slides = state.get('slides', [])
-                    for s in slides:
-                        if s.get('id') == sid:
-                            s['hidden'] = not s.get('hidden', False)
-                    state['slides'] = slides
-                elif action == 'update_dashboard_slide':
-                    slides = state.get('slides', [])
-                    for s in slides:
-                        if s.get('type') == 'dashboard':
-                            s['duration'] = int(request.form.get('duration', 15))
-                    state['slides'] = slides
-                elif action == 'undo_slides':
-                    if slide_history['undo']:
-                        slide_history['redo'].append(copy.deepcopy(state.get('slides', [])))
-                        state['slides'] = slide_history['undo'].pop()
-                elif action == 'redo_slides':
-                    if slide_history['redo']:
-                        slide_history['undo'].append(copy.deepcopy(state.get('slides', [])))
-                        state['slides'] = slide_history['redo'].pop()
-                elif action == 'delete_slide':
-                    sid = request.form.get('slide_id')
-                    for s in state.get('slides', []):
-                        if s.get('id') == sid and s.get('type') == 'image':
-                            try:
-                                os.remove(os.path.join(app.root_path, s.get('url').lstrip('/')))
-                            except: pass
-                    state['slides'] = [s for s in state.get('slides', []) if s.get('id') != sid]
-                elif action == 'add_beacon_page':
-                    slug = request.form.get('slug', '').strip().lower().replace(' ', '-')
-                    title = request.form.get('title', '').strip()
-                    zipcode = request.form.get('zipcode', '').strip()
-                    if slug and title and zipcode:
+                slide = {
+                    "id": str(int(time.time())),
+                    "type": "iframe",
+                    "url": parsed_url,
+                    "content_type": content_type,
+                    "pip": request.form.get('pip') == 'yes',
+                    "autoplay": autoplay_req,
+                    "duration": int(request.form.get('duration', 15)),
+                    "canva_total_slides": int(request.form.get('canva_total_slides', 1)),
+                    "canva_slide_duration": int(request.form.get('canva_slide_duration', 10)),
+                    "refresh_3am": request.form.get('refresh_3am') == 'yes',
+                    "start_time": request.form.get('start_time', ''),
+                    "end_time": request.form.get('end_time', '')
+                }
+                target_state.setdefault('slides', []).append(slide)
+            elif action == 'move_slide_up':
+                sid = request.form.get('slide_id')
+                slides = target_state.get('slides', [])
+                idx = next((i for i, s in enumerate(slides) if s.get('id') == sid), -1)
+                if idx > 0:
+                    slides[idx], slides[idx-1] = slides[idx-1], slides[idx]
+                    target_state['slides'] = slides
+            elif action == 'move_slide_down':
+                sid = request.form.get('slide_id')
+                slides = target_state.get('slides', [])
+                idx = next((i for i, s in enumerate(slides) if s.get('id') == sid), -1)
+                if idx != -1 and idx < len(slides) - 1:
+                    slides[idx], slides[idx+1] = slides[idx+1], slides[idx]
+                    target_state['slides'] = slides
+            elif action == 'toggle_slide':
+                sid = request.form.get('slide_id')
+                slides = target_state.get('slides', [])
+                for s in slides:
+                    if s.get('id') == sid:
+                        s['hidden'] = not s.get('hidden', False)
+                target_state['slides'] = slides
+            elif action == 'update_dashboard_slide':
+                slides = target_state.get('slides', [])
+                for s in slides:
+                    if s.get('type') == 'dashboard':
+                        s['duration'] = int(request.form.get('duration', 15))
+                target_state['slides'] = slides
+            elif action == 'undo_slides':
+                sh = slide_history.get(slug, {'undo': [], 'redo': []})
+                if sh['undo']:
+                    sh['redo'].append(copy.deepcopy(target_state.get('slides', [])))
+                    target_state['slides'] = sh['undo'].pop()
+            elif action == 'redo_slides':
+                sh = slide_history.get(slug, {'undo': [], 'redo': []})
+                if sh['redo']:
+                    sh['undo'].append(copy.deepcopy(target_state.get('slides', [])))
+                    target_state['slides'] = sh['redo'].pop()
+            elif action == 'delete_slide':
+                sid = request.form.get('slide_id')
+                for s in target_state.get('slides', []):
+                    if s.get('id') == sid and s.get('type') == 'image':
                         try:
-                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                                with conn:
-                                    conn.execute("INSERT INTO beacon_pages (slug, title, zipcode) VALUES (?, ?, ?)", (slug, title, zipcode))
-                        except sqlite3.IntegrityError:
-                            pass # Slug already exists
-                elif action == 'delete_beacon_page':
-                    page_id = request.form.get('page_id')
+                            os.remove(os.path.join(app.root_path, s.get('url').lstrip('/')))
+                        except: pass
+                target_state['slides'] = [s for s in target_state.get('slides', []) if s.get('id') != sid]
+            elif action == 'add_beacon_page':
+                new_slug = request.form.get('slug', '').strip().lower().replace(' ', '-')
+                title = request.form.get('title', '').strip()
+                zipcode = request.form.get('zipcode', '').strip()
+                if new_slug and title and zipcode:
                     try:
                         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                             with conn:
-                                conn.execute("DELETE FROM beacon_pages WHERE id = ?", (page_id,))
-                    except: pass
-                elif action == 'update_school_alert':
-                    slug = request.form.get('location_slug')
-                    alert_type = request.form.get('alert_type')
-                    message = request.form.get('alert_message', '').strip()
-                    color = request.form.get('alert_color', '#d32f2f')
-                    if 'school_alerts' not in state:
-                        state['school_alerts'] = {}
-                    if alert_type == 'NONE':
-                        if slug in state['school_alerts']:
-                            del state['school_alerts'][slug]
-                    else:
-                        state['school_alerts'][slug] = {
-                            'type': alert_type,
-                            'color': color,
-                            'message': message
-                        }
+                                conn.execute("INSERT INTO beacon_pages (slug, title, zipcode) VALUES (?, ?, ?)", (new_slug, title, zipcode))
+                    except sqlite3.IntegrityError:
+                        pass # Slug already exists
+            elif action == 'delete_beacon_page':
+                page_id = request.form.get('page_id')
                 try:
-                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn:
+                            conn.execute("DELETE FROM beacon_pages WHERE id = ?", (page_id,))
                 except: pass
-            return redirect('/admin')
-        return "Unauthorized", 401
+            elif action == 'update_school_alert':
+                loc_slug = request.form.get('location_slug')
+                alert_type = request.form.get('alert_type')
+                message = request.form.get('alert_message', '').strip()
+                color = request.form.get('alert_color', '#d32f2f')
+                if 'school_alerts' not in state:
+                    state['school_alerts'] = {}
+                if alert_type == 'NONE':
+                    if loc_slug in state['school_alerts']:
+                        del state['school_alerts'][loc_slug]
+                else:
+                    state['school_alerts'][loc_slug] = {
+                        'type': alert_type,
+                        'color': color,
+                        'message': message,
+                        'timestamp': time.time()
+                    }
+            try:
+                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+            except: pass
+        return redirect(request.path)
+
     with state_lock:
-        slides = state.get('slides')
+        if slug == "main":
+            target_state = state
+        else:
+            target_state = state.get('tenants', {}).get(slug, {})
+            
+        slides = target_state.get('slides')
         if not isinstance(slides, list):
             slides = []
-            state['slides'] = slides
+            target_state['slides'] = slides
             
         if not any(isinstance(s, dict) and s.get('type') == 'dashboard' for s in slides):
-            state['slides'].insert(0, {"id": "dashboard", "type": "dashboard", "duration": 15, "hidden": False})
+            target_state['slides'].insert(0, {"id": "dashboard", "type": "dashboard", "duration": 15, "hidden": False})
             try:
                 with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
             except: pass
             
         try:
             return render_template('admin.html', 
-                emergency=state.get('emergency') or {}, 
-                branding=state.get('branding') or {}, 
-                main_config=state.get('main_config') or {}, 
-                slides=state.get('slides') or [], 
-                managed_theme=state.get('managed_theme', ''), 
+                emergency=target_state.get('emergency') or {}, 
+                branding=target_state.get('branding') or {}, 
+                main_config=target_state.get('main_config') or {}, 
+                slides=target_state.get('slides') or [], 
+                managed_theme=target_state.get('managed_theme', ''), 
                 beacon_pages=get_beacon_pages(), 
-                school_alerts=state.get('school_alerts') or {}
+                school_alerts=state.get('school_alerts') or {},
+                slug=slug
             )
         except Exception as e:
             if "admin.html" in str(e):
                 return "<h1>500 Internal Error: Template Not Found</h1><p>The file <b>admin.html</b> is missing from your <code>templates/</code> directory. Please create and commit it!</p>", 500
             return f"<h1>500 Internal Error</h1><p>An unexpected Python error occurred: <b>{str(e)}</b></p>", 500
+
 @app.route('/api/state')
 def get_state(): 
     with state_lock:
@@ -1709,6 +1842,8 @@ def telemetry_report():
 
 @app.route('/rpg')
 def rpg():
+    ua = request.headers.get('User-Agent', '').lower()
+    is_car = 'fermata' in ua or 'wv' in ua or request.args.get('auto') == 'true'
     now = datetime.now(TZ)
     month = now.month
     # Determine season colors (Hex)
@@ -1725,6 +1860,7 @@ def rpg():
                                leaf_color=season_data["leaves"],
                                season_name=season_data["season"],
                                is_christmas=is_christmas,
+                           is_car_display=is_car,
                                **state.copy())
 
 @app.route('/api/move/<station>')
