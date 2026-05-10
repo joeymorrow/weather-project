@@ -50,7 +50,8 @@ fi
 
 echo -e "\n[BONUS] D-Bus Service for external control"
 echo "This project includes a D-Bus listener to allow other system processes to securely send commands (like 'Trigger Sync') to the application."
-echo "To install it, make this script executable ('chmod +x install_dbus_service.sh') and run: sudo ./install_dbus_service.sh"
+chmod +x install_dbus_service.sh # Ensure the D-Bus install script is executable
+echo "To install it, run: sudo ./install_dbus_service.sh"
 echo "This is optional but recommended for advanced system integration."
 
 echo -e "\n[4/4] GitHub Actions CI/CD Next Steps"
