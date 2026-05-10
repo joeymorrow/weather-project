@@ -2,10 +2,11 @@ from dotenv import load_dotenv
 load_dotenv()
 import os, requests, threading, time, json, re, sqlite3
 import tracemalloc
-import fcntl
+import filelock
+import psutil
 import copy
 from contextlib import closing
-from flask import Flask, render_template, jsonify, request, redirect, send_from_directory
+from flask import Flask, render_template, jsonify, request, redirect, send_from_directory, session, url_for
 from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
@@ -15,6 +16,7 @@ import socket, struct, select
 import pytz
 from werkzeug.utils import secure_filename
 import markdown
+import msal
 
 def send_alert_email(subject, body):
     try:
@@ -63,6 +65,8 @@ admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET")
 DENYLIST = ["profanity", "badword", "controversial", "inappropriate"]
 
+app.secret_key = INTERNAL_API_SECRET or os.urandom(24)
+
 def init_db():
     with closing(sqlite3.connect(DB_FILE, timeout=10)) as pulse_conn:
         with pulse_conn:
@@ -107,8 +111,15 @@ def init_db():
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 username TEXT UNIQUE,
                                 role TEXT,
-                                provider TEXT
+                                provider TEXT,
+                                type TEXT DEFAULT 'User',
+                                override_group BOOLEAN DEFAULT 0
                              )''')
+            try:
+                pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN type TEXT DEFAULT 'User'")
+                pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN override_group BOOLEAN DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass
     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as log_conn:
         with log_conn:
             log_conn.execute('''CREATE TABLE IF NOT EXISTS logs (
@@ -637,17 +648,10 @@ def run_sync():
 
 def record_telemetry():
     try:
-        load_avg = os.getloadavg()[0] if hasattr(os, 'getloadavg') else 0.0
-        mem_used = 0; cached = 0
-        if os.path.exists('/proc/meminfo'):
-            with open('/proc/meminfo', 'r') as f:
-                lines = f.readlines()
-            mt = 0; ma = 0
-            for line in lines:
-                if line.startswith('MemTotal:'): mt = int(line.split()[1]) / 1024
-                elif line.startswith('MemAvailable:'): ma = int(line.split()[1]) / 1024
-                elif line.startswith('Cached:'): cached = int(line.split()[1]) / 1024
-            mem_used = mt - ma if mt else 0
+        load_avg = os.getloadavg()[0] if hasattr(os, 'getloadavg') else psutil.cpu_percent()
+        mem = psutil.virtual_memory()
+        mem_used = mem.used / (1024 * 1024)
+        cached = getattr(mem, 'cached', 0) / (1024 * 1024)
         with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
             with conn:
                 conn.execute("INSERT INTO metrics (load_avg, mem_used_mb, cache_mb) VALUES (?, ?, ?)", (load_avg, mem_used, cached))
@@ -656,10 +660,10 @@ def record_telemetry():
 
 def sync_loop():
     # Prevent multiple Gunicorn workers from spawning redundant background threads!
-    lock_file = open(os.path.join(DATA_DIR, "sync_loop.lock"), "a")
+    lock = filelock.FileLock(os.path.join(DATA_DIR, "sync_loop.lock"))
     try:
-        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except IOError:
+        lock.acquire(timeout=0)
+    except filelock.Timeout:
         return # Another worker is already running the sync loop. Exit quietly.
 
     while True:
@@ -668,10 +672,10 @@ def sync_loop():
 
 def monitor_loop():
     # Prevent multiple Gunicorn workers from spawning redundant monitor threads
-    lock_file = open(os.path.join(DATA_DIR, "monitor_loop.lock"), "a")
+    lock = filelock.FileLock(os.path.join(DATA_DIR, "monitor_loop.lock"))
     try:
-        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except IOError:
+        lock.acquire(timeout=0)
+    except filelock.Timeout:
         return # Another worker is already running the monitor loop.
 
     tracemalloc.start()
@@ -741,10 +745,10 @@ def monitor_loop():
 
 def hallucination_cleanup_loop():
     # Prevent multiple workers from running redundant loops
-    lock_file = open(os.path.join(DATA_DIR, "cleanup_loop.lock"), "a")
+    lock = filelock.FileLock(os.path.join(DATA_DIR, "cleanup_loop.lock"))
     try:
-        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except IOError:
+        lock.acquire(timeout=0)
+    except filelock.Timeout:
         return # Another worker is running
 
     import subprocess
@@ -792,10 +796,10 @@ def handle_eap_message(msg_text):
 
 def eap_multicast_listener():
     # Prevent multiple Gunicorn workers from binding to the UDP port
-    lock_file = open(os.path.join(DATA_DIR, "eap_listener.lock"), "a")
+    lock = filelock.FileLock(os.path.join(DATA_DIR, "eap_listener.lock"))
     try:
-        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except IOError:
+        lock.acquire(timeout=0)
+    except filelock.Timeout:
         return # Another worker is running the listener
 
     active_sockets = {}
@@ -938,6 +942,73 @@ def favicon():
         return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
     return "", 204
 
+@app.route('/login')
+def login_page():
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT provider FROM sso_configs WHERE enabled=1")
+            ssos = [r[0] for r in c.fetchall()]
+    except: ssos = []
+    if not ssos: return "SSO is not enabled. Please use basic authentication for /cooladmin.", 403
+    
+    buttons = "".join([f"<a href='/login/{p.lower()}' style='display:block; padding:10px; background:#00ffff; color:#000; text-decoration:none; text-align:center; margin-bottom:10px; border-radius:4px; font-weight:bold;'>Login with {p}</a>" for p in ssos])
+    buttons += "<br><a href='/cooladmin?basic_auth=true' style='display:block; text-align:center; color:#00aaaa; font-size:0.9rem; text-decoration:none;'>Local Admin Bypass</a>"
+    return f"<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><div style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px; box-shadow:0 0 15px rgba(0,255,255,0.1); width:300px;'><h2 style='text-align:center; margin-top:0;'>BEACON SSO</h2>{buttons}</div></body>"
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/')
+
+@app.route('/login/microsoft')
+def login_microsoft():
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT client_id, client_secret, extra_info FROM sso_configs WHERE provider='Microsoft' AND enabled=1")
+            row = c.fetchone()
+    except: row = None
+    if not row: return "Microsoft SSO not configured.", 400
+    client_id, client_secret, tenant_id = row
+    authority = f"https://login.microsoftonline.com/{tenant_id or 'common'}"
+    msal_app = msal.ConfidentialClientApplication(client_id, authority=authority, client_credential=client_secret)
+    redirect_uri = url_for("auth_callback", provider="microsoft", _external=True)
+    auth_url = msal_app.get_authorization_request_url(scopes=["User.Read"], redirect_uri=redirect_uri)
+    return redirect(auth_url)
+
+@app.route('/auth/callback/<provider>')
+def auth_callback(provider):
+    if provider == "microsoft":
+        try:
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                c = conn.cursor()
+                c.execute("SELECT client_id, client_secret, extra_info FROM sso_configs WHERE provider='Microsoft' AND enabled=1")
+                row = c.fetchone()
+        except: row = None
+        if not row: return "SSO Error", 400
+        client_id, client_secret, tenant_id = row
+        authority = f"https://login.microsoftonline.com/{tenant_id or 'common'}"
+        msal_app = msal.ConfidentialClientApplication(client_id, authority=authority, client_credential=client_secret)
+        result = msal_app.acquire_token_by_authorization_code(
+            request.args.get('code'), scopes=["User.Read"], redirect_uri=url_for("auth_callback", provider="microsoft", _external=True)
+        )
+        if "id_token_claims" in result:
+            claims = result.get("id_token_claims")
+            user_id = claims.get("preferred_username") or claims.get("email") or claims.get("upn")
+            if user_id:
+                session["user"] = user_id
+                session["provider"] = "Microsoft"
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        c = conn.cursor()
+                        c.execute("SELECT role FROM rbac_users WHERE username=? AND type='User'", (user_id,))
+                        r_row = c.fetchone()
+                        session["role"] = r_row[0] if r_row else "Viewer"
+                except: session["role"] = "Viewer"
+                return redirect('/cooladmin')
+    return "SSO Authentication Failed", 400
+
 @app.route('/')
 def index():
     with state_lock: return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), **state.copy())
@@ -999,16 +1070,31 @@ def dynamic_school(slug):
 @app.route('/joeyadmin', methods=['GET', 'POST']) # Legacy support
 def cooladmin():
     auth = request.authorization
-    if not auth or auth.username != admin_username or auth.password != admin_password:
-        return "Administrator Access Denied", 401, {'WWW-Authenticate': 'Basic realm="CoolAdmin Login Required"'}
         
+    is_basic = auth and auth.username == admin_username and auth.password == admin_password
+    is_sso = session.get("role") == "Admin"
+    
+    if not (is_basic or is_sso):
+        try:
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                c = conn.cursor()
+                c.execute("SELECT provider FROM sso_configs WHERE enabled=1")
+                enabled_ssos = [r[0] for r in c.fetchall()]
+        except: enabled_ssos = []
+        
+        force_basic = request.args.get("basic_auth") == "true"
+        if enabled_ssos and not force_basic:
+            return redirect('/login')
+        return "Administrator Access Denied", 401, {'WWW-Authenticate': 'Basic realm="CoolAdmin Login Required"'}
+
     cleanup_summary = None
 
     if request.method == 'POST':
         action = request.form.get('action')
         audit_details = request.form.to_dict()
         if 'password' in audit_details: audit_details['password'] = '***'
-        log_audit_event(auth.username, action, audit_details)
+        user_id = session.get("user") if session.get("user") else (auth.username if auth else "unknown")
+        log_audit_event(user_id, action, audit_details)
         
         if action == 'delete_pulse':
             pulse_text = request.form.get('pulse_text')
@@ -1101,12 +1187,16 @@ def cooladmin():
             return redirect('/cooladmin')
         elif action == 'add_rbac_user':
             username = request.form.get('username', '').strip()
+            rtype = request.form.get('type', 'User')
+            override_group = request.form.get('override_group') == 'yes'
             if username:
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn:
-                            conn.execute("INSERT INTO rbac_users (username, role, provider) VALUES (?, ?, ?)", (username, request.form.get('role', 'Viewer'), request.form.get('provider', 'Local')))
-                except: pass
+                            conn.execute("INSERT OR REPLACE INTO rbac_users (username, role, provider, type, override_group) VALUES (?, ?, ?, ?, ?)", 
+                                         (username, request.form.get('role', 'Viewer'), request.form.get('provider', 'Local'), rtype, override_group))
+                except Exception as e:
+                    print(e, flush=True)
             return redirect('/cooladmin')
         elif action == 'delete_rbac_user':
             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -1163,8 +1253,8 @@ def cooladmin():
             c = conn.cursor()
             c.execute("SELECT provider, enabled, client_id, client_secret, extra_info FROM sso_configs")
             sso_configs = [{"provider": r[0], "enabled": bool(r[1]), "client_id": r[2], "client_secret": r[3], "extra_info": r[4]} for r in c.fetchall()]
-            c.execute("SELECT id, username, role, provider FROM rbac_users")
-            rbac_users = [{"id": r[0], "username": r[1], "role": r[2], "provider": r[3]} for r in c.fetchall()]
+            c.execute("SELECT id, username, role, provider, type, override_group FROM rbac_users")
+            rbac_users = [{"id": r[0], "username": r[1], "role": r[2], "provider": r[3], "type": r[4], "override_group": bool(r[5])} for r in c.fetchall()]
     except:
         sso_configs = []
         rbac_users = []
@@ -1196,12 +1286,14 @@ def cooladmin():
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
+    is_sso_editor = session.get("role") in ["Admin", "Editor", "Sales"]
     if request.method == 'POST':
-        if request.form.get('password') == admin_password:
+        if request.form.get('password') == admin_password or is_sso_editor:
             action = request.form.get('action')
             audit_details = request.form.to_dict()
             if 'password' in audit_details: audit_details['password'] = '***'
-            log_audit_event("local_admin", action, audit_details)
+            user_id = session.get("user") if session.get("user") else "local_admin"
+            log_audit_event(user_id, action, audit_details)
             
             with state_lock:
                 # Capture current state to the undo stack prior to modifying it natively!
@@ -1394,12 +1486,26 @@ def admin():
             return redirect('/admin')
         return "Unauthorized", 401
     with state_lock:
-        if not any(s.get('type') == 'dashboard' for s in state.setdefault('slides', [])):
+        slides = state.get('slides')
+        if not isinstance(slides, list):
+            slides = []
+            state['slides'] = slides
+            
+        if not any(isinstance(s, dict) and s.get('type') == 'dashboard' for s in slides):
             state['slides'].insert(0, {"id": "dashboard", "type": "dashboard", "duration": 15, "hidden": False})
             try:
                 with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
             except: pass
-        return render_template('admin.html', emergency=state.get('emergency', {}), branding=state.get('branding', {}), main_config=state.get('main_config', {}), slides=state.get('slides', []), managed_theme=state.get('managed_theme', ''), beacon_pages=get_beacon_pages(), school_alerts=state.get('school_alerts', {}))
+            
+        return render_template('admin.html', 
+            emergency=state.get('emergency') or {}, 
+            branding=state.get('branding') or {}, 
+            main_config=state.get('main_config') or {}, 
+            slides=state.get('slides') or [], 
+            managed_theme=state.get('managed_theme', ''), 
+            beacon_pages=get_beacon_pages(), 
+            school_alerts=state.get('school_alerts') or {}
+        )
 @app.route('/api/state')
 def get_state(): 
     with state_lock:

@@ -220,7 +220,12 @@
             
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2); margin-bottom: 15px;">
                 <input type="hidden" name="action" value="add_rbac_user">
-                <input type="text" name="username" list="user_suggestions" required placeholder="User / Email (Start typing to search)" style="flex:2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:200px;">
+                
+                <select name="type" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:100px;">
+                    <option value="User">User</option>
+                    <option value="Group">Group / OU</option>
+                </select>
+                <input type="text" name="username" list="user_suggestions" required placeholder="User/Email or Group ID" style="flex:2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:200px;">
                 <datalist id="user_suggestions">
                     <option value="admin">
                     <option value="sales">
@@ -238,18 +243,26 @@
                     <option value="Clever">Clever</option>
                     <option value="ActiveDirectory">On-Prem AD</option>
                 </select>
+                
+                <label style="color: #00ffff; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; flex:1;">
+                    <input type="checkbox" name="override_group" value="yes" style="margin: 0; width: auto;"> Override Group
+                </label>
+                
                 <button type="submit" class="manage-btn" style="padding: 8px 15px;">Assign Role</button>
             </form>
 
             <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                 <tr style="background: rgba(0,255,255,0.1); border-bottom: 2px solid #00ffff;">
-                    <th style="padding: 10px; text-align: left; color: #00ffff;">Username</th>
+                    <th style="padding: 10px; text-align: left; color: #00ffff;">Type</th>
+                    <th style="padding: 10px; text-align: left; color: #00ffff;">Principal</th>
                     <th style="padding: 10px; text-align: left; color: #00ffff;">Role Matrix</th>
                     <th style="padding: 10px; text-align: left; color: #00ffff;">Provider</th>
+                    <th style="padding: 10px; text-align: center; color: #00ffff;">Override Group</th>
                     <th style="padding: 10px; text-align: right; color: #00ffff;">Actions</th>
                 </tr>
                 {% for user in rbac_users %}
                 <tr style="border-bottom: 1px solid rgba(0,255,255,0.2);">
+                    <td style="padding: 10px; color: #aaa;">{{ user.type }}</td>
                     <td style="padding: 10px;">{{ user.username }}</td>
                     <td style="padding: 10px;">
                         <span style="background: {% if user.role == 'Admin' %}#ff4444{% elif user.role == 'Sales' %}#ffaa00{% else %}#00aa00{% endif %}; color: {% if user.role in ['Admin', 'Sales'] %}#fff{% else %}#000{% endif %}; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">
@@ -257,6 +270,7 @@
                         </span>
                     </td>
                     <td style="padding: 10px; color: #aaa;">{{ user.provider }}</td>
+                    <td style="padding: 10px; text-align: center; color: #aaa;">{{ 'Yes' if user.override_group else 'No' }}</td>
                     <td style="padding: 10px; text-align: right;">
                         <form method="POST" style="margin:0;">
                             <input type="hidden" name="action" value="delete_rbac_user">

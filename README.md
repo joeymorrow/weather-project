@@ -32,30 +32,30 @@ A local weather, scheduling, and emergency response dashboard powered by AI and 
 
 1. **Update and install prerequisites:**
    ```bash
+   # On Ubuntu/Debian Linux:
    sudo apt update && sudo apt upgrade -y
    sudo apt install -y python3 python3-pip python3-venv git curl docker.io docker-compose
    ```
-2. **Clone the repository:**
-   ```bash
-   git clone https://github.com/joeymorrow/weather-project.git
-   cd weather-project
-   ```
-3. **Configure Environment Variables:**
-   You can configure your `.env` file, Docker prerequisites, and Cloudflare tunnel automatically by running our setup script:
-   ```bash
-   chmod +x setup_infra.sh
-   ./setup_infra.sh
-   ```
+   *(On Windows: Ensure Python 3.10+ is installed from python.org)*
 
-4. **Run via Python (Local Development ONLY):**
+2. **Run the Setup Script (Cross-Platform):**
+   Our interactive environment setup script works on both Linux and Windows. It will securely configure your `.env` variables, set up your Python virtual environment, and prompt you to install system services if applicable:
    ```bash
-   python3 -m venv venv
+   python setup_environment.py
+   ```
+   *Note: To uninstall tracked environment modifications, run `python setup_environment.py --uninstall`*
+
+3. **Run via Python (Local Development ONLY):**
+   ```bash
+   # On Linux:
    source venv/bin/activate
-   pip install -r requirements.txt
+   # On Windows:
+   # venv\Scripts\activate
+   
    python app.py
    ```
 
-5. **Enable Services on Boot (Recommended):**
+4. **Enable Services on Boot (Recommended):**
    To ensure your weather dashboard and deployment pipeline survive a power outage or reboot, enable the necessary services:
    ```bash
    sudo systemctl enable docker
