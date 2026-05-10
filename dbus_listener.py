@@ -66,10 +66,16 @@ class BeaconDBusService:
             return False
 
     def _push_host_services_once(self):
-        self._push_host_services()
-        return False
+        success = self._get_and_push_services()
+        if not success:
+            print("[DBUS] Dashboard not ready yet. Retrying host service push in 5 seconds...", flush=True)
+        return not success
 
     def _push_host_services(self):
+        self._get_and_push_services()
+        return True
+
+    def _get_and_push_services(self):
         services_to_check = ['docker', 'cloudflared', 'cron', 'systemd-journald', 'beacon-dbus']
         service_status = []
         for s in services_to_check:
@@ -86,8 +92,7 @@ class BeaconDBusService:
             except Exception as e:
                 service_status.append({"name": s, "active": False, "status": "error", "context": str(e)})
         
-        self._make_request({"action": "update_host_services", "services": service_status}, quiet=True)
-        return True
+        return self._make_request({"action": "update_host_services", "services": service_status}, quiet=True)
 
     def TriggerSync(self):
         """Triggers a full data synchronization in the main application."""
