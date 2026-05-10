@@ -3,6 +3,7 @@ load_dotenv()
 import os, requests, threading, time, json, re, sqlite3
 import tracemalloc
 import fcntl
+import copy
 from contextlib import closing
 from flask import Flask, render_template, jsonify, request, redirect, send_from_directory
 from datetime import datetime, timedelta
@@ -56,6 +57,7 @@ LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 manual_override = None
 override_expiry = 0
 state_lock = threading.Lock()
+slide_history = {'undo': [], 'redo': []}
 admin_username = os.environ.get("ADMIN_USERNAME", "admin")
 admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET")
@@ -94,6 +96,19 @@ def init_db():
                                 port INTEGER,
                                 profile TEXT
                              )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS sso_configs (
+                                provider TEXT PRIMARY KEY,
+                                enabled BOOLEAN,
+                                client_id TEXT,
+                                client_secret TEXT,
+                                extra_info TEXT
+                             )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS rbac_users (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                username TEXT UNIQUE,
+                                role TEXT,
+                                provider TEXT
+                             )''')
     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as log_conn:
         with log_conn:
             log_conn.execute('''CREATE TABLE IF NOT EXISTS logs (
@@ -109,6 +124,13 @@ def init_db():
                                 load_avg REAL,
                                 mem_used_mb REAL,
                                 cache_mb REAL
+                             )''')
+            log_conn.execute('''CREATE TABLE IF NOT EXISTS audit_logs (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                user TEXT,
+                                action TEXT,
+                                details TEXT
                              )''')
 init_db()
 
@@ -172,6 +194,15 @@ def log_system_event(log_type, message, details=""):
                              (log_type, message, json.dumps(details) if isinstance(details, dict) else str(details)))
     except Exception as e:
         print(f"[ERROR] Failed to write to system log: {e}", flush=True)
+
+def log_audit_event(user, action, details=""):
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            with conn:
+                conn.execute("INSERT INTO audit_logs (user, action, details) VALUES (?, ?, ?)",
+                             (user, action, json.dumps(details) if isinstance(details, dict) else str(details)))
+    except Exception as e:
+        print(f"[ERROR] Failed to write to audit log: {e}", flush=True)
 
 state = {
     "temp": 0, "suggestion": "Initializing...", "station": "office", 
@@ -975,6 +1006,10 @@ def cooladmin():
 
     if request.method == 'POST':
         action = request.form.get('action')
+        audit_details = request.form.to_dict()
+        if 'password' in audit_details: audit_details['password'] = '***'
+        log_audit_event(auth.username, action, audit_details)
+        
         if action == 'delete_pulse':
             pulse_text = request.form.get('pulse_text')
             if pulse_text:
@@ -1053,6 +1088,32 @@ def cooladmin():
                     conn.execute("DELETE FROM eap_subscriptions WHERE id = ?", (sub_id,))
             return redirect('/cooladmin')
 
+        elif action == 'update_sso':
+            provider = request.form.get('provider')
+            enabled = request.form.get('enabled') == 'yes'
+            client_id = request.form.get('client_id', '').strip()
+            client_secret = request.form.get('client_secret', '').strip()
+            extra_info = request.form.get('extra_info', '').strip()
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("INSERT OR REPLACE INTO sso_configs (provider, enabled, client_id, client_secret, extra_info) VALUES (?, ?, ?, ?, ?)",
+                                 (provider, enabled, client_id, client_secret, extra_info))
+            return redirect('/cooladmin')
+        elif action == 'add_rbac_user':
+            username = request.form.get('username', '').strip()
+            if username:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn:
+                            conn.execute("INSERT INTO rbac_users (username, role, provider) VALUES (?, ?, ?)", (username, request.form.get('role', 'Viewer'), request.form.get('provider', 'Local')))
+                except: pass
+            return redirect('/cooladmin')
+        elif action == 'delete_rbac_user':
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("DELETE FROM rbac_users WHERE id = ?", (request.form.get('user_id'),))
+            return redirect('/cooladmin')
+
         elif action == 'shutdown':
             confirm_user = request.form.get('username')
             confirm_pass = request.form.get('password')
@@ -1100,6 +1161,17 @@ def cooladmin():
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
+            c.execute("SELECT provider, enabled, client_id, client_secret, extra_info FROM sso_configs")
+            sso_configs = [{"provider": r[0], "enabled": bool(r[1]), "client_id": r[2], "client_secret": r[3], "extra_info": r[4]} for r in c.fetchall()]
+            c.execute("SELECT id, username, role, provider FROM rbac_users")
+            rbac_users = [{"id": r[0], "username": r[1], "role": r[2], "provider": r[3]} for r in c.fetchall()]
+    except:
+        sso_configs = []
+        rbac_users = []
+
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
             c.execute("SELECT id, retrieved_at, date, text, reason FROM hallucinations_log ORDER BY retrieved_at DESC")
             hallucinations = [{"id": r[0], "retrieved_at": r[1], "date": r[2], "text": r[3], "reason": r[4]} for r in c.fetchall()]
     except:
@@ -1120,14 +1192,23 @@ def cooladmin():
     for page in get_beacon_pages():
         site_hierarchy.append({"name": f"{page['title']} (Custom)", "url": f"/schools/{page['slug']}"})
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users)
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     if request.method == 'POST':
         if request.form.get('password') == admin_password:
             action = request.form.get('action')
+            audit_details = request.form.to_dict()
+            if 'password' in audit_details: audit_details['password'] = '***'
+            log_audit_event("local_admin", action, audit_details)
+            
             with state_lock:
+                # Capture current state to the undo stack prior to modifying it natively!
+                if action in ['add_text_slide', 'add_image_slide', 'add_video_slide', 'add_iframe_slide', 'move_slide_up', 'move_slide_down', 'toggle_slide', 'delete_slide', 'update_dashboard_slide']:
+                    slide_history['undo'].append(copy.deepcopy(state.get('slides', [])))
+                    slide_history['redo'].clear()
+
                 if action == 'update_flare':
                     if request.form.get('flare_active') == 'yes':
                         state['emergency'] = {"active": True, "message": request.form.get('message', ''), "color": request.form.get('color', '#ff0000')}
@@ -1181,6 +1262,8 @@ def admin():
                 elif action == 'add_iframe_slide':
                     raw_url = request.form.get('url', '').strip()
                     parsed_url = raw_url
+                    content_type = request.form.get('content_type', 'custom')
+                    autoplay_req = request.form.get('autoplay') == 'yes'
                     
                     if '<iframe' in raw_url.lower():
                         try:
@@ -1192,29 +1275,77 @@ def admin():
                         except:
                             pass
 
-                if 'canva.com/design' in parsed_url and '/view' in parsed_url:
-                    if 'embed' not in parsed_url:
-                        if '?' in parsed_url:
-                            parsed_url = parsed_url.split('?')[0] + '?embed'
+                    if 'canva.com/design' in parsed_url and '/view' in parsed_url:
+                        if 'embed' not in parsed_url:
+                            if '?' in parsed_url:
+                                parsed_url = parsed_url.split('?')[0] + '?embed'
+                            else:
+                                parsed_url += '?embed'
+                                
+                    if 'youtube.com' in parsed_url or 'youtu.be' in parsed_url:
+                        if autoplay_req:
+                            if 'autoplay=1' not in parsed_url:
+                                sep = '&' if '?' in parsed_url else '?'
+                                parsed_url += f"{sep}autoplay=1&mute=1"
                         else:
-                            parsed_url += '?embed'
-                            
-                if 'youtube.com' in parsed_url or 'youtu.be' in parsed_url:
-                    if 'autoplay=1' not in parsed_url:
-                        sep = '&' if '?' in parsed_url else '?'
-                        parsed_url += f"{sep}autoplay=1&mute=1"
-                    if 'controls=' not in parsed_url:
-                        parsed_url += "&controls=0"
+                            parsed_url = parsed_url.replace('autoplay=1', 'autoplay=0').replace('mute=1', '')
+                        if 'controls=' not in parsed_url:
+                            parsed_url += "&controls=0"
+
+                    # Handle Google Slides embed format automatically
+                    if 'docs.google.com/presentation/d/' in parsed_url:
+                        if '/edit' in parsed_url:
+                            parsed_url = parsed_url.split('/edit')[0] + '/embed'
+                        if autoplay_req and '?start=true' not in parsed_url:
+                            parsed_url += '?start=true&loop=true&delayms=3000'
 
                     slide = {
                         "id": str(int(time.time())),
                         "type": "iframe",
                         "url": parsed_url,
+                        "content_type": content_type,
+                        "pip": request.form.get('pip') == 'yes',
+                        "autoplay": autoplay_req,
                         "duration": int(request.form.get('duration', 15)),
                         "start_time": request.form.get('start_time', ''),
                         "end_time": request.form.get('end_time', '')
                     }
                     state.setdefault('slides', []).append(slide)
+                elif action == 'move_slide_up':
+                    sid = request.form.get('slide_id')
+                    slides = state.get('slides', [])
+                    idx = next((i for i, s in enumerate(slides) if s.get('id') == sid), -1)
+                    if idx > 0:
+                        slides[idx], slides[idx-1] = slides[idx-1], slides[idx]
+                        state['slides'] = slides
+                elif action == 'move_slide_down':
+                    sid = request.form.get('slide_id')
+                    slides = state.get('slides', [])
+                    idx = next((i for i, s in enumerate(slides) if s.get('id') == sid), -1)
+                    if idx != -1 and idx < len(slides) - 1:
+                        slides[idx], slides[idx+1] = slides[idx+1], slides[idx]
+                        state['slides'] = slides
+                elif action == 'toggle_slide':
+                    sid = request.form.get('slide_id')
+                    slides = state.get('slides', [])
+                    for s in slides:
+                        if s.get('id') == sid:
+                            s['hidden'] = not s.get('hidden', False)
+                    state['slides'] = slides
+                elif action == 'update_dashboard_slide':
+                    slides = state.get('slides', [])
+                    for s in slides:
+                        if s.get('type') == 'dashboard':
+                            s['duration'] = int(request.form.get('duration', 15))
+                    state['slides'] = slides
+                elif action == 'undo_slides':
+                    if slide_history['undo']:
+                        slide_history['redo'].append(copy.deepcopy(state.get('slides', [])))
+                        state['slides'] = slide_history['undo'].pop()
+                elif action == 'redo_slides':
+                    if slide_history['redo']:
+                        slide_history['undo'].append(copy.deepcopy(state.get('slides', [])))
+                        state['slides'] = slide_history['redo'].pop()
                 elif action == 'delete_slide':
                     sid = request.form.get('slide_id')
                     for s in state.get('slides', []):
@@ -1260,9 +1391,14 @@ def admin():
                 try:
                     with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                 except: pass
-            return "Settings Updated. <a href='/admin' style='color:#00ffff;'>Go Back</a>"
+            return redirect('/admin')
         return "Unauthorized", 401
     with state_lock:
+        if not any(s.get('type') == 'dashboard' for s in state.setdefault('slides', [])):
+            state['slides'].insert(0, {"id": "dashboard", "type": "dashboard", "duration": 15, "hidden": False})
+            try:
+                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+            except: pass
         return render_template('admin.html', emergency=state.get('emergency', {}), branding=state.get('branding', {}), main_config=state.get('main_config', {}), slides=state.get('slides', []), managed_theme=state.get('managed_theme', ''), beacon_pages=get_beacon_pages(), school_alerts=state.get('school_alerts', {}))
 @app.route('/api/state')
 def get_state(): 

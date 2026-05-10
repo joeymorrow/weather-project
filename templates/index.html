@@ -84,6 +84,15 @@
         .pulse-line { font-size: clamp(0.8rem, 1.2vw, 1.8rem); color: var(--accent); opacity: 0.7; margin: 4px auto 0; font-style: italic; font-weight: normal; border: 1px solid var(--pod-border); background: var(--pod-bg); padding: clamp(8px, 1.5vh, 12px) clamp(16px, 3vw, 24px); width: fit-content; max-width: clamp(280px, 85%, 1100px); line-height: 1.5; letter-spacing: 0.5px; cursor: pointer; pointer-events: auto; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 8px 25px var(--shadow-color); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); text-wrap: pretty; }
         .pulse-line::after { content: '▤'; font-size: 0.8em; opacity: 0.4; vertical-align: top; margin-left: 6px; }
         .pulse-line:hover, .pulse-line:focus { opacity: 1; outline: none; background: var(--pod-bg); text-shadow: 0 0 10px var(--accent); box-shadow: 0 -10px 10px var(--pod-bg); }
+        .search-link-btn { display: inline-flex; align-items: center; justify-content: center; background: var(--pod-active-bg); border: 1px solid var(--accent); color: var(--accent); text-decoration: none; border-radius: 8px; font-weight: bold; transition: background 0.2s, box-shadow 0.2s, color 0.2s; pointer-events: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .search-link-btn:hover, .search-link-btn:focus { background: var(--accent); color: #000; outline: none; }
+        .search-link-sm { padding: 6px 12px; font-size: 0.9rem; }
+        .search-link-md { padding: 8px 16px; font-size: 1rem; }
+        .agenda-vote-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .agenda-vote-btn-up { background: rgba(0, 255, 0, 0.1); border: 1px solid #00ff00; color: #00ff00; }
+        .agenda-vote-btn-up:hover, .agenda-vote-btn-up:focus { background: #00ff00; color: #000; outline: none; }
+        .agenda-vote-btn-down { background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; color: #ff4444; }
+        .agenda-vote-btn-down:hover, .agenda-vote-btn-down:focus { background: #ff4444; color: #000; outline: none; }
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: auto; z-index: 3500; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: pointer; }
         #build-stamp:hover, #build-stamp:focus { opacity: 0.8; outline: none; }
         /* Ambient Mode (Fullscreen) - Hide UI Overlays */
@@ -934,7 +943,7 @@
                 if (match) {
                     let label = match[1].trim();
                     let searchQuery = encodeURIComponent(label + ' Sault Ste. Marie');
-                    searchLink = `<div style="margin-top: 10px;"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" tabindex="0" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(0, 255, 255, 0.1); border: 1px solid var(--accent); color: var(--accent); text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 0.9rem; font-weight: bold; transition: background 0.2s, box-shadow 0.2s; pointer-events: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.5);" onmouseover="this.style.background='var(--accent)'; this.style.color='#000';" onmouseout="this.style.background='rgba(0, 255, 255, 0.1)'; this.style.color='var(--accent)';" onfocus="this.style.background='var(--accent)'; this.style.color='#000';" onblur="this.style.background='rgba(0, 255, 255, 0.1)'; this.style.color='var(--accent)';">🔗 Search Google</a></div>`;
+                    searchLink = `<div style="margin-top: 10px;"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" tabindex="0" class="search-link-btn search-link-sm">🔗 Search Google</a></div>`;
                 }
                 
                 return `<div style="background: var(--pod-bg); ${borderStyle} padding: 15px 20px; border-radius: 12px; color: var(--text-main); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.4; text-align: left;"><div style="color: var(--accent); font-size: 0.8rem; margin-bottom: 5px; opacity: 0.8; text-transform: uppercase; font-weight: ${p.isCurrent ? 'bold' : 'normal'};">${p.date}</div>${safeText}${searchLink}</div>`;
@@ -1058,12 +1067,12 @@
                 }
 
                 let searchQuery = encodeURIComponent(ev.label + ' Sault Ste. Marie');
-                let searchLink = `<a href="https://www.google.com/search?q=${searchQuery}" target="_blank" tabindex="0" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(0, 255, 255, 0.1); border: 1px solid var(--accent); color: var(--accent); text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 1rem; font-weight: bold; transition: background 0.2s, box-shadow 0.2s; pointer-events: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.5);" onmouseover="this.style.background='var(--accent)'; this.style.color='#000';" onmouseout="this.style.background='rgba(0, 255, 255, 0.1)'; this.style.color='var(--accent)';" onfocus="this.style.background='var(--accent)'; this.style.color='#000';" onblur="this.style.background='rgba(0, 255, 255, 0.1)'; this.style.color='var(--accent)';">🔗 Search Google</a>`;
+                let searchLink = `<a href="https://www.google.com/search?q=${searchQuery}" target="_blank" tabindex="0" class="search-link-btn search-link-md">🔗 Search Google</a>`;
                 
                 let safeId = btoa(encodeURIComponent(ev.label)).replace(/=/g, '');
                 let upvotes = (window.agendaVotes && window.agendaVotes[ev.label] && window.agendaVotes[ev.label].up) || 0;
                 let downvotes = (window.agendaVotes && window.agendaVotes[ev.label] && window.agendaVotes[ev.label].down) || 0;
-                let voteHtml = `<div style="display: flex; gap: 10px;"><button class="vote-btn-up-${safeId}" onclick="submitAgendaVote('${ev.label.replace(/['"\\]/g, '\\$&')}', 'up', this)" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(0, 255, 0, 0.1); border: 1px solid #00ff00; color: #00ff00; padding: 8px 16px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5);" onmouseover="this.style.background='#00ff00'; this.style.color='#000';" onmouseout="this.style.background='rgba(0, 255, 0, 0.1)'; this.style.color='#00ff00';">👍 <span class="up-count" style="margin-left: 5px;">${upvotes}</span></button><button class="vote-btn-down-${safeId}" onclick="submitAgendaVote('${ev.label.replace(/['"\\]/g, '\\$&')}', 'down', this)" style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; color: #ff4444; padding: 8px 16px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5);" onmouseover="this.style.background='#ff4444'; this.style.color='#000';" onmouseout="this.style.background='rgba(255, 0, 0, 0.1)'; this.style.color='#ff4444';">👎 <span class="down-count" style="margin-left: 5px;">${downvotes}</span></button></div>`;
+                let voteHtml = `<div style="display: flex; gap: 10px;"><button class="vote-btn-up-${safeId} agenda-vote-btn agenda-vote-btn-up" onclick="submitAgendaVote('${ev.label.replace(/['"\\]/g, '\\$&')}', 'up', this)">👍 <span class="up-count" style="margin-left: 5px;">${upvotes}</span></button><button class="vote-btn-down-${safeId} agenda-vote-btn agenda-vote-btn-down" onclick="submitAgendaVote('${ev.label.replace(/['"\\]/g, '\\$&')}', 'down', this)">👎 <span class="down-count" style="margin-left: 5px;">${downvotes}</span></button></div>`;
                 
                 return `<div style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--pod-border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
@@ -1868,25 +1877,34 @@
             
             const nowMs = new Date().getTime();
             const activeSlides = signageSlides.filter(slide => {
+                if (slide.hidden) return false;
                 if (slide.start_time && new Date(slide.start_time).getTime() > nowMs) return false;
                 if (slide.end_time && new Date(slide.end_time).getTime() < nowMs) return false;
                 return true;
             });
             
             if (activeSlides.length === 0) {
-                slideIndex = -1; overlay.style.opacity = '0';
-                setTimeout(() => overlay.style.display = 'none', 1000);
-                activeSlideTimer = setTimeout(runSignageLoop, 15000); // Check schedule again in 15s!
-                return; // Loop is dead until new slides arrive
+                slideIndex = -1; 
+                overlay.style.opacity = '1';
+                overlay.style.display = 'block';
+                overlay.style.pointerEvents = 'none';
+                overlay.style.background = '#000';
+                overlay.innerHTML = `<div style="display:flex; justify-content:center; align-items:center; height:100%; color:#fff; font-size: 2rem;">Go to Admin Page to add a slide here</div>`;
+                activeSlideTimer = setTimeout(runSignageLoop, 15000); 
+                return;
             }
             slideIndex++;
             if (slideIndex >= activeSlides.length) {
-                slideIndex = -1; overlay.style.opacity = '0';
-                setTimeout(() => overlay.style.display = 'none', 1000);
-                activeSlideTimer = setTimeout(runSignageLoop, 15000); // 15 seconds of Buddy baseline
-                return;
+                slideIndex = 0;
             }
             const slide = activeSlides[slideIndex];
+            
+            if (slide.type === 'dashboard') {
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.style.display = 'none', 1000);
+                activeSlideTimer = setTimeout(runSignageLoop, slide.duration * 1000);
+                return;
+            }
             overlay.style.display = 'block';
             overlay.style.background = '#000'; // Reset styling
             overlay.style.pointerEvents = 'auto'; 
@@ -1909,7 +1927,15 @@
                     overlay.innerHTML = `<video src="${slide.url}" autoplay muted loop playsinline style="width:100%; height:100%; object-fit:contain;"></video>`;
                 }
             } else if (slide.type === 'iframe') {
-                overlay.innerHTML = `<iframe src="${slide.url}" style="width:100%; height:100%; border:none;" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>`;
+                if (slide.pip) {
+                    overlay.style.background = 'transparent';
+                    overlay.style.pointerEvents = 'none';
+                    overlay.innerHTML = `<div style="position:absolute; bottom:clamp(20px, 4vh, 40px); right:clamp(20px, 4vw, 40px); width:clamp(250px, 30vw, 600px); aspect-ratio:16/9; border-radius:15px; overflow:hidden; box-shadow:0 10px 30px var(--shadow-color); border:2px solid var(--accent); pointer-events:auto; background:#000;">
+                        <iframe src="${slide.url}" style="width:100%; height:100%; border:none;" allowfullscreen="allowfullscreen" allow="${slide.autoplay ? 'autoplay; ' : ''}fullscreen"></iframe>
+                    </div>`;
+                } else {
+                    overlay.innerHTML = `<iframe src="${slide.url}" style="width:100%; height:100%; border:none;" allowfullscreen="allowfullscreen" allow="${slide.autoplay ? 'autoplay; ' : ''}fullscreen"></iframe>`;
+                }
             }
             void overlay.offsetWidth; // Force reflow
             overlay.style.opacity = '1';

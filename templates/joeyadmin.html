@@ -183,6 +183,92 @@
             {% endfor %}
         </div>
 
+        <!-- SSO Configuration -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>🔐 Single Sign-On (SSO) Configuration</h2>
+            <p style="font-size: 0.9rem; color: #888;">Configure connections to external Identity Providers. The splash page will only appear if at least one is enabled.</p>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                {% for provider in ['Microsoft', 'Google', 'Clever', 'ActiveDirectory'] %}
+                {% set p_conf = sso_configs | selectattr('provider', 'equalto', provider) | first | default({'enabled': False, 'client_id': '', 'client_secret': '', 'extra_info': ''}) %}
+                <form method="POST" style="background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2);">
+                    <input type="hidden" name="action" value="update_sso">
+                    <input type="hidden" name="provider" value="{{ provider }}">
+                    <h3 style="margin-top: 0; color: #00ffff; display: flex; justify-content: space-between; align-items: center;">
+                        {{ provider }}
+                        <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 5px; color: #fff;">
+                            <input type="checkbox" name="enabled" value="yes" {% if p_conf.enabled %}checked{% endif %} style="width:auto; margin:0;"> Enabled
+                        </label>
+                    </h3>
+                    <input type="text" name="client_id" value="{{ p_conf.client_id }}" placeholder="Client ID" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
+                    <input type="password" name="client_secret" value="{{ p_conf.client_secret }}" placeholder="Client Secret" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
+                    <input type="text" name="extra_info" value="{{ p_conf.extra_info }}" placeholder="Tenant ID / Metadata URL" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
+                    <button type="submit" class="manage-btn" style="width: 100%;">Save {{ provider }}</button>
+                </form>
+                {% endfor %}
+            </div>
+            <div style="margin-top: 15px;">
+                <a href="/docs/sso_setup_admin" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">📄 Internal Setup Docs</a>
+                <a href="/docs/sso_setup_client" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">📄 Client Setup Docs</a>
+            </div>
+        </div>
+
+        <!-- RBAC Configuration -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>🛡️ Role-Based Access Control (RBAC)</h2>
+            <p style="font-size: 0.9rem; color: #888;">Manage permissions matrix for native and SSO users. Native "admin" and "sales" roles bypass SSO.</p>
+            
+            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2); margin-bottom: 15px;">
+                <input type="hidden" name="action" value="add_rbac_user">
+                <input type="text" name="username" list="user_suggestions" required placeholder="User / Email (Start typing to search)" style="flex:2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:200px;">
+                <datalist id="user_suggestions">
+                    <option value="admin">
+                    <option value="sales">
+                </datalist>
+                <select name="role" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:120px;">
+                    <option value="Admin">Admin (Full Access)</option>
+                    <option value="Sales">Sales (View/Demo)</option>
+                    <option value="Editor">Editor (Slides Only)</option>
+                    <option value="Viewer">Viewer</option>
+                </select>
+                <select name="provider" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:120px;">
+                    <option value="Local">Local (Native)</option>
+                    <option value="Microsoft">Microsoft Entra</option>
+                    <option value="Google">Google Workspace</option>
+                    <option value="Clever">Clever</option>
+                    <option value="ActiveDirectory">On-Prem AD</option>
+                </select>
+                <button type="submit" class="manage-btn" style="padding: 8px 15px;">Assign Role</button>
+            </form>
+
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr style="background: rgba(0,255,255,0.1); border-bottom: 2px solid #00ffff;">
+                    <th style="padding: 10px; text-align: left; color: #00ffff;">Username</th>
+                    <th style="padding: 10px; text-align: left; color: #00ffff;">Role Matrix</th>
+                    <th style="padding: 10px; text-align: left; color: #00ffff;">Provider</th>
+                    <th style="padding: 10px; text-align: right; color: #00ffff;">Actions</th>
+                </tr>
+                {% for user in rbac_users %}
+                <tr style="border-bottom: 1px solid rgba(0,255,255,0.2);">
+                    <td style="padding: 10px;">{{ user.username }}</td>
+                    <td style="padding: 10px;">
+                        <span style="background: {% if user.role == 'Admin' %}#ff4444{% elif user.role == 'Sales' %}#ffaa00{% else %}#00aa00{% endif %}; color: {% if user.role in ['Admin', 'Sales'] %}#fff{% else %}#000{% endif %}; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">
+                            {{ user.role }}
+                        </span>
+                    </td>
+                    <td style="padding: 10px; color: #aaa;">{{ user.provider }}</td>
+                    <td style="padding: 10px; text-align: right;">
+                        <form method="POST" style="margin:0;">
+                            <input type="hidden" name="action" value="delete_rbac_user">
+                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                            <button type="submit" class="danger-btn" style="padding: 4px 8px;" onclick="return confirm('Remove user access?')">Revoke</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
         <!-- Pulse Management -->
         <div class="card">
             <h2 style="display: flex; justify-content: space-between; align-items: center;">

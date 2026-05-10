@@ -38,6 +38,12 @@
     </style>
 </head>
 <body>
+    <div style="position: sticky; top: 0; background: rgba(10,10,10,0.95); backdrop-filter: blur(5px); padding: 15px 20px; z-index: 2000; border-bottom: 2px solid #00ffff; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.8);">
+        <div style="max-width: 1200px; margin: auto; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <label style="color: #00ffff; font-weight: bold; font-size: 1.2rem; margin: 0; cursor: pointer;" for="global_admin_pass">🔑 Master Password:</label>
+            <input type="password" id="global_admin_pass" placeholder="Type password once here to unlock all actions..." onkeyup="syncPasswords(this.value)" onchange="syncPasswords(this.value)" style="flex: 1; margin: 0; font-size: 1.1rem; padding: 10px; background: #111; border: 1px solid #00ffff; color: #00ffff; font-weight: bold;">
+        </div>
+    </div>
     <h1>Buddy Control Panel</h1>
     
     <div class="container">
@@ -47,7 +53,7 @@
             <p style="font-size: 0.9rem; color: #888;">Instantly overrides Buddy's text and strobes the dashboard outline. Great for severe weather warnings.</p>
             <form method="POST">
                 <input type="hidden" name="action" value="update_flare">
-                <label>Admin Password:</label> <input type="password" name="password" required>
+                <input type="hidden" name="password" class="auto-pass" required>
                 <label>Status:</label>
                 <select name="flare_active">
                     <option value="yes" {% if emergency.active %}selected{% endif %}>Active</option>
@@ -67,7 +73,7 @@
             <p style="font-size: 0.9rem; color: #888;">Customize the text that appears at the bottom left of the dashboard.</p>
             <form method="POST">
                 <input type="hidden" name="action" value="update_branding">
-                <label>Admin Password:</label> <input type="password" name="password" required>
+                <input type="hidden" name="password" class="auto-pass" required>
                 <label>Branding Text:</label>
                 <input type="text" name="branding_text" value="{{ branding.text }}" placeholder="Leave blank to hide">
                 <label>Text Color:</label>
@@ -82,7 +88,7 @@
             <p style="font-size: 0.9rem; color: #888;">Customize the text and weather query for the primary dashboard root (/).</p>
             <form method="POST">
                 <input type="hidden" name="action" value="update_main_config">
-                <label>Admin Password:</label> <input type="password" name="password" required>
+                <input type="hidden" name="password" class="auto-pass" required>
                 <label>Header Title:</label>
                 <input type="text" name="header_text" value="{{ main_config.header | default('MORROW EDGE | BEACON Buddy') }}" required>
                 <label>Location Subtitle:</label>
@@ -99,7 +105,7 @@
             <p style="font-size: 0.9rem; color: #888;">Push a themepack to all connected displays. Users can manually overwrite it.</p>
             <form method="POST">
                 <input type="hidden" name="action" value="update_theme">
-                <label>Admin Password:</label> <input type="password" name="password" required>
+                <input type="hidden" name="password" class="auto-pass" required>
                 <label>Select Theme:</label>
                 <select name="managed_theme">
                     <option value="">None (Dynamic Time-of-Day)</option>
@@ -117,7 +123,7 @@
             <p style="font-size: 0.9rem; color: #888;">Creates a full-screen text slide (e.g. "Mackinac Bridge Closed", "Welcome Governor").</p>
             <form method="POST">
                 <input type="hidden" name="action" value="add_text_slide">
-                <label>Admin Password:</label> <input type="password" name="password" required>
+                <input type="hidden" name="password" class="auto-pass" required>
                 <label>Message:</label>
                 <textarea name="text" rows="3" required placeholder="BLIZZARD WARNING"></textarea>
                 <div style="display: flex; gap: 10px;">
@@ -125,14 +131,14 @@
                     <div style="flex: 1; min-width: 0;"><label>Text Color:</label><input type="color" name="text_color" value="#ffffff"></div>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1; min-width: 0;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
-                <label>Strobe Effect (High Urgency):</label>
+                <label>🚨 Strobe Effect (High Urgency):</label>
                 <select name="strobe"><option value="no">No</option><option value="yes">Yes</option></select>
-                <label>Duration (Seconds):</label>
+                <label>⏱️ Time on screen (Seconds):</label>
                 <input type="number" name="duration" value="15" min="5" max="300" required>
-                <button type="submit">Add Billboard Slide</button>
+                <button type="submit">➕ Add Billboard Slide</button>
             </form>
         </div>
 
@@ -142,16 +148,16 @@
             <p style="font-size: 0.9rem; color: #888;">Upload a 16:9 image or flyer to display in the slideshow rotation.</p>
             <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="add_image_slide">
-                <label>Admin Password:</label> <input type="password" name="password" required>
+                <input type="hidden" name="password" class="auto-pass" required>
                 <label>Image File (.jpg, .png):</label>
                 <input type="file" name="image" accept="image/*" required style="background: transparent; border: none; padding: 0;">
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1; min-width: 0;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
-                <label>Duration (Seconds):</label>
+                <label>⏱️ Time on screen (Seconds):</label>
                 <input type="number" name="duration" value="15" min="5" max="300" required>
-                <button type="submit">Upload Image Slide</button>
+                <button type="submit">➕ Upload Image Slide</button>
             </form>
         </div>
 
@@ -161,7 +167,7 @@
             <p style="font-size: 0.9rem; color: #888;">Create dynamically generated school dashboards by zipcode.</p>
             <form method="POST">
                 <input type="hidden" name="action" value="add_beacon_page">
-                <label>Admin Password:</label> <input type="password" name="password" required>
+                <input type="hidden" name="password" class="auto-pass" required>
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 1; min-width: 0;"><label>Page Title:</label><input type="text" name="title" required placeholder="e.g. Brimley Schools"></div>
                     <div style="flex: 1; min-width: 0;"><label>URL Slug:</label><input type="text" name="slug" required placeholder="e.g. brimley"></div>
@@ -185,8 +191,8 @@
                             <form method="POST" style="margin:0; display:flex; align-items:center; flex-wrap: wrap; gap: 10px;">
                                 <input type="hidden" name="action" value="delete_beacon_page">
                                 <input type="hidden" name="page_id" value="{{ page.id }}">
-                                <input type="password" name="password" placeholder="Admin Pass" required style="width:110px; margin:0; padding:8px;">
-                                <button type="submit" class="danger" style="margin:0; padding:8px 15px; width:auto;">Delete</button>
+                                <input type="hidden" name="password" class="auto-pass" required>
+                                <button type="submit" class="danger" style="margin:0; padding:8px 15px; width:auto;">🗑️ Delete</button>
                             </form>
                         </div>
                     </div>
@@ -203,7 +209,7 @@
             <p style="font-size: 0.9rem; color: #888;">Trigger "I Love U Guys" Standard Response Protocol alerts for specific locations.</p>
             <form method="POST">
                 <input type="hidden" name="action" value="update_school_alert">
-                <label>Admin Password:</label> <input type="password" name="password" required>
+                <input type="hidden" name="password" class="auto-pass" required>
                 <label>Target Location:</label>
                 <select name="location_slug" required>
                     <option value="sault-schools">Sault Ste. Marie Schools</option>
@@ -252,74 +258,145 @@
             <p style="font-size: 0.9rem; color: #888;">Link to an MP4/WebM video. Enable PIP to overlay it in the corner without hiding Buddy!</p>
             <form method="POST">
                 <input type="hidden" name="action" value="add_video_slide">
-                <label>Admin Password:</label> <input type="password" name="password" required>
+                <input type="hidden" name="password" class="auto-pass" required>
                 <label>Direct Video URL (.mp4, .webm):</label>
                 <input type="url" name="url" required placeholder="https://example.com/video.mp4">
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1; min-width: 0;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>Duration (Seconds):</label><input type="number" name="duration" value="30" min="5" max="3600" required></div>
+                    <div style="flex: 1; min-width: 0;"><label>⏱️ Time on screen (Seconds):</label><input type="number" name="duration" value="30" min="5" max="3600" required></div>
                     <div style="flex: 1; min-width: 0;"><label>Picture-in-Picture (PIP):</label><select name="pip"><option value="no">No (Fullscreen)</option><option value="yes">Yes (Corner Overlay)</option></select></div>
                 </div>
-                <button type="submit">Add Video Slide</button>
+                <button type="submit">➕ Add Video Slide</button>
             </form>
         </div>
 
         <!-- 4.6 Add Web/Canva Signage -->
         <div class="card">
-            <h2>🌐 Add Web / Canva Slide</h2>
-            <p style="font-size: 0.9rem; color: #888;">Embed a Canva presentation, Google Slide, or any webpage via URL.</p>
+            <h2>🌐 Add Web / Canva / Slides</h2>
+            <p style="font-size: 0.9rem; color: #888;">Embed a Canva presentation, YouTube video, Google Slide, or PowerPoint (via OneDrive link).</p>
             <form method="POST">
                 <input type="hidden" name="action" value="add_iframe_slide">
-                <label>Admin Password:</label> <input type="password" name="password" required>
-                <label>Embed URL:</label>
-                <input type="url" name="url" required placeholder="https://www.canva.com/design/.../view?embed">
+                <input type="hidden" name="password" class="auto-pass" required>
+                
+                <label>Content Type:</label>
+                <select name="content_type" onchange="updatePlaceholder(this)">
+                    <option value="canva">Canva Presentation</option>
+                    <option value="youtube">YouTube Video</option>
+                    <option value="google_slides">Google Slides</option>
+                    <option value="powerpoint">PowerPoint (OneDrive/SharePoint Link)</option>
+                    <option value="custom">Custom Webpage URL</option>
+                </select>
+
+                <label>Embed URL or Link:</label>
+                <input type="url" name="url" id="iframe_url_input" required placeholder="https://www.canva.com/design/.../view?embed">
+                
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1; min-width: 0;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>Picture-in-Picture (PIP):</label><select name="pip"><option value="no">No (Fullscreen)</option><option value="yes">Yes (Corner Overlay)</option></select></div>
+                    <div style="flex: 1; min-width: 0;"><label>Autoplay (if supported):</label><select name="autoplay"><option value="yes">Yes</option><option value="no">No</option></select></div>
                 </div>
-                <label>Duration (Seconds):</label>
+
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
+                </div>
+                <label>⏱️ Time on screen (Seconds):</label>
                 <input type="number" name="duration" value="30" min="5" max="3600" required>
-                <button type="submit">Add Web Slide</button>
+                <button type="submit">➕ Add Web / Slide</button>
             </form>
         </div>
 
         <!-- 5. Active Slideshow -->
         <div class="card" style="grid-column: 1 / -1;">
             <h2>🎞️ Active Signage Playlist</h2>
-            <p style="font-size: 0.9rem; color: #888;">The dashboard will automatically alternate between Buddy and these slides. Slideshow disables entirely if empty.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                <p style="font-size: 0.9rem; color: #888; margin: 0;">The dashboard will automatically alternate between these slides in order.</p>
+                <div style="display: flex; gap: 10px;">
+                    <form method="POST" style="margin:0;">
+                        <input type="hidden" name="action" value="undo_slides">
+                        <input type="hidden" name="password" class="auto-pass">
+                        <button type="submit" style="padding: 5px 10px; font-size: 0.8rem;" title="Undo Last Slide Action">↩️ Undo</button>
+                    </form>
+                    <form method="POST" style="margin:0;">
+                        <input type="hidden" name="action" value="redo_slides">
+                        <input type="hidden" name="password" class="auto-pass">
+                        <button type="submit" style="padding: 5px 10px; font-size: 0.8rem;" title="Redo Last Slide Action">↪️ Redo</button>
+                    </form>
+                </div>
+            </div>
             {% if slides %}
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                 {% for slide in slides %}
-                    <div class="slide-item" style="flex-direction: column; align-items: stretch; gap: 10px;">
-                        <div class="slide-info">
-                            {% if slide.type == 'text' %}
-                                <strong>TEXT ({{ slide.duration }}s)</strong>: "{{ slide.text }}"
+                    <div class="slide-item" style="flex-direction: row; flex-wrap: wrap; align-items: center; gap: 15px; {% if slide.hidden %}opacity: 0.5; filter: grayscale(80%);{% endif %}">
+                        <div style="font-size: 2.5rem; line-height: 1;">
+                            {% if slide.type == 'dashboard' %}🏠
+                            {% elif slide.type == 'text' %}📝
+                            {% elif slide.type == 'image' %}🖼️
+                            {% elif slide.type == 'video' %}🎥
+                            {% elif slide.type == 'iframe' %}🌐
+                            {% endif %}
+                        </div>
+                        <div class="slide-info" style="flex-grow: 1;">
+                            {% if slide.type == 'dashboard' %}
+                                <strong style="color: #00ffff;">MAIN DASHBOARD ({{ slide.duration }}s)</strong><br>The Weather & Buddy
+                            {% elif slide.type == 'text' %}
+                                <strong>TEXT ({{ slide.duration }}s)</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: "{{ slide.text }}"
                                 <br><span class="color-preview" style="background: {{ slide.bg_color }};"></span> BG | <span class="color-preview" style="background: {{ slide.text_color }};"></span> Text | Strobe: {{ "Yes" if slide.strobe else "No" }}
                             {% elif slide.type == 'image' %}
-                                <strong>IMAGE ({{ slide.duration }}s)</strong>: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View File</a>
+                                <strong>IMAGE ({{ slide.duration }}s)</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View File</a>
                             {% elif slide.type == 'video' %}
-                                <strong>VIDEO ({{ slide.duration }}s)</strong>: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
+                                <strong>VIDEO ({{ slide.duration }}s)</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
                                 <br><span style="font-size:0.85rem; color:#888;">PIP Mode: {{ "Yes" if slide.pip else "No" }}</span>
                             {% elif slide.type == 'iframe' %}
-                                <strong>WEB / CANVA ({{ slide.duration }}s)</strong>: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
+                                <strong>WEB / {{ slide.content_type | default('CANVA') | upper }} ({{ slide.duration }}s)</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
+                                <br><span style="font-size:0.85rem; color:#888;">PIP Mode: {{ "Yes" if slide.pip else "No" }} | Autoplay: {{ "Yes" if slide.autoplay else "No" }}</span>
                             {% endif %}
                             {% if slide.start_time %} <br><span style="font-size:0.85rem; color:#888;">Starts: {{ slide.start_time }}</span> {% endif %}
                             {% if slide.end_time %} <span style="font-size:0.85rem; color:#888;">Ends: {{ slide.end_time }}</span> {% endif %}
                         </div>
-                        <form method="POST" style="margin:0; display:flex; align-items:center; flex-wrap: wrap; gap: 10px;">
-                            <input type="hidden" name="action" value="delete_slide">
-                            <input type="hidden" name="slide_id" value="{{ slide.id }}">
-                            <input type="password" name="password" placeholder="Admin Pass" required style="width:120px; margin:0; padding:8px;">
-                            <button type="submit" class="danger" style="width: auto; margin:0; padding:8px 15px;">Delete</button>
-                        </form>
+                        <div style="display:flex; align-items:center; flex-wrap: wrap; gap: 8px; justify-content: flex-end;">
+                            {% if slide.type == 'dashboard' %}
+                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
+                                <input type="hidden" name="action" value="update_dashboard_slide">
+                                <input type="hidden" name="password" class="auto-pass">
+                                <input type="number" name="duration" value="{{ slide.duration }}" min="5" max="3600" style="width:80px; margin:0; padding:8px; font-weight:bold;" title="Duration">
+                                <button type="submit" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;">💾 Update</button>
+                            </form>
+                            {% endif %}
+                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
+                                <input type="hidden" name="action" value="move_slide_up">
+                                <input type="hidden" name="slide_id" value="{{ slide.id }}">
+                                <input type="hidden" name="password" class="auto-pass">
+                                <button type="submit" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;" title="Move Up">⬆️</button>
+                            </form>
+                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
+                                <input type="hidden" name="action" value="move_slide_down">
+                                <input type="hidden" name="slide_id" value="{{ slide.id }}">
+                                <input type="hidden" name="password" class="auto-pass">
+                                <button type="submit" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;" title="Move Down">⬇️</button>
+                            </form>
+                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
+                                <input type="hidden" name="action" value="toggle_slide">
+                                <input type="hidden" name="slide_id" value="{{ slide.id }}">
+                                <input type="hidden" name="password" class="auto-pass">
+                                <button type="submit" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;" title="Toggle Visibility">👁️ {{ 'Show' if slide.hidden else 'Hide' }}</button>
+                            </form>
+                            {% if slide.type != 'dashboard' %}
+                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
+                                <input type="hidden" name="action" value="delete_slide">
+                                <input type="hidden" name="slide_id" value="{{ slide.id }}">
+                                <input type="hidden" name="password" class="auto-pass">
+                                <button type="submit" class="danger" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;">🗑️ Delete</button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </div>
                 {% endfor %}
                 </div>
             {% else %}
-                <p style="color: #666; font-style: italic;">No active slides. The dashboard will show Buddy 100% of the time.</p>
+                <p style="color: #666; font-style: italic;">No active slides.</p>
             {% endif %}
         </div>
     </div>
@@ -389,6 +466,29 @@
         }
         
         updateEAPOptions(); // Init forms on load
+        
+        function syncPasswords(val) {
+            document.querySelectorAll('.auto-pass').forEach(inp => inp.value = val);
+        }
+        document.querySelectorAll('form').forEach(f => {
+            f.addEventListener('submit', (e) => {
+                if (!document.getElementById('global_admin_pass').value) {
+                    e.preventDefault();
+                    alert('Please enter the Master Password at the very top of the screen first!');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    document.getElementById('global_admin_pass').focus();
+                }
+            });
+        });
+
+        function updatePlaceholder(select) {
+            const input = document.getElementById('iframe_url_input');
+            if (select.value === 'canva') input.placeholder = "https://www.canva.com/design/.../view?embed";
+            else if (select.value === 'youtube') input.placeholder = "https://www.youtube.com/watch?v=...";
+            else if (select.value === 'google_slides') input.placeholder = "https://docs.google.com/presentation/d/.../embed";
+            else if (select.value === 'powerpoint') input.placeholder = "https://onedrive.live.com/embed?resid=...";
+            else input.placeholder = "https://example.com";
+        }
     </script>
 </body>
 </html>
