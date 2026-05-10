@@ -524,7 +524,7 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 "low": today_low,
                 "desc": w['weather'][0]['description'].title(), "icon": w['weather'][0]['icon'],
                 "date": now.strftime(f"%A, %B {day}{suffix}, %Y"), "time": now.strftime('%I:%M %p'), 
-                "station": st_id, "is_sleeping": is_sleep, "show_bed": True, 
+                "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or now.hour >= 21 or now.hour < 6), 
                 "t_high": t_high, "t_low": t_low, "t_desc": t_desc, "t_pop": t_pop,
                 "tomorrow_label": tomorrow_ui_label,
                 "is_late_night": is_late_night,
@@ -899,6 +899,13 @@ def sales_landing():
 @app.route('/architecture-pitch')
 def architecture_pitch():
     return send_from_directory(os.path.join(BASE_DIR, 'docs'), 'architecture-pitch.html')
+
+@app.route('/favicon.ico')
+def favicon():
+    fav_path = os.path.join(app.root_path, 'static', 'favicon.ico')
+    if os.path.exists(fav_path):
+        return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    return "", 204
 
 @app.route('/')
 def index():
@@ -1365,7 +1372,7 @@ def move_buddy(station):
     }
     
     with state_lock:
-        state.update({"station": station, "is_sleeping": (station == "bed"), "bubble": bubbles.get(station, "Rerouting..."), "acc_css": "none" if station != "bed" else "zzz", "show_bed": True})
+        state.update({"station": station, "is_sleeping": (station == "bed"), "bubble": bubbles.get(station, "Rerouting..."), "acc_css": "none" if station != "bed" else "zzz", "show_bed": (station == "bed" or now.hour >= 21 or now.hour < 6)})
     
     # Save state locally so the web UI updates instantly across all connected TVs
     try:
