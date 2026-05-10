@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morrow Edge | BEACON Enterprise Solutions</title>
+    <style>
+        :root {
+            --cyan: #22d3ee;
+            --cyan-glow: rgba(34, 211, 238, 0.4);
+            --bg-dark: #060b13;
+            --bg-card: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        header {
+            padding: 2rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(34, 211, 238, 0.2);
+            background: rgba(6, 11, 19, 0.9);
+            backdrop-filter: blur(10px);
+            position: fixed;
+            top: 0;
+            width: 90%;
+            z-index: 1000;
+        }
+        .logo { font-size: 1.5rem; font-weight: 800; letter-spacing: 2px; color: var(--text-main); }
+        .logo span { color: var(--cyan); }
+        .hero {
+            margin-top: 100px;
+            padding: 6rem 5%;
+            text-align: center;
+            background: radial-gradient(circle at center, #111827 0%, var(--bg-dark) 100%);
+            position: relative;
+        }
+        .hero h1 {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            line-height: 1.1;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px var(--cyan-glow);
+        }
+        .hero h1 span { color: var(--cyan); }
+        .hero p { font-size: 1.4rem; color: var(--text-muted); max-width: 800px; margin: 0 auto 2rem auto; }
+        .cta-btn {
+            background: transparent;
+            border: 2px solid var(--cyan);
+            color: var(--cyan);
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 15px var(--cyan-glow);
+        }
+        .cta-btn:hover { background: var(--cyan); color: var(--bg-dark); box-shadow: 0 0 30px var(--cyan); }
+        
+        .section-title { text-align: center; font-size: 2.5rem; color: var(--cyan); margin-bottom: 3rem; }
+        .container { padding: 5rem 5%; max-width: 1400px; margin: 0 auto; }
+        
+        /* Grid Layouts */
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+        .card {
+            background: var(--bg-card);
+            padding: 2.5rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease;
+        }
+        .card:hover { transform: translateY(-10px); border-color: var(--cyan); box-shadow: 0 10px 30px var(--cyan-glow); }
+        .card-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .card h3 { font-size: 1.5rem; margin-top: 0; color: #fff; }
+        
+        /* Heart & Mind Section */
+        .school-pledge {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+            border-radius: 20px;
+            padding: 4rem;
+            text-align: center;
+            margin: 4rem 0;
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.3);
+        }
+        .school-pledge h2 { font-size: 3rem; color: #60a5fa; margin-top: 0; }
+        .school-pledge p { font-size: 1.3rem; max-width: 900px; margin: 0 auto; line-height: 1.8; }
+        .highlight-free { font-size: 2rem; font-weight: bold; color: #fff; display: inline-block; margin-top: 1rem; background: #2563eb; padding: 5px 20px; border-radius: 5px; }
+
+        /* Tech Architecture */
+        .tech-showcase {
+            display: flex;
+            align-items: center;
+            gap: 4rem;
+            margin-top: 2rem;
+        }
+        .tech-text { flex: 1; }
+        .tech-text ul { list-style: none; padding: 0; }
+        .tech-text li { margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; }
+        .tech-text li::before { content: '⚡'; margin-right: 15px; font-size: 1.5rem; }
+        .tech-terminal {
+            flex: 1;
+            background: #000;
+            border-radius: 10px;
+            padding: 2rem;
+            font-family: monospace;
+            color: #4ade80;
+            border: 1px solid #333;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+        .comment { color: #6b7280; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">MORROW EDGE <span>| BEACON</span></div>
+        <button class="cta-btn" style="padding: 10px 20px; font-size: 1rem;">Contact Us</button>
+    </header>
+
+    <section class="hero">
+        <h1>Bring Your Spaces <span>To Life</span>.</h1>
+        <p>A completely customized, AI-driven, 3D digital greeter and emergency dashboard for Enterprise, Municipalities, and Hospitality.</p>
+        <button class="cta-btn">View Live Demo</button>
+    </section>
+
+    <div class="container">
+        <h2 class="section-title">Built for Scale. Engineered for Impact.</h2>
+        <div class="grid-3">
+            <div class="card">
+                <div class="card-icon">🧠</div>
+                <h3>Hyper-Local Context via AI</h3>
+                <p>BEACON doesn't just read the weather; it understands your city. Integrated with Google's Gemini AI, the system automatically pulls local news, verifies it against hallucinations, and greets guests with a contextual "Pulse" of your exact zip code.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🚨</div>
+                <h3>Life-Saving EAP Integration</h3>
+                <p>When seconds matter, BEACON pivots. The dashboard natively binds to IANA Multicast UDP layers. If a physical "Lockdown" or "Evacuate" button is pressed on your facility network, BEACON instantly overrides all displays with color-coded safety instructions.</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">🎮</div>
+                <h3>60FPS WebGL 3D Worlds</h3>
+                <p>Static menus are dead. Engage your guests with a fully interactive, responsive 3D sandbox engine (Three.js) that runs directly on their phones or lobby touch-screens—no app download required.</p>
+            </div>
+        </div>
+
+        <div class="school-pledge">
+            <h2>The K-12 Community Pledge</h2>
+            <p>At Morrow Edge, we believe that world-class emergency safety infrastructure and inspiring digital environments shouldn't be gated behind massive enterprise licensing fees.</p>
+            <p>That is why we offer our full BEACON suite—including AI integrations, Emergency Action Plan Multicast receivers, and Custom School Dashboards—completely free of software licensing charges to public K-12 school districts.</p>
+            <span class="highlight-free">Always Free for Public K-12.</span>
+        </div>
+
+        <h2 class="section-title">Technological Superiority</h2>
+        <div class="tech-showcase">
+            <div class="tech-text">
+                <h3>Zero Server Overhead. Infinite Scaling.</h3>
+                <p style="color: var(--text-muted); font-size: 1.2rem; margin-bottom: 2rem;">Other digital signage solutions charge you monthly to rent their massive backend servers. We architected BEACON differently.</p>
+                <ul>
+                    <li><strong>Client-Side Rendering:</strong> Our 3D WebGL engine and DOM manipulations are highly optimized to run locally on the client's GPU (even on 10-year-old smart TVs).</li>
+                    <li><strong>Decoupled API Sync:</strong> The server simply serves static HTML files and a lightweight JSON state file. It uses zero processing power to display the dashboards.</li>
+                    <li><strong>Self-Healing Diagnostics:</strong> The backend monitors its own Python memory heap via <code>tracemalloc</code> and triages memory leaks automatically using AI before alerting our engineers.</li>
+                    <li><strong>Zero Trust Security:</strong> Endpoints are tunneled via Cloudflare, ensuring your local host network is never exposed to the public internet.</li>
+                </ul>
+            </div>
+            <div class="tech-terminal">
+                <span class="comment"># Deployments managed via strict CI/CD on self-hosted runners</span><br>
+                <span style="color: #60a5fa;">user@host</span>:~$ git push origin main<br>
+                <br>
+                <span class="comment"># GitHub Actions Runner Intercepted...</span><br>
+                > Running Flake8 Linter... <span style="color: #4ade80;">[PASS]</span><br>
+                > Running Jinja2 Validation... <span style="color: #4ade80;">[PASS]</span><br>
+                > Headless Puppeteer QA UI Check... <span style="color: #4ade80;">[PASS]</span><br>
+                > Injecting Environment Secrets... <span style="color: #4ade80;">[DONE]</span><br>
+                > Triggering Zero-Downtime Docker Build... <span style="color: #4ade80;">[SUCCESS]</span><br>
+                <br>
+                <span style="color: #fcd34d;">BEACON edge nodes successfully synchronized.</span>
+            </div>
+        </div>
+
+        <div style="margin-top: 6rem; text-align: center;">
+            <h2 class="section-title">Ready to modernize your space?</h2>
+            <p style="font-size: 1.3rem; color: var(--text-muted); max-width: 600px; margin: 0 auto 2rem auto;">Whether you manage a municipal building, a luxury hotel, a corporate campus, or a school district, BEACON scales to fit your environment.</p>
+            <button class="cta-btn" style="padding: 20px 40px; font-size: 1.5rem;">Schedule an Architecture Review</button>
+        </div>
+    </div>
+
+    <footer style="margin-top: 5rem; padding: 2rem; text-align: center; border-top: 1px solid rgba(255,255,255,0.05); color: #475569;">
+        <p>&copy; 2026 Morrow Edge | BEACON Solutions. Crafted with Python, Three.js, and the Indomitable Human Spirit.</p>
+    </footer>
+
+</body>
+</html>

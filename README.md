@@ -1,6 +1,32 @@
-# Weather Project
+# Morrow Edge | BEACON Dashboard
 
-A local weather and scheduling dashboard powered by AI.
+A local weather, scheduling, and emergency response dashboard powered by AI and WebGL.
+
+[![Deploy Status](https://github.com/joeymorrow/weather-project/actions/workflows/deploy.yml/badge.svg)](https://github.com/joeymorrow/weather-project/actions)
+
+> **Read the full [Architecture & CI/CD Documentation](ARCHITECTURE.md)** to understand how BEACON is built, deployed, and delivered to the edge.
+
+```text
+=============================================================================================
+                                  BEACON CI/CD PIPELINE
+=============================================================================================
+
+ [ 💻 Local Dev ]            [ 🐙 Source Control ]               [ ⚙️ CI/QA (Self-Hosted) ]
+ VS Code + Gemini                Git Push                      GitHub Actions Runner
+ (Py/HTML/CSS/3JS) ────────────> (Branch: main) ─────────────> ├─> 1. Flake8 Linting
+                                                               ├─> 2. compileall Syntax Check
+                                                               ├─> 3. Jinja2 Validation
+                                                               ├─> 4. Puppeteer UI & Modals
+                                                               └─> 5. Docker Config Check
+                                                                          │
+                                                                          ▼
+ [ 🌍 Edge Delivery ]        [ ☁️ Tunneling ]                    [ 🚀 Deployment ]
+ MorrowEdge.com                Cloudflare                      ├─> 1. Inject Secrets (.env)
+ TVs / Displays    <─────────  Zero Trust      <────────────── ├─> 2. Docker Compose Build
+ Mobile & Web                  (cloudflared)                   ├─> 3. Docker Compose Up -d
+                                                               └─> 4. Smoke Test (cURL Web/RPG)
+=============================================================================================
+```
 
 ## Setting Up on a Fresh Ubuntu Linux Environment
 
