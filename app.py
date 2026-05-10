@@ -1357,21 +1357,55 @@ def cooladmin():
     except:
         hallucinations = []
         
-    site_hierarchy = [
-        {"name": "Main Dashboard", "url": "/"},
-        {"name": "Sault Schools", "url": "/sault-schools"},
-        {"name": "Pickford Schools", "url": "/pickford-schools"},
-        {"name": "3D Sandbox (Buddy's World)", "url": "/rpg"},
-        {"name": "EAP Dispatch (PWA)", "url": "/dispatch"},
-        {"name": "Documentation Hub", "url": "/docs"},
-        {"name": "Enterprise Sales Landing", "url": "/enterprise"},
-        {"name": "Architecture Pitch Deck", "url": "/architecture-pitch"},
-        {"name": "Admin Dashboard", "url": "/admin"},
-        {"name": "Super Admin (CoolAdmin)", "url": "/cooladmin"},
-    ]
+    known_routes = {
+        "/": "Main Dashboard",
+        "/sault-schools": "Sault Schools",
+        "/pickford-schools": "Pickford Schools",
+        "/rpg": "3D Sandbox (Buddy's World)",
+        "/dispatch": "EAP Dispatch (PWA)",
+        "/docs": "Documentation Hub",
+        "/admin": "Admin Dashboard",
+        "/cooladmin": "Super Admin (CoolAdmin)",
+        "/login": "SSO Login"
+    }
+    
+    site_hierarchy = []
+    added_urls = set()
+    
+    for url, name in known_routes.items():
+        site_hierarchy.append({"name": name, "url": url})
+        added_urls.add(url)
+        
+    for rule in app.url_map.iter_rules():
+        if 'GET' in rule.methods and not rule.arguments:
+            url = str(rule)
+            if url not in added_urls and not url.startswith('/api/') and not url.startswith('/static/'):
+                if url.endswith('/') and url[:-1] in added_urls: continue
+                site_hierarchy.append({"name": f"Route: {url}", "url": url})
+                added_urls.add(url)
+                
+    try:
+        docs_dir = os.path.join(BASE_DIR, 'docs')
+        if os.path.exists(docs_dir):
+            for f in sorted(os.listdir(docs_dir)):
+                if f == 'index.md': continue
+                if f.endswith('.md'):
+                    doc_url = f"/docs/{f.replace('.md', '')}"
+                    if doc_url not in added_urls:
+                        site_hierarchy.append({"name": f"Doc: {f.replace('.md', '').replace('_', ' ').title()}", "url": doc_url})
+                        added_urls.add(doc_url)
+                elif f.endswith('.html'):
+                    doc_url = f"/docs/{f}"
+                    if doc_url not in added_urls:
+                        site_hierarchy.append({"name": f"Doc Page: {f.replace('.html', '').replace('_', ' ').title()}", "url": doc_url})
+                        added_urls.add(doc_url)
+    except: pass
     
     for page in get_beacon_pages():
-        site_hierarchy.append({"name": f"{page['title']} (Custom)", "url": f"/schools/{page['slug']}"})
+        url = f"/schools/{page['slug']}"
+        if url not in added_urls:
+            site_hierarchy.append({"name": f"{page['title']} (Custom)", "url": url})
+            added_urls.add(url)
 
     return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin)
 

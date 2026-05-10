@@ -251,11 +251,51 @@ jobs:
           }
 
           try {
+            console.log('Extracting dynamic hierarchy for exhaustive QA spidering...');
+            const hierarchyLinks = await page.evaluate(() => {
+              const links = [];
+              document.querySelectorAll('.site-link').forEach(el => {
+                if (el.tagName === 'A' && el.href) links.push(el.href);
+              });
+              return links;
+            });
+            const uniqueLinks = [...new Set(hierarchyLinks)].filter(l => !l.includes('/logout') && l.startsWith('http://127.0.0.1:5000'));
+            console.log('Found ' + uniqueLinks.length + ' unique routes to verify.');
+            for (const link of uniqueLinks) {
+              console.log('Spidering route: ' + link);
+              const res = await page.goto(link, {waitUntil: 'domcontentloaded', timeout: 10000});
+              if (res && !res.ok()) { console.error('[QA HTTP ERROR] ' + link + ' returned ' + res.status()); errors++; }
+            }
+          } catch (e) {
+            console.error('[QA SPIDER ERROR] ' + e.message); errors++;
+          }
+
+          try {
             console.log('Testing /admin ...');
             await page.goto('http://127.0.0.1:5000/admin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
           } catch (e) {
             console.error('[QA PAGE ERROR] Admin load failed:', e.message); errors++;
+          }
+
+          try {
+            console.log('Extracting dynamic hierarchy for exhaustive QA spidering...');
+            const hierarchyLinks = await page.evaluate(() => {
+              const links = [];
+              document.querySelectorAll('.site-link').forEach(el => {
+                if (el.tagName === 'A' && el.href) links.push(el.href);
+              });
+              return links;
+            });
+            const uniqueLinks = [...new Set(hierarchyLinks)].filter(l => !l.includes('/logout') && l.startsWith('http://127.0.0.1:5000'));
+            console.log('Found ' + uniqueLinks.length + ' unique routes to verify.');
+            for (const link of uniqueLinks) {
+              console.log('Spidering route: ' + link);
+              const res = await page.goto(link, {waitUntil: 'domcontentloaded', timeout: 10000});
+              if (res && !res.ok()) { console.error('[QA HTTP ERROR] ' + link + ' returned ' + res.status()); errors++; }
+            }
+          } catch (e) {
+            console.error('[QA SPIDER ERROR] ' + e.message); errors++;
           }
 
             try {
@@ -374,3 +414,32 @@ jobs:
           docker container prune -f
           docker network prune -f
           docker builder prune -f
+
+  windows_qa:
+    name: Windows Security & Syntax Check
+    runs-on: [self-hosted, Windows]
+    # Soft fail: won't crash your Linux deployment if a Windows check fails
+    continue-on-error: true 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        # SECURE EXECUTION: Bypasses the policy ONLY for this isolated process.
+        # The host Windows machine remains globally locked down (Restricted).
+        shell: powershell -ExecutionPolicy Bypass -Command "{0}"
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+          pip install -r requirements.txt
+
+      - name: Sanitize and Run Checks
+        shell: powershell -ExecutionPolicy Bypass -Command "{0}"
+        run: |
+          python -m compileall .
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
