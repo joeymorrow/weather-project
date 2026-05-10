@@ -50,7 +50,6 @@ if ! /usr/bin/python3 -c "import pydbus" &> /dev/null; then
     echo "  sudo /usr/bin/python3 -m pip install pydbus --break-system-packages"
     echo "Then re-run this install script."
     exit 1 # Exit due to fatal error
-    fi
 fi
 echo "Python dependencies installed."
 
