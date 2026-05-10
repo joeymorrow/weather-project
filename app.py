@@ -1622,15 +1622,20 @@ def admin():
                 with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
             except: pass
             
-        return render_template('admin.html', 
-            emergency=state.get('emergency') or {}, 
-            branding=state.get('branding') or {}, 
-            main_config=state.get('main_config') or {}, 
-            slides=state.get('slides') or [], 
-            managed_theme=state.get('managed_theme', ''), 
-            beacon_pages=get_beacon_pages(), 
-            school_alerts=state.get('school_alerts') or {}
-        )
+        try:
+            return render_template('admin.html', 
+                emergency=state.get('emergency') or {}, 
+                branding=state.get('branding') or {}, 
+                main_config=state.get('main_config') or {}, 
+                slides=state.get('slides') or [], 
+                managed_theme=state.get('managed_theme', ''), 
+                beacon_pages=get_beacon_pages(), 
+                school_alerts=state.get('school_alerts') or {}
+            )
+        except Exception as e:
+            if "admin.html" in str(e):
+                return "<h1>500 Internal Error: Template Not Found</h1><p>The file <b>admin.html</b> is missing from your <code>templates/</code> directory. Please create and commit it!</p>", 500
+            return f"<h1>500 Internal Error</h1><p>An unexpected Python error occurred: <b>{str(e)}</b></p>", 500
 @app.route('/api/state')
 def get_state(): 
     with state_lock:

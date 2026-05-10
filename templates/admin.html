@@ -3,523 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Morrow Edge | Buddy Control Panel</title>
+    <title>BEACON Admin Dashboard</title>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0a0a; color: #fff; margin: 0; padding: clamp(1rem, 4vw, 2rem); }
-        h1 { color: #00ffff; text-align: center; letter-spacing: 2px; text-transform: uppercase; margin-bottom: clamp(1rem, 4vw, 2rem); font-size: clamp(1.5rem, 5vw, 2.5rem); }
-        .container { max-width: 1200px; margin: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: clamp(10px, 3vw, 20px); }
-        .card { background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: clamp(15px, 3vw, 20px); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .card h2 { margin-top: 0; color: #00ffff; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: clamp(1.2rem, 4vw, 1.5rem); }
-        input, select, textarea, button { width: 100%; margin-bottom: 15px; padding: 12px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; font-family: inherit; }
-        button { background: #00ffff; color: #000; font-weight: bold; cursor: pointer; border: none; font-size: 1rem; text-transform: uppercase; transition: 0.2s; }
-        button:hover { background: #00cccc; box-shadow: 0 0 10px #00ffff; }
-        button.danger { background: #ff4444; color: #fff; }
-        button.danger:hover { background: #cc0000; box-shadow: 0 0 10px #ff4444; }
-        label { display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9rem; }
-        .slide-item { background: #222; padding: 15px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #00ffff; display: flex; justify-content: space-between; align-items: center; gap: 15px; }
-        .slide-info { flex-grow: 1; word-break: break-word; }
-        .color-preview { display: inline-block; width: 15px; height: 15px; border-radius: 50%; vertical-align: middle; }
-        
-        /* Custom Color Picker Button Styling */
-        input[type="color"] {
-            -webkit-appearance: none; appearance: none; width: 100%; height: 40px; padding: 0;
-            border: 1px solid #444; border-radius: 6px; cursor: pointer; background: #222;
-        }
-        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
-        input[type="color"]::-moz-color-swatch { border: none; border-radius: 5px; }
-
-        /* Custom Select Dropdown Styling */
-        select {
-            -webkit-appearance: none; appearance: none; cursor: pointer;
-            background-image: url("data:image/svg+xml;utf8,<svg fill='%23aaa' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
-            background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px;
-        }
+        body { background: #050510; color: #00ffff; font-family: monospace; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: rgba(0,50,50,0.2); border: 1px solid #00ffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,255,0.1); }
+        h1, h2, h3 { border-bottom: 1px solid #00ffff; padding-bottom: 10px; margin-top: 30px; }
+        h1 { margin-top: 0; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #aaa; font-weight: bold; }
+        input[type="text"], input[type="number"], input[type="url"], select { width: 100%; padding: 10px; background: #001111; color: #00ffff; border: 1px solid #00ffff; box-sizing: border-box; border-radius: 4px; font-family: inherit; }
+        button { background: #00ffff; color: #000; border: none; padding: 10px 15px; cursor: pointer; font-weight: bold; margin-top: 10px; border-radius: 4px; }
+        button:hover { background: #00cccc; }
+        .danger { background: #d32f2f; color: #fff; border: none; }
+        .danger:hover { background: #b71c1c; }
+        .slide-item { border: 1px dashed #00aaaa; padding: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,20,20,0.5); }
+        .flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        form { margin: 0; }
+        .alert-banner { display: block; padding: 10px; background: #d32f2f; color: white; text-align: center; margin-bottom: 20px; font-weight: bold; border-radius: 4px; }
     </style>
 </head>
 <body>
-    <div style="position: sticky; top: 0; background: rgba(10,10,10,0.95); backdrop-filter: blur(5px); padding: 15px 20px; z-index: 2000; border-bottom: 2px solid #00ffff; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.8);">
-        <div style="max-width: 1200px; margin: auto; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-            <label style="color: #00ffff; font-weight: bold; font-size: 1.2rem; margin: 0; cursor: pointer;" for="global_admin_pass">🔑 Master Password:</label>
-            <input type="password" id="global_admin_pass" placeholder="Type password once here to unlock all actions..." onkeyup="syncPasswords(this.value)" onchange="syncPasswords(this.value)" style="flex: 1; margin: 0; font-size: 1.1rem; padding: 10px; background: #111; border: 1px solid #00ffff; color: #00ffff; font-weight: bold;">
-        </div>
-    </div>
-    <h1>Buddy Control Panel</h1>
-    
     <div class="container">
-        <!-- 1. Beacon Flare -->
-        <div class="card">
-            <h2>🚨 Beacon Flare (Immediate Override)</h2>
-            <p style="font-size: 0.9rem; color: #888;">Instantly overrides Buddy's text and strobes the dashboard outline. Great for severe weather warnings.</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="update_flare">
-                <input type="hidden" name="password" class="auto-pass" required>
-                <label>Status:</label>
+        <h1>BEACON Content Administration</h1>
+        <a href="/" style="color: #00ffff; text-decoration: none; font-weight: bold;">&larr; Return to Live Dashboard</a>
+        
+        <h2>🚨 Emergency Override Protocol</h2>
+        {% if emergency.get('active') %}
+            <div class="alert-banner">AN EMERGENCY FLARE IS CURRENTLY ACTIVE!</div>
+        {% endif %}
+        <form method="POST">
+            <input type="hidden" name="action" value="update_flare">
+            <div class="form-group">
+                <label>Active Emergency Alert?</label>
                 <select name="flare_active">
-                    <option value="yes" {% if emergency.active %}selected{% endif %}>Active</option>
-                    <option value="no" {% if not emergency.active %}selected{% endif %}>Inactive</option>
+                    <option value="no" {% if not emergency.get('active') %}selected{% endif %}>No</option>
+                    <option value="yes" {% if emergency.get('active') %}selected{% endif %}>Yes</option>
                 </select>
-                <label>Alert Message:</label>
-                <textarea name="message" rows="3" placeholder="e.g. SNOW EMERGENCY DECLARED">{{ emergency.message }}</textarea>
-                <label>Pulse Color:</label>
-                <input type="color" name="color" value="{{ emergency.color | default('#ff0000') }}">
-                <button type="submit">Update Flare</button>
-            </form>
-        </div>
-
-        <!-- 2. Municipal Branding -->
-        <div class="card">
-            <h2>🏛️ Global Branding</h2>
-            <p style="font-size: 0.9rem; color: #888;">Customize the text that appears at the bottom left of the dashboard.</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="update_branding">
-                <input type="hidden" name="password" class="auto-pass" required>
-                <label>Branding Text:</label>
-                <input type="text" name="branding_text" value="{{ branding.text }}" placeholder="Leave blank to hide">
-                <label>Text Color:</label>
-                <input type="color" name="branding_color" value="{{ branding.color | default('#00ffff') }}">
-                <button type="submit">Update Branding</button>
-            </form>
-        </div>
-
-        <!-- Main Config -->
-        <div class="card">
-            <h2>🌍 Main Dashboard Config</h2>
-            <p style="font-size: 0.9rem; color: #888;">Customize the text and weather query for the primary dashboard root (/).</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="update_main_config">
-                <input type="hidden" name="password" class="auto-pass" required>
-                <label>Header Title:</label>
-                <input type="text" name="header_text" value="{{ main_config.header | default('MORROW EDGE | BEACON Buddy') }}" required>
-                <label>Location Subtitle:</label>
-                <input type="text" name="location_text" value="{{ main_config.location | default('SAULT STE. MARIE, MICHIGAN') }}" required>
-                <label>OpenWeatherMap Query (City, State, Country):</label>
-                <input type="text" name="query_text" value="{{ main_config.query | default('Sault+Ste.+Marie,MI,US') }}" required>
-                <button type="submit">Update Dashboard Setup</button>
-            </form>
-        </div>
-
-        <!-- Global Theme Pack -->
-        <div class="card">
-            <h2>🎨 Global Themepack</h2>
-            <p style="font-size: 0.9rem; color: #888;">Push a themepack to all connected displays. Users can manually overwrite it.</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="update_theme">
-                <input type="hidden" name="password" class="auto-pass" required>
-                <label>Select Theme:</label>
-                <select name="managed_theme">
-                    <option value="">None (Dynamic Time-of-Day)</option>
-                    <option value="ocean-mode" {% if managed_theme == 'ocean-mode' %}selected{% endif %}>Deep Sea</option>
-                    <option value="groovy-mode" {% if managed_theme == 'groovy-mode' %}selected{% endif %}>Groovy</option>
-                    <option value="high-contrast-mode" {% if managed_theme == 'high-contrast-mode' %}selected{% endif %}>High Contrast</option>
-                </select>
-                <button type="submit">Push Theme</button>
-            </form>
-        </div>
-
-        <!-- 3. Add Text Signage -->
-        <div class="card">
-            <h2>📝 Add Text Billboard Slide</h2>
-            <p style="font-size: 0.9rem; color: #888;">Creates a full-screen text slide (e.g. "Mackinac Bridge Closed", "Welcome Governor").</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="add_text_slide">
-                <input type="hidden" name="password" class="auto-pass" required>
-                <label>Message:</label>
-                <textarea name="text" rows="3" required placeholder="BLIZZARD WARNING"></textarea>
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>Background Color:</label><input type="color" name="bg_color" value="#ff0000"></div>
-                    <div style="flex: 1; min-width: 0;"><label>Text Color:</label><input type="color" name="text_color" value="#ffffff"></div>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
-                </div>
-                <label>🚨 Strobe Effect (High Urgency):</label>
-                <select name="strobe"><option value="no">No</option><option value="yes">Yes</option></select>
-                <label>⏱️ Time on screen (Seconds) <span style="font-weight:normal; font-size:0.85rem;">(0 = Stay forever)</span>:</label>
-                <input type="number" name="duration" value="15" min="0" max="86400" required>
-                <button type="submit">➕ Add Billboard Slide</button>
-            </form>
-        </div>
-
-        <!-- 4. Add Image Signage -->
-        <div class="card">
-            <h2>🖼️ Add Image Slide</h2>
-            <p style="font-size: 0.9rem; color: #888;">Upload a 16:9 image or flyer to display in the slideshow rotation.</p>
-            <form method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="add_image_slide">
-                <input type="hidden" name="password" class="auto-pass" required>
-                <label>Image File (.jpg, .png):</label>
-                <input type="file" name="image" accept="image/*" required style="background: transparent; border: none; padding: 0;">
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
-                </div>
-                <label>⏱️ Time on screen (Seconds) <span style="font-weight:normal; font-size:0.85rem;">(0 = Stay forever)</span>:</label>
-                <input type="number" name="duration" value="15" min="0" max="86400" required>
-                <button type="submit">➕ Upload Image Slide</button>
-            </form>
-        </div>
-
-        <!-- 5. Dynamic Beacon Pages -->
-        <div class="card">
-            <h2>🏫 Dynamic Beacon Pages</h2>
-            <p style="font-size: 0.9rem; color: #888;">Create dynamically generated school dashboards by zipcode.</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="add_beacon_page">
-                <input type="hidden" name="password" class="auto-pass" required>
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>Page Title:</label><input type="text" name="title" required placeholder="e.g. Brimley Schools"></div>
-                    <div style="flex: 1; min-width: 0;"><label>URL Slug:</label><input type="text" name="slug" required placeholder="e.g. brimley"></div>
-                </div>
-                <label>Zip Code / City Query:</label>
-                <input type="text" name="zipcode" required placeholder="e.g. 49715,US or Sault Ste. Marie,MI">
-                <button type="submit">Create Page</button>
-            </form>
-            
-            <h3 style="color: #00ffff; margin-top: 20px; border-bottom: 1px solid #333; padding-bottom: 5px;">Active Pages</h3>
-            {% if beacon_pages %}
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
-                {% for page in beacon_pages %}
-                    <div class="slide-item" style="flex-direction: column; align-items: stretch; gap: 10px;">
-                        <div class="slide-info">
-                            <strong>{{ page.title }}</strong><br>
-                            <span style="font-size:0.85rem; color:#888;">Route: /schools/{{ page.slug }} | Query: {{ page.zipcode }}</span>
-                        </div>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            <a href="/schools/{{ page.slug }}" target="_blank" style="background: #00ffff; color: #000; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem; margin-right: 10px;">View</a>
-                            <form method="POST" style="margin:0; display:flex; align-items:center; flex-wrap: wrap; gap: 10px;">
-                                <input type="hidden" name="action" value="delete_beacon_page">
-                                <input type="hidden" name="page_id" value="{{ page.id }}">
-                                <input type="hidden" name="password" class="auto-pass" required>
-                                <button type="submit" class="danger" style="margin:0; padding:8px 15px; width:auto;">🗑️ Delete</button>
-                            </form>
-                        </div>
-                    </div>
-                {% endfor %}
-                </div>
-            {% else %}
-                <p style="color: #666; font-style: italic;">No dynamic pages created yet.</p>
-            {% endif %}
-        </div>
-
-        <!-- School Alerts -->
-        <div class="card">
-            <h2>🛡️ School & Location SRP Alerts</h2>
-            <p style="font-size: 0.9rem; color: #888;">Trigger "I Love U Guys" Standard Response Protocol alerts for specific locations.</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="update_school_alert">
-                <input type="hidden" name="password" class="auto-pass" required>
-                <label>Target Location:</label>
-                <select name="location_slug" required>
-                    <option value="sault-schools">Sault Ste. Marie Schools</option>
-                    <option value="pickford-schools">Pickford Schools</option>
-                    {% for page in beacon_pages %}
-                    <option value="{{ page.slug }}">{{ page.title }}</option>
-                    {% endfor %}
-                </select>
-                <label>EAP Protocol Profile:</label>
-                <select id="eap_profile" onchange="updateEAPOptions()">
-                    <option value="CommonSense">Common Sense (Standard Office/Facility)</option>
-                    <option value="ILoveUGuys">Schools: "I Love U Guys" (SRP)</option>
-                    <option value="Hospital">Hospital / Healthcare (HICS)</option>
-                    <option value="Retail">Retail / Commercial (Walmart, etc.)</option>
-                    <option value="Casino">Casino / Entertainment</option>
-                </select>
-                <label>Alert Type:</label>
-                <select id="alert_type" name="alert_type" onchange="updateEAPDetails()" required>
-                    <!-- Populated dynamically via JS -->
-                </select>
-                <label>Alert Message / Instructions:</label>
-                <textarea id="alert_message" name="alert_message" rows="2" placeholder="e.g. Clear the halls. Do business as usual."></textarea>
-                <input type="hidden" id="alert_color" name="alert_color" value="#d32f2f">
-                <button type="submit">Update Location Alert</button>
-            </form>
-            <h3 style="color: #00ffff; margin-top: 20px; border-bottom: 1px solid #333; padding-bottom: 5px;">Active Alerts</h3>
-            {% if school_alerts %}
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
-                {% for slug, alert in school_alerts.items() %}
-                    <div class="slide-item" style="border-left-color: {{ alert.color }};">
-                        <div class="slide-info">
-                            <strong>{{ slug }}</strong><br>
-                            <span style="font-size:0.85rem; color:#888;">{{ alert.type }}: {{ alert.message }}</span>
-                        </div>
-                    </div>
-                {% endfor %}
-                </div>
-            {% else %}
-                <p style="color: #666; font-style: italic;">No active location alerts.</p>
-            {% endif %}
-        </div>
-        
-        <!-- 4.5 Add Video Signage -->
-        <div class="card">
-            <h2>🎥 Add Video Slide</h2>
-            <p style="font-size: 0.9rem; color: #888;">Link to an MP4/WebM video. Enable PIP to overlay it in the corner without hiding Buddy!</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="add_video_slide">
-                <input type="hidden" name="password" class="auto-pass" required>
-                <label>Direct Video URL (.mp4, .webm):</label>
-                <input type="url" name="url" required placeholder="https://example.com/video.mp4">
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>⏱️ Time on screen (Seconds) <span style="font-weight:normal; font-size:0.85rem;">(0 = forever)</span>:</label><input type="number" name="duration" value="30" min="0" max="86400" required></div>
-                    <div style="flex: 1; min-width: 0;"><label>Picture-in-Picture (PIP):</label><select name="pip"><option value="no">No (Fullscreen)</option><option value="yes">Yes (Corner Overlay)</option></select></div>
-                </div>
-                <button type="submit">➕ Add Video Slide</button>
-            </form>
-        </div>
-
-        <!-- 4.6 Add Web/Canva Signage -->
-        <div class="card">
-            <h2>🌐 Add Web / Canva / Slides</h2>
-            <p style="font-size: 0.9rem; color: #888;">Embed a Canva presentation, YouTube video, Google Slide, or PowerPoint (via OneDrive link).</p>
-            <form method="POST">
-                <input type="hidden" name="action" value="add_iframe_slide">
-                <input type="hidden" name="password" class="auto-pass" required>
-                
-                <label>Content Type:</label>
-                <select name="content_type" onchange="updatePlaceholder(this)">
-                    <option value="canva">Canva Presentation</option>
-                    <option value="youtube">YouTube Video</option>
-                    <option value="google_slides">Google Slides</option>
-                    <option value="powerpoint">PowerPoint (OneDrive/SharePoint Link)</option>
-                    <option value="custom">Custom Webpage URL</option>
-                </select>
-
-                <label>Embed URL or &lt;iframe&gt; Code:</label>
-                <input type="text" name="url" id="iframe_url_input" required placeholder="Paste link or <iframe> code here...">
-                
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>Picture-in-Picture (PIP):</label><select name="pip"><option value="no">No (Fullscreen)</option><option value="yes">Yes (Corner Overlay)</option></select></div>
-                    <div style="flex: 1; min-width: 0;"><label>Autoplay (if supported):</label><select name="autoplay"><option value="yes">Yes</option><option value="no">No</option></select></div>
-                </div>
-
-                <div id="canva_settings_container" style="display: none; gap: 10px; align-items: flex-start; margin-bottom: 15px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(0,255,255,0.2);">
-                    <div style="flex: 1; min-width: 0;">
-                        <label>🖼️ Total Slides in Canva:</label>
-                        <input type="number" name="canva_total_slides" value="1" min="1" max="100" style="margin-bottom:0;">
-                    </div>
-                    <div style="flex: 1; min-width: 0;">
-                        <label>⏱️ Time per slide (Seconds):</label>
-                        <input type="number" name="canva_slide_duration" value="10" min="1" max="300" style="margin-bottom:0;">
-                    </div>
-                </div>
-
-                <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
-                </div>
-                <div style="display: flex; gap: 10px; align-items: flex-start;">
-                    <div style="flex: 1; min-width: 0;">
-                        <label>⏱️ Time on screen (Seconds) <span style="font-weight:normal; font-size:0.85rem;">(0 = forever)</span>:</label>
-                        <input type="number" name="duration" value="30" min="0" max="86400" required oninput="document.getElementById('refresh_container').style.display = this.value === '0' ? 'block' : 'none';">
-                    </div>
-                    <div style="flex: 1; min-width: 0; display: none;" id="refresh_container">
-                        <label>Advanced Options:</label>
-                        <label style="display: flex; align-items: center; gap: 5px; color: #fff; margin: 0; padding: 10px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; cursor: pointer;">
-                            <input type="checkbox" name="refresh_3am" value="yes" style="width: auto; margin: 0; padding: 0;"> Auto-refresh link at 3:00 AM
-                        </label>
-                    </div>
-                </div>
-                <button type="submit">➕ Add Web / Slide</button>
-            </form>
-        </div>
-
-        <!-- 5. Active Slideshow -->
-        <div class="card" style="grid-column: 1 / -1;">
-            <h2>🎞️ Active Signage Playlist</h2>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
-                <p style="font-size: 0.9rem; color: #888; margin: 0;">The dashboard will automatically alternate between these slides in order.</p>
-                <div style="display: flex; gap: 10px;">
-                    <form method="POST" style="margin:0;">
-                        <input type="hidden" name="action" value="undo_slides">
-                        <input type="hidden" name="password" class="auto-pass">
-                        <button type="submit" style="padding: 5px 10px; font-size: 0.8rem;" title="Undo Last Slide Action">↩️ Undo</button>
-                    </form>
-                    <form method="POST" style="margin:0;">
-                        <input type="hidden" name="action" value="redo_slides">
-                        <input type="hidden" name="password" class="auto-pass">
-                        <button type="submit" style="padding: 5px 10px; font-size: 0.8rem;" title="Redo Last Slide Action">↪️ Redo</button>
-                    </form>
-                </div>
             </div>
-            {% if slides %}
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                {% for slide in slides %}
-                    <div class="slide-item" style="flex-direction: row; flex-wrap: wrap; align-items: center; gap: 15px; {% if slide.hidden %}opacity: 0.5; filter: grayscale(80%);{% endif %}">
-                        <div style="font-size: 2.5rem; line-height: 1;">
-                            {% if slide.type == 'dashboard' %}🏠
-                            {% elif slide.type == 'text' %}📝
-                            {% elif slide.type == 'image' %}🖼️
-                            {% elif slide.type == 'video' %}🎥
-                            {% elif slide.type == 'iframe' %}🌐
-                            {% endif %}
-                        </div>
-                        <div class="slide-info" style="flex-grow: 1;">
-                            {% if slide.type == 'dashboard' %}
-                                <strong style="color: #00ffff;">MAIN DASHBOARD ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong><br>The Weather & Buddy
-                            {% elif slide.type == 'text' %}
-                                <strong>TEXT ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: "{{ slide.text }}"
-                                <br><span class="color-preview" style="background: {{ slide.bg_color }};"></span> BG | <span class="color-preview" style="background: {{ slide.text_color }};"></span> Text | Strobe: {{ "Yes" if slide.strobe else "No" }}
-                            {% elif slide.type == 'image' %}
-                                <strong>IMAGE ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View File</a>
-                            {% elif slide.type == 'video' %}
-                                <strong>VIDEO ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
-                                <br><span style="font-size:0.85rem; color:#888;">PIP Mode: {{ "Yes" if slide.pip else "No" }}</span>
-                            {% elif slide.type == 'iframe' %}
-                                <strong>WEB / {{ slide.content_type | default('CANVA') | upper }} ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
-                                <br><span style="font-size:0.85rem; color:#888;">PIP Mode: {{ "Yes" if slide.pip else "No" }} | Autoplay: {{ "Yes" if slide.autoplay else "No" }}{% if slide.refresh_3am %} | Auto-Refresh: 3AM{% endif %}{% if slide.content_type == 'canva' and slide.canva_total_slides > 1 %} | Auto-Slide: Every {{ slide.canva_slide_duration }}s ({{ slide.canva_total_slides }} Slides){% endif %}</span>
-                            {% endif %}
-                            {% if slide.start_time %} <br><span style="font-size:0.85rem; color:#888;">Starts: {{ slide.start_time }}</span> {% endif %}
-                            {% if slide.end_time %} <span style="font-size:0.85rem; color:#888;">Ends: {{ slide.end_time }}</span> {% endif %}
-                        </div>
-                        <div style="display:flex; align-items:center; flex-wrap: wrap; gap: 8px; justify-content: flex-end;">
-                            {% if slide.type == 'dashboard' %}
-                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
-                                <input type="hidden" name="action" value="update_dashboard_slide">
-                                <input type="hidden" name="password" class="auto-pass">
-                                <input type="number" name="duration" value="{{ slide.duration }}" min="0" max="86400" style="width:80px; margin:0; padding:8px; font-weight:bold;" title="Duration (0=Forever)">
-                                <button type="submit" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;">💾 Update</button>
-                            </form>
-                            {% endif %}
-                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
-                                <input type="hidden" name="action" value="move_slide_up">
-                                <input type="hidden" name="slide_id" value="{{ slide.id }}">
-                                <input type="hidden" name="password" class="auto-pass">
-                                <button type="submit" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;" title="Move Up">⬆️</button>
-                            </form>
-                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
-                                <input type="hidden" name="action" value="move_slide_down">
-                                <input type="hidden" name="slide_id" value="{{ slide.id }}">
-                                <input type="hidden" name="password" class="auto-pass">
-                                <button type="submit" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;" title="Move Down">⬇️</button>
-                            </form>
-                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
-                                <input type="hidden" name="action" value="toggle_slide">
-                                <input type="hidden" name="slide_id" value="{{ slide.id }}">
-                                <input type="hidden" name="password" class="auto-pass">
-                                <button type="submit" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;" title="Toggle Visibility">👁️ {{ 'Show' if slide.hidden else 'Hide' }}</button>
-                            </form>
-                            {% if slide.type != 'dashboard' %}
-                            <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
-                                <input type="hidden" name="action" value="delete_slide">
-                                <input type="hidden" name="slide_id" value="{{ slide.id }}">
-                                <input type="hidden" name="password" class="auto-pass">
-                                <button type="submit" class="danger" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;">🗑️ Delete</button>
-                            </form>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-                </div>
-            {% else %}
-                <p style="color: #666; font-style: italic;">No active slides.</p>
-            {% endif %}
+            <div class="form-group">
+                <label>Emergency Message Displayed</label>
+                <input type="text" name="message" value="{{ emergency.get('message', '') }}" placeholder="e.g., LOCKDOWN! Lights Out, Out of Sight.">
+            </div>
+            <div class="form-group">
+                <label>UI Takeover Color (Hex)</label>
+                <input type="color" name="color" value="{{ emergency.get('color', '#ff0000') }}" style="width: 100px; padding: 0;">
+            </div>
+            <button type="submit" class="danger">Deploy / Update Emergency State</button>
+        </form>
+
+        <h2>📺 Digital Signage Slides</h2>
+        <div class="flex" style="margin-bottom: 15px;">
+            <form method="POST"><input type="hidden" name="action" value="undo_slides"><button type="submit" style="background:#444; color:#fff;">Undo Slide Change</button></form>
+            <form method="POST"><input type="hidden" name="action" value="redo_slides"><button type="submit" style="background:#444; color:#fff;">Redo</button></form>
         </div>
+
+        {% for slide in slides %}
+        <div class="slide-item">
+            <div>
+                <strong style="color: #fff; font-size: 1.1em;">{{ slide.type | upper }} SLIDE</strong><br>
+                <span style="color: #aaa;">Duration: {{ slide.duration }} seconds</span>
+                {% if slide.hidden %} <br><strong style="color: #ffaa00;">[CURRENTLY HIDDEN]</strong> {% endif %}
+                <br>
+                {% if slide.type == 'text' %} Text: {{ slide.text }}
+                {% elif slide.type == 'iframe' %} Embed: {{ slide.url[:40] }}...
+                {% endif %}
+            </div>
+            <div class="flex">
+                <form method="POST"><input type="hidden" name="action" value="move_slide_up"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Up</button></form>
+                <form method="POST"><input type="hidden" name="action" value="move_slide_down"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Down</button></form>
+                <form method="POST"><input type="hidden" name="action" value="toggle_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Hide</button></form>
+                {% if slide.type != 'dashboard' %}
+                <form method="POST"><input type="hidden" name="action" value="delete_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit" class="danger">X</button></form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <h3>➕ Add Custom Text Slide</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="add_text_slide">
+            <div class="form-group">
+                <label>Text Content (HTML Allowed)</label>
+                <input type="text" name="text" required placeholder="Welcome to BEACON!">
+            </div>
+            <div class="flex">
+                <div class="form-group"><label>Duration (s)</label><input type="number" name="duration" value="15"></div>
+                <div class="form-group"><label>Background Color</label><input type="color" name="bg_color" value="#000000" style="padding:0; width:100px;"></div>
+                <div class="form-group"><label>Text Color</label><input type="color" name="text_color" value="#ffffff" style="padding:0; width:100px;"></div>
+            </div>
+            <button type="submit">Add Text Slide</button>
+        </form>
+        
+        <h3>➕ Add External Media (Canva/YouTube/Slides)</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="add_iframe_slide">
+            <div class="form-group">
+                <label>URL or IFrame Embed Code</label>
+                <input type="text" name="url" required placeholder="https://www.canva.com/design/.../view?embed">
+            </div>
+            <div class="flex">
+                <div class="form-group"><label>Duration (s)</label><input type="number" name="duration" value="30"></div>
+                <div class="form-group"><label>Autoplay?</label><select name="autoplay"><option value="yes">Yes</option><option value="no">No</option></select></div>
+            </div>
+            <button type="submit">Inject Media Source</button>
+        </form>
     </div>
-    
-    <div style="text-align: center; margin-top: 30px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
-        <a href="/cooladmin" style="color: #ff00ff; text-decoration: none; font-weight: bold; margin-right: 20px;">⚙️ CoolAdmin</a>
-        <a href="/docs/admin" target="_blank" style="color: #ffaa00; text-decoration: none; font-weight: bold; margin-right: 20px;">📚 Documentation</a>
-        <a href="/" style="color: #00ffff; text-decoration: none; font-weight: bold;">← Back to Dashboard</a>
-    </div>
-    
-    <script>
-        const eapProfiles = {
-            "CommonSense": [
-                {val: "EVACUATE", label: "Evacuate Building (Red)", color: "#d32f2f", msg: "Please proceed to the nearest exit immediately."},
-                {val: "SHELTER", label: "Shelter in Place (Blue)", color: "#1976d2", msg: "Seek shelter immediately. Do not leave the building."},
-                {val: "HAZARD", label: "Hazard/Weather (Orange)", color: "#f57c00", msg: "Hazardous conditions detected. Stay indoors."},
-                {val: "ALL_CLEAR", label: "All Clear (Green)", color: "#388e3c", msg: "The emergency has passed. Resume normal activities."}
-            ],
-            "ILoveUGuys": [
-                {val: "HOLD", label: "HOLD (Purple)", color: "#800080", msg: "Clear the halls and remain in your room."},
-                {val: "SECURE", label: "SECURE (Orange)", color: "#ff8c00", msg: "Get inside. Lock outside doors."},
-                {val: "LOCKDOWN", label: "LOCKDOWN (Red)", color: "#d32f2f", msg: "Locks, lights, out of sight."},
-                {val: "EVACUATE", label: "EVACUATE (Green)", color: "#388e3c", msg: "Leave the building according to plan."},
-                {val: "SHELTER", label: "SHELTER (Blue)", color: "#1976d2", msg: "Hazard and safety strategy."}
-            ],
-            "Hospital": [
-                {val: "CODE_RED", label: "Code Red - Fire (Red)", color: "#d32f2f", msg: "Fire emergency. Follow evacuation protocols."},
-                {val: "CODE_BLUE", label: "Code Blue - Medical (Blue)", color: "#1976d2", msg: "Medical emergency in progress."},
-                {val: "CODE_BLACK", label: "Code Black - Bomb (Black)", color: "#000000", msg: "Bomb threat. Follow security instructions."},
-                {val: "CODE_SILVER", label: "Code Silver - Weapon (Gray)", color: "#757575", msg: "Person with weapon. Seek immediate cover."}
-            ],
-            "Retail": [
-                {val: "EVACUATE", label: "Store Evacuation (Red)", color: "#d32f2f", msg: "Please leave the store immediately through the nearest exit."},
-                {val: "WEATHER", label: "Severe Weather (Orange)", color: "#f57c00", msg: "Severe weather alert. Please move away from windows."},
-                {val: "MEDICAL", label: "Medical Incident (Blue)", color: "#1976d2", msg: "Medical incident. Please clear the area for responders."}
-            ],
-            "Casino": [
-                {val: "EVACUATE", label: "Casino Evacuation (Red)", color: "#d32f2f", msg: "Please evacuate the gaming floor immediately."},
-                {val: "SECURITY", label: "Security Incident (Orange)", color: "#f57c00", msg: "Security incident. Please follow staff directions."},
-                {val: "WEATHER", label: "Severe Weather (Blue)", color: "#1976d2", msg: "Severe weather alert. Move to interior areas."}
-            ]
-        };
-
-        function updateEAPOptions() {
-            const profile = document.getElementById('eap_profile').value;
-            const typeSelect = document.getElementById('alert_type');
-            typeSelect.innerHTML = '<option value="NONE" data-color="#000" data-msg="">Clear Alert (Normal)</option>';
-            eapProfiles[profile].forEach(opt => {
-                let el = document.createElement('option');
-                el.value = opt.val; el.innerHTML = opt.label; el.dataset.color = opt.color; el.dataset.msg = opt.msg;
-                typeSelect.appendChild(el);
-            });
-            updateEAPDetails();
-        }
-
-        function updateEAPDetails() {
-            const typeSelect = document.getElementById('alert_type');
-            const selected = typeSelect.options[typeSelect.selectedIndex];
-            document.getElementById('alert_color').value = selected.dataset.color || '#d32f2f';
-            document.getElementById('alert_message').value = selected.value !== "NONE" ? (selected.dataset.msg || '') : '';
-        }
-        
-        function applyTemplate(msg, color, activeState) {
-            document.querySelector('textarea[name="message"]').value = msg;
-            document.querySelector('input[name="color"]').value = color;
-            document.querySelector('select[name="flare_active"]').value = activeState;
-        }
-        
-        updateEAPOptions(); // Init forms on load
-        
-        function syncPasswords(val) {
-            document.querySelectorAll('.auto-pass').forEach(inp => inp.value = val);
-        }
-        document.querySelectorAll('form').forEach(f => {
-            f.addEventListener('submit', (e) => {
-                if (!document.getElementById('global_admin_pass').value) {
-                    e.preventDefault();
-                    alert('Please enter the Master Password at the very top of the screen first!');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                    document.getElementById('global_admin_pass').focus();
-                }
-            });
-        });
-
-        function updatePlaceholder(select) {
-            const input = document.getElementById('iframe_url_input');
-            const canvaSettings = document.getElementById('canva_settings_container');
-            if (select.value === 'canva') {
-                input.placeholder = "Paste Canva URL or Embed Code...";
-                if (canvaSettings) canvaSettings.style.display = 'flex';
-            } else {
-                if (canvaSettings) canvaSettings.style.display = 'none';
-                if (select.value === 'youtube') input.placeholder = "Paste YouTube URL or Embed Code...";
-                else if (select.value === 'google_slides') input.placeholder = "Paste Google Slides URL or Embed Code...";
-                else if (select.value === 'powerpoint') input.placeholder = "Paste PowerPoint URL or Embed Code...";
-                else input.placeholder = "Paste Webpage URL or <iframe> code...";
-            }
-        }
-        document.addEventListener('DOMContentLoaded', () => {
-            const sel = document.querySelector('select[name="content_type"]');
-            if (sel) updatePlaceholder(sel);
-        });
-    </script>
 </body>
 </html>
