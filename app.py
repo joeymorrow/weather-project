@@ -1814,13 +1814,19 @@ def submit_vote():
     if not data: return jsonify(success=False), 400
     item_id = data.get("item_id")
     vote_type = data.get("vote_type")
+    action = data.get("action", "add")
     if item_id and vote_type in ['up', 'down']:
         with state_lock:
             if 'agenda_votes' not in state:
                 state['agenda_votes'] = {}
             if item_id not in state['agenda_votes']:
                 state['agenda_votes'][item_id] = {'up': 0, 'down': 0}
-            state['agenda_votes'][item_id][vote_type] += 1
+            
+            if action == 'add':
+                state['agenda_votes'][item_id][vote_type] += 1
+            elif action == 'remove':
+                state['agenda_votes'][item_id][vote_type] = max(0, state['agenda_votes'][item_id][vote_type] - 1)
+                
             try:
                 with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
             except: pass

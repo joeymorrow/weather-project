@@ -97,8 +97,10 @@
         .agenda-vote-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
         .agenda-vote-btn-up { background: rgba(0, 255, 0, 0.1); border: 1px solid #00ff00; color: #00ff00; }
         .agenda-vote-btn-up:hover, .agenda-vote-btn-up:focus { background: #00ff00; color: #000; outline: none; }
+        .agenda-vote-btn-up.voted-active { background: #00ff00; color: #000; box-shadow: 0 0 15px #00ff00; }
         .agenda-vote-btn-down { background: rgba(255, 0, 0, 0.1); border: 1px solid #ff4444; color: #ff4444; }
         .agenda-vote-btn-down:hover, .agenda-vote-btn-down:focus { background: #ff4444; color: #000; outline: none; }
+        .agenda-vote-btn-down.voted-active { background: #ff4444; color: #000; box-shadow: 0 0 15px #ff4444; }
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: auto; z-index: 3500; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: pointer; }
         #build-stamp:hover, #build-stamp:focus { opacity: 0.8; outline: none; }
         /* Ambient Mode (Fullscreen) - Hide UI Overlays */
@@ -1078,22 +1080,66 @@
             document.getElementById('pulse-modal').style.display = 'none';
         };
 
+        window.applyLocalVotes = function() {
+            let localVotes = JSON.parse(localStorage.getItem('beacon_votes') || '{}');
+            for (let itemId in localVotes) {
+                let voteType = localVotes[itemId];
+                let safeId = btoa(encodeURIComponent(itemId)).replace(/=/g, '');
+                document.querySelectorAll(`.vote-btn-${voteType}-${safeId}`).forEach(btn => {
+                    btn.classList.add('voted-active');
+                });
+            }
+        };
+
         window.submitAgendaVote = async function(itemLabel, voteType, btnEl) {
             try {
-                let countSpan = btnEl.querySelector(voteType === 'up' ? '.up-count' : '.down-count');
-                if (countSpan) {
-                    countSpan.innerText = parseInt(countSpan.innerText) + 1;
+                let localVotes = JSON.parse(localStorage.getItem('beacon_votes') || '{}');
+                let currentVote = localVotes[itemLabel];
+                let action = 'add';
+                let removeVoteType = null;
+                
+                if (currentVote === voteType) {
+                    action = 'remove';
+                    delete localVotes[itemLabel];
+                } else {
+                    if (currentVote) removeVoteType = currentVote;
+                    localVotes[itemLabel] = voteType;
                 }
                 
+                let countSpan = btnEl.querySelector(voteType === 'up' ? '.up-count' : '.down-count');
+                if (countSpan) countSpan.innerText = Math.max(0, parseInt(countSpan.innerText) + (action === 'add' ? 1 : -1));
+                if (action === 'add') btnEl.classList.add('voted-active');
+                else btnEl.classList.remove('voted-active');
+
+                if (removeVoteType) {
+                    const safeId = btoa(encodeURIComponent(itemLabel)).replace(/=/g, '');
+                    const otherBtn = document.querySelector(`.vote-btn-${removeVoteType}-${safeId}`);
+                    if (otherBtn) {
+                        let otherSpan = otherBtn.querySelector(`.${removeVoteType}-count`);
+                        if (otherSpan) otherSpan.innerText = Math.max(0, parseInt(otherSpan.innerText) - 1);
+                        otherBtn.classList.remove('voted-active');
+                    }
+                    await fetch('/api/vote', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ item_id: itemLabel, vote_type: removeVoteType, action: 'remove' })
+                    });
+                }
+                localStorage.setItem('beacon_votes', JSON.stringify(localVotes));
+
                 await fetch('/api/vote', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ item_id: itemLabel, vote_type: voteType })
+                    body: JSON.stringify({ item_id: itemLabel, vote_type: voteType, action: action })
                 });
                 
                 if (!window.agendaVotes) window.agendaVotes = {};
                 if (!window.agendaVotes[itemLabel]) window.agendaVotes[itemLabel] = {up: 0, down: 0};
-                window.agendaVotes[itemLabel][voteType] += 1;
+                if (action === 'add') {
+                    window.agendaVotes[itemLabel][voteType] += 1;
+                    if (removeVoteType) window.agendaVotes[itemLabel][removeVoteType] = Math.max(0, window.agendaVotes[itemLabel][removeVoteType] - 1);
+                } else {
+                    window.agendaVotes[itemLabel][voteType] = Math.max(0, window.agendaVotes[itemLabel][voteType] - 1);
+                }
             } catch(e) {
                 console.error("Failed to cast vote:", e);
             }
@@ -1222,6 +1268,7 @@
             content.innerHTML = html;
             document.getElementById('agenda-modal').style.display = 'flex';
             
+            window.applyLocalVotes();
             const scrollBox = document.getElementById('calendar-scroll');
             if (scrollBox) {
                 scrollBox.focus();
@@ -2108,6 +2155,14 @@
                 activeSlideTimer = 'forever';
             }
         }
+
+        // Apply local votes for modals already in the DOM (Garage Sales, Sault Tribe)
+        document.getElementById('garage-trigger').addEventListener('click', () => {
+            setTimeout(window.applyLocalVotes, 50);
+        });
+        document.getElementById('tribe-trigger').addEventListener('click', () => {
+            setTimeout(window.applyLocalVotes, 50);
+        });
 
         fetchState();
         setTimeout(() => document.body.classList.remove('preload-theme'), 2000); // Failsafe fallback

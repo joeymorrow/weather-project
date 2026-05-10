@@ -35,6 +35,7 @@
             background-image: url("data:image/svg+xml;utf8,<svg fill='%2300ffff' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
             background-repeat: no-repeat; background-position: right 8px center; padding-right: 28px !important;
         }
+        .help-tip { cursor: help; color: #ffaa00; border: 1px solid #ffaa00; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 5px; text-decoration: none; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -181,12 +182,13 @@
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px;">
                 <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0;">
                     <input type="hidden" name="action" value="add_eap_sub">
-                    <input type="text" name="multicast_ip" required placeholder="Multicast IP (e.g. 239.0.0.1)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; min-width:150px; outline:none;">
+                    <input type="text" name="multicast_ip" required placeholder="Multicast IP (e.g. 239.0.0.1)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; min-width:150px; outline:none;" title="The Multicast IP Address to listen on (e.g. 239.0.0.1)">
                     <input type="number" name="port" required placeholder="Port (e.g. 5000)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; min-width:100px; outline:none;">
                     <select name="profile" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; outline:none;">
                         <option value="CommonSense">Common Sense / Guess</option>
                         <option value="ILoveUGuys">I Love U Guys (SRP)</option>
                     </select>
+                    <span class="help-tip" title="CommonSense parses raw text for keywords (fire, lockdown). ILoveUGuys expects standard SRP IncidentTypes.">?</span>
                     <button type="submit" class="manage-btn">Add EAP Listener</button>
                 </form>
             </div>
@@ -211,6 +213,23 @@
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
                 {% for provider in ['Microsoft', 'Google', 'Clever', 'ActiveDirectory'] %}
                 {% set p_conf = sso_configs | selectattr('provider', 'equalto', provider) | first | default({'enabled': False, 'client_id': '', 'client_secret': '', 'extra_info': ''}) %}
+                {% if provider == 'Microsoft' %}
+                    {% set pid_ph = "Application (client) ID" %}
+                    {% set psec_ph = "Client Secret Value" %}
+                    {% set pex_ph = "Directory (tenant) ID" %}
+                {% elif provider == 'Google' %}
+                    {% set pid_ph = "OAuth 2.0 Client ID" %}
+                    {% set psec_ph = "OAuth 2.0 Client Secret" %}
+                    {% set pex_ph = "Workspace Domain (e.g. schools.org)" %}
+                {% elif provider == 'Clever' %}
+                    {% set pid_ph = "Clever Client ID" %}
+                    {% set psec_ph = "Clever Client Secret" %}
+                    {% set pex_ph = "District ID (Optional)" %}
+                {% else %}
+                    {% set pid_ph = "Client ID" %}
+                    {% set psec_ph = "Client Secret" %}
+                    {% set pex_ph = "Tenant ID / Metadata URL" %}
+                {% endif %}
                 <form method="POST" style="background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2);">
                     <input type="hidden" name="action" value="update_sso">
                     <input type="hidden" name="provider" value="{{ provider }}">
@@ -220,9 +239,12 @@
                             <input type="checkbox" name="enabled" value="yes" {% if p_conf.enabled %}checked{% endif %} style="width:auto; margin:0;"> Enabled
                         </label>
                     </h3>
-                    <input type="text" name="client_id" value="{{ p_conf.client_id }}" placeholder="Client ID" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
-                    <input type="password" name="client_secret" value="{{ p_conf.client_secret }}" placeholder="Client Secret" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
-                    <input type="text" name="extra_info" value="{{ p_conf.extra_info }}" placeholder="Tenant ID / Metadata URL" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
+                    <label style="font-size: 0.8rem; color: #aaa;">{{ pid_ph }}</label>
+                    <input type="text" name="client_id" value="{{ p_conf.client_id }}" placeholder="{{ pid_ph }}" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
+                    <label style="font-size: 0.8rem; color: #aaa;">{{ psec_ph }}</label>
+                    <input type="password" name="client_secret" value="{{ p_conf.client_secret }}" placeholder="{{ psec_ph }}" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
+                    <label style="font-size: 0.8rem; color: #aaa;">{{ pex_ph }}</label>
+                    <input type="text" name="extra_info" value="{{ p_conf.extra_info }}" placeholder="{{ pex_ph }}" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
                     <button type="submit" class="manage-btn" style="width: 100%;">Save {{ provider }}</button>
                 </form>
                 {% endfor %}
@@ -264,8 +286,8 @@
                     <option value="ActiveDirectory">On-Prem AD</option>
                 </select>
                 
-                <label style="color: #00ffff; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; flex:1;">
-                    <input type="checkbox" name="override_group" value="yes" style="margin: 0; width: auto;"> Override Group
+                <label style="color: #00ffff; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; flex:1;" title="If checked, this specific user's role will override any role assigned to their broader SSO group.">
+                    <input type="checkbox" name="override_group" value="yes" style="margin: 0; width: auto;"> Override Group <span class="help-tip" style="margin-left:0;">?</span>
                 </label>
                 
                 <button type="submit" class="manage-btn" style="padding: 8px 15px;">Assign Role</button>

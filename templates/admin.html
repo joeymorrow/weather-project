@@ -20,6 +20,7 @@
         .flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         form { margin: 0; }
         .alert-banner { display: block; padding: 10px; background: #d32f2f; color: white; text-align: center; margin-bottom: 20px; font-weight: bold; border-radius: 4px; }
+        .help-tip { cursor: help; color: #ffaa00; border: 1px solid #ffaa00; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 5px; text-decoration: none; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -37,7 +38,7 @@
         <form method="POST" action="/admin/{{ slug }}">
             <input type="hidden" name="action" value="update_flare">
             <div class="form-group">
-                <label>Active Emergency Alert?</label>
+                <label>Active Emergency Alert? <span class="help-tip" title="Forces a full-screen takeover of the dashboard. Use for active lock-downs or critical scenarios.">?</span></label>
                 <select name="flare_active">
                     <option value="no" {% if not emergency.get('active') %}selected{% endif %}>No</option>
                     <option value="yes" {% if emergency.get('active') %}selected{% endif %}>Yes</option>
@@ -93,7 +94,7 @@
         <form method="POST" action="/admin/{{ slug }}">
             <input type="hidden" name="action" value="add_text_slide">
             <div class="form-group">
-                <label>Text Content (HTML Allowed)</label>
+                <label>Text Content (HTML Allowed) <span class="help-tip" title="You can use basic HTML like <br> for line breaks or <b> for bold text.">?</span></label>
                 <input type="text" name="text" required placeholder="Welcome to BEACON!">
             </div>
             <div class="flex">
@@ -109,12 +110,12 @@
         <form method="POST" action="/admin/{{ slug }}">
             <input type="hidden" name="action" value="add_iframe_slide">
             <div class="form-group">
-                <label>URL or IFrame Embed Code</label>
-                <input type="text" name="url" required placeholder="https://www.canva.com/design/.../view?embed">
+                <label>URL or IFrame Embed Code <span class="help-tip" title="Paste a direct URL (e.g. YouTube link) or the raw <iframe src='...'> HTML code provided by the vendor.">?</span></label>
+                <textarea name="url" required placeholder="https://www.canva.com/design/.../view?embed&#10;OR&#10;<iframe src='...'></iframe>" style="width: 100%; padding: 10px; background: #001111; color: #00ffff; border: 1px solid #00ffff; box-sizing: border-box; border-radius: 4px; font-family: inherit; resize: vertical; min-height: 80px;"></textarea>
             </div>
             <div class="flex">
                 <div class="form-group"><label>Duration (s)</label><input type="number" name="duration" value="30"></div>
-                <div class="form-group"><label>Autoplay?</label><select name="autoplay"><option value="yes">Yes</option><option value="no">No</option></select></div>
+                <div class="form-group"><label>Autoplay? <span class="help-tip" title="Attempts to append autoplay parameters to common vendors like YouTube or Google Slides.">?</span></label><select name="autoplay"><option value="yes">Yes</option><option value="no">No</option></select></div>
             </div>
             <button type="submit">Inject Media Source</button>
         </form>
