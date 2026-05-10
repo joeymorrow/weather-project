@@ -4,3 +4,4 @@ google-genai
 python-dotenv
 pytz
 gunicorn
+markdown

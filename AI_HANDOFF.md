@@ -27,5 +27,13 @@ The WebGL environment strictly adheres to a "Valgrind-like" zero-allocation mind
 - **Secrets Management:** The runner pulls keys (`GEMINI_API_KEY`, etc.) and dynamically injects them into the `.env` file during deployment.
 - **Cloudflare Tunnels:** Remote access is securely piped through a `cloudflared` daemon. 
 
+## 📚 AI Documentation Protocol (The Docs Hierarchy)
+Whenever you modify a user-facing view, feature, or admin portal (excluding `/rpg`), you MUST review and update the corresponding documentation.
+- Documentation resides in the `docs/` directory as Markdown files.
+- The global hierarchy starts at `docs/index.md`.
+- Public dashboards (`/`, schools) link to docs via a `?` tooltip.
+- Admin pages link to docs via a "Documentation" hyperlink.
+If you create a new page or new feature, create its documentation file and link it into `docs/index.md`.
+
 ## 🗺️ Where to Start
 If I ask you to build a new feature or fix a bug, refer back to these patterns. Keep the AI prompts tightly constrained to the actual weather payload, and keep the WebGL engine relentlessly optimized. Let's build!

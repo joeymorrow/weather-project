@@ -298,9 +298,8 @@
                             {% if slide.type == 'text' %}
                                 <strong>TEXT ({{ slide.duration }}s)</strong>: "{{ slide.text }}"
                                 <br><span class="color-preview" style="background: {{ slide.bg_color }};"></span> BG | <span class="color-preview" style="background: {{ slide.text_color }};"></span> Text | Strobe: {{ "Yes" if slide.strobe else "No" }}
-                            {% else %}
+                            {% elif slide.type == 'image' %}
                                 <strong>IMAGE ({{ slide.duration }}s)</strong>: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View File</a>
-                            {% endif %}
                             {% elif slide.type == 'video' %}
                                 <strong>VIDEO ({{ slide.duration }}s)</strong>: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
                                 <br><span style="font-size:0.85rem; color:#888;">PIP Mode: {{ "Yes" if slide.pip else "No" }}</span>
@@ -325,8 +324,9 @@
         </div>
     </div>
     
-    <div style="text-align: center; margin-top: 30px;">
+    <div style="text-align: center; margin-top: 30px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
         <a href="/cooladmin" style="color: #ff00ff; text-decoration: none; font-weight: bold; margin-right: 20px;">⚙️ CoolAdmin</a>
+        <a href="/docs/admin" target="_blank" style="color: #ffaa00; text-decoration: none; font-weight: bold; margin-right: 20px;">📚 Documentation</a>
         <a href="/" style="color: #00ffff; text-decoration: none; font-weight: bold;">← Back to Dashboard</a>
     </div>
     

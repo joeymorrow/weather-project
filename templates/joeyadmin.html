@@ -277,7 +277,10 @@
         </div>
     </div>
     
-    <a href="/" class="nav-home">← Return to Base</a>
+    <div style="text-align: center; margin-top: 30px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
+        <a href="/docs/cooladmin" target="_blank" class="nav-home" style="color: #ffaa00; margin-top: 0;">📚 Documentation</a>
+        <a href="/" class="nav-home" style="margin-top: 0;">← Return to Base</a>
+    </div>
 
     <script>
         const allMetrics = {{ metrics | tojson | safe }};

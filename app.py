@@ -13,6 +13,7 @@ from google.genai import types
 import socket, struct, select
 import pytz
 from werkzeug.utils import secure_filename
+import markdown
 
 def send_alert_email(subject, body):
     try:
@@ -766,12 +767,29 @@ def eap_multicast_listener():
 
 @app.before_request
 def check_disabled_pages():
-    if request.path.startswith('/cooladmin') or request.path.startswith('/joeyadmin') or request.path.startswith('/admin') or request.path.startswith('/static') or request.path.startswith('/api/'):
+    if request.path.startswith('/cooladmin') or request.path.startswith('/joeyadmin') or request.path.startswith('/admin') or request.path.startswith('/static') or request.path.startswith('/api/') or request.path.startswith('/docs'):
         return
     with state_lock:
         disabled = state.get("disabled_pages", [])
     if request.path in disabled or (request.path != '/' and request.path.rstrip('/') in disabled):
         return "<body style='background:#010103; color:#00ffff; font-family:monospace; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0;'><h2>[ SYSTEM OFFLINE ]</h2><p style='color:#fff; opacity:0.5;'>This page has been temporarily disabled.</p></body>", 503
+
+@app.route('/docs')
+@app.route('/docs/<path:filename>')
+def serve_docs(filename='index'):
+    safe_name = secure_filename(filename.replace('/', '_'))
+    safe_path = os.path.join(BASE_DIR, 'docs', f"{safe_name}.md")
+    if not os.path.exists(safe_path):
+        if os.path.exists(os.path.join(BASE_DIR, 'docs', 'index.md')):
+            safe_path = os.path.join(BASE_DIR, 'docs', 'index.md')
+        else:
+            return "Documentation not found.", 404
+            
+    with open(safe_path, 'r', encoding='utf-8') as f:
+        md_content = f.read()
+        
+    html_content = markdown.markdown(md_content, extensions=['extra', 'toc'])
+    return render_template('doc_viewer.html', content=html_content, title=filename.replace('_', ' ').title())
 
 @app.route('/')
 def index():
@@ -830,11 +848,12 @@ def dynamic_school(slug):
         page_state['school_closings'] = state.get('school_closings', {})
         return render_template('school_dashboard.html', **page_state)
 
-@app.route('/joeyadmin', methods=['GET', 'POST'])
-def joeyadmin():
+@app.route('/cooladmin', methods=['GET', 'POST'])
+@app.route('/joeyadmin', methods=['GET', 'POST']) # Legacy support
+def cooladmin():
     auth = request.authorization
     if not auth or auth.username != admin_username or auth.password != admin_password:
-        return "Overlord Access Denied", 401, {'WWW-Authenticate': 'Basic realm="JoeyAdmin Login Required"'}
+        return "Administrator Access Denied", 401, {'WWW-Authenticate': 'Basic realm="CoolAdmin Login Required"'}
         
     cleanup_summary = None
 
@@ -923,7 +942,7 @@ def joeyadmin():
             confirm_pass = request.form.get('password')
             if auth and confirm_user == admin_username and confirm_pass == admin_password:
                 import signal
-                log_system_event("SHUTDOWN", "Nuclear option invoked by overlord.")
+                log_system_event("SHUTDOWN", "Nuclear option invoked by cooladmin.")
                 def kill_server():
                     time.sleep(1)
                     if 'gunicorn' in os.environ.get('SERVER_SOFTWARE', '').lower():
