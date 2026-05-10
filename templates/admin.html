@@ -136,8 +136,8 @@
                 </div>
                 <label>🚨 Strobe Effect (High Urgency):</label>
                 <select name="strobe"><option value="no">No</option><option value="yes">Yes</option></select>
-                <label>⏱️ Time on screen (Seconds):</label>
-                <input type="number" name="duration" value="15" min="5" max="300" required>
+                <label>⏱️ Time on screen (Seconds) <span style="font-weight:normal; font-size:0.85rem;">(0 = Stay forever)</span>:</label>
+                <input type="number" name="duration" value="15" min="0" max="86400" required>
                 <button type="submit">➕ Add Billboard Slide</button>
             </form>
         </div>
@@ -155,8 +155,8 @@
                     <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
                     <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
-                <label>⏱️ Time on screen (Seconds):</label>
-                <input type="number" name="duration" value="15" min="5" max="300" required>
+                <label>⏱️ Time on screen (Seconds) <span style="font-weight:normal; font-size:0.85rem;">(0 = Stay forever)</span>:</label>
+                <input type="number" name="duration" value="15" min="0" max="86400" required>
                 <button type="submit">➕ Upload Image Slide</button>
             </form>
         </div>
@@ -266,7 +266,7 @@
                     <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1; min-width: 0;"><label>⏱️ Time on screen (Seconds):</label><input type="number" name="duration" value="30" min="5" max="3600" required></div>
+                    <div style="flex: 1; min-width: 0;"><label>⏱️ Time on screen (Seconds) <span style="font-weight:normal; font-size:0.85rem;">(0 = forever)</span>:</label><input type="number" name="duration" value="30" min="0" max="86400" required></div>
                     <div style="flex: 1; min-width: 0;"><label>Picture-in-Picture (PIP):</label><select name="pip"><option value="no">No (Fullscreen)</option><option value="yes">Yes (Corner Overlay)</option></select></div>
                 </div>
                 <button type="submit">➕ Add Video Slide</button>
@@ -298,12 +298,33 @@
                     <div style="flex: 1; min-width: 0;"><label>Autoplay (if supported):</label><select name="autoplay"><option value="yes">Yes</option><option value="no">No</option></select></div>
                 </div>
 
+                <div id="canva_settings_container" style="display: none; gap: 10px; align-items: flex-start; margin-bottom: 15px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(0,255,255,0.2);">
+                    <div style="flex: 1; min-width: 0;">
+                        <label>🖼️ Total Slides in Canva:</label>
+                        <input type="number" name="canva_total_slides" value="1" min="1" max="100" style="margin-bottom:0;">
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <label>⏱️ Time per slide (Seconds):</label>
+                        <input type="number" name="canva_slide_duration" value="10" min="1" max="300" style="margin-bottom:0;">
+                    </div>
+                </div>
+
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 1; min-width: 0;"><label>📅 Schedule Start (Optional):</label><input type="datetime-local" name="start_time"></div>
                     <div style="flex: 1; min-width: 0;"><label>📅 Schedule End (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
-                <label>⏱️ Time on screen (Seconds):</label>
-                <input type="number" name="duration" value="30" min="5" max="3600" required>
+                <div style="display: flex; gap: 10px; align-items: flex-start;">
+                    <div style="flex: 1; min-width: 0;">
+                        <label>⏱️ Time on screen (Seconds) <span style="font-weight:normal; font-size:0.85rem;">(0 = forever)</span>:</label>
+                        <input type="number" name="duration" value="30" min="0" max="86400" required oninput="document.getElementById('refresh_container').style.display = this.value === '0' ? 'block' : 'none';">
+                    </div>
+                    <div style="flex: 1; min-width: 0; display: none;" id="refresh_container">
+                        <label>Advanced Options:</label>
+                        <label style="display: flex; align-items: center; gap: 5px; color: #fff; margin: 0; padding: 10px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; cursor: pointer;">
+                            <input type="checkbox" name="refresh_3am" value="yes" style="width: auto; margin: 0; padding: 0;"> Auto-refresh link at 3:00 AM
+                        </label>
+                    </div>
+                </div>
                 <button type="submit">➕ Add Web / Slide</button>
             </form>
         </div>
@@ -340,18 +361,18 @@
                         </div>
                         <div class="slide-info" style="flex-grow: 1;">
                             {% if slide.type == 'dashboard' %}
-                                <strong style="color: #00ffff;">MAIN DASHBOARD ({{ slide.duration }}s)</strong><br>The Weather & Buddy
+                                <strong style="color: #00ffff;">MAIN DASHBOARD ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong><br>The Weather & Buddy
                             {% elif slide.type == 'text' %}
-                                <strong>TEXT ({{ slide.duration }}s)</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: "{{ slide.text }}"
+                                <strong>TEXT ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: "{{ slide.text }}"
                                 <br><span class="color-preview" style="background: {{ slide.bg_color }};"></span> BG | <span class="color-preview" style="background: {{ slide.text_color }};"></span> Text | Strobe: {{ "Yes" if slide.strobe else "No" }}
                             {% elif slide.type == 'image' %}
-                                <strong>IMAGE ({{ slide.duration }}s)</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View File</a>
+                                <strong>IMAGE ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View File</a>
                             {% elif slide.type == 'video' %}
-                                <strong>VIDEO ({{ slide.duration }}s)</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
+                                <strong>VIDEO ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
                                 <br><span style="font-size:0.85rem; color:#888;">PIP Mode: {{ "Yes" if slide.pip else "No" }}</span>
                             {% elif slide.type == 'iframe' %}
-                                <strong>WEB / {{ slide.content_type | default('CANVA') | upper }} ({{ slide.duration }}s)</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
-                                <br><span style="font-size:0.85rem; color:#888;">PIP Mode: {{ "Yes" if slide.pip else "No" }} | Autoplay: {{ "Yes" if slide.autoplay else "No" }}</span>
+                                <strong>WEB / {{ slide.content_type | default('CANVA') | upper }} ({{ 'Forever' if slide.duration == 0 else slide.duration ~ 's' }})</strong>{% if slide.hidden %} <span style="color:#ff4444; font-size:0.8rem;">(HIDDEN)</span>{% endif %}: <a href="{{ slide.url }}" target="_blank" style="color:#00ffff;">View Link</a>
+                                <br><span style="font-size:0.85rem; color:#888;">PIP Mode: {{ "Yes" if slide.pip else "No" }} | Autoplay: {{ "Yes" if slide.autoplay else "No" }}{% if slide.refresh_3am %} | Auto-Refresh: 3AM{% endif %}{% if slide.content_type == 'canva' and slide.canva_total_slides > 1 %} | Auto-Slide: Every {{ slide.canva_slide_duration }}s ({{ slide.canva_total_slides }} Slides){% endif %}</span>
                             {% endif %}
                             {% if slide.start_time %} <br><span style="font-size:0.85rem; color:#888;">Starts: {{ slide.start_time }}</span> {% endif %}
                             {% if slide.end_time %} <span style="font-size:0.85rem; color:#888;">Ends: {{ slide.end_time }}</span> {% endif %}
@@ -361,7 +382,7 @@
                             <form method="POST" style="margin:0; display:flex; align-items:center; gap: 5px;">
                                 <input type="hidden" name="action" value="update_dashboard_slide">
                                 <input type="hidden" name="password" class="auto-pass">
-                                <input type="number" name="duration" value="{{ slide.duration }}" min="5" max="3600" style="width:80px; margin:0; padding:8px; font-weight:bold;" title="Duration">
+                                <input type="number" name="duration" value="{{ slide.duration }}" min="0" max="86400" style="width:80px; margin:0; padding:8px; font-weight:bold;" title="Duration (0=Forever)">
                                 <button type="submit" style="width: auto; margin:0; padding:8px 12px; font-size:0.9rem;">💾 Update</button>
                             </form>
                             {% endif %}
@@ -483,12 +504,22 @@
 
         function updatePlaceholder(select) {
             const input = document.getElementById('iframe_url_input');
-            if (select.value === 'canva') input.placeholder = "Paste Canva URL or Embed Code...";
-            else if (select.value === 'youtube') input.placeholder = "Paste YouTube URL or Embed Code...";
-            else if (select.value === 'google_slides') input.placeholder = "Paste Google Slides URL or Embed Code...";
-            else if (select.value === 'powerpoint') input.placeholder = "Paste PowerPoint URL or Embed Code...";
-            else input.placeholder = "Paste Webpage URL or <iframe> code...";
+            const canvaSettings = document.getElementById('canva_settings_container');
+            if (select.value === 'canva') {
+                input.placeholder = "Paste Canva URL or Embed Code...";
+                if (canvaSettings) canvaSettings.style.display = 'flex';
+            } else {
+                if (canvaSettings) canvaSettings.style.display = 'none';
+                if (select.value === 'youtube') input.placeholder = "Paste YouTube URL or Embed Code...";
+                else if (select.value === 'google_slides') input.placeholder = "Paste Google Slides URL or Embed Code...";
+                else if (select.value === 'powerpoint') input.placeholder = "Paste PowerPoint URL or Embed Code...";
+                else input.placeholder = "Paste Webpage URL or <iframe> code...";
+            }
         }
+        document.addEventListener('DOMContentLoaded', () => {
+            const sel = document.querySelector('select[name="content_type"]');
+            if (sel) updatePlaceholder(sel);
+        });
     </script>
 </body>
 </html>

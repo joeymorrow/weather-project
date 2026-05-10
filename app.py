@@ -1304,6 +1304,9 @@ def admin():
                         "pip": request.form.get('pip') == 'yes',
                         "autoplay": autoplay_req,
                         "duration": int(request.form.get('duration', 15)),
+                        "canva_total_slides": int(request.form.get('canva_total_slides', 1)),
+                        "canva_slide_duration": int(request.form.get('canva_slide_duration', 10)),
+                        "refresh_3am": request.form.get('refresh_3am') == 'yes',
                         "start_time": request.form.get('start_time', ''),
                         "end_time": request.form.get('end_time', '')
                     }

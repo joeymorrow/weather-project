@@ -403,6 +403,7 @@
         const defaultBubbles = { "coffee": "Grabbing a brew...", "office": "Compiling data...", "gym": "Gaining processing power...", "store": "Running errands...", "library": "Parsing archives...", "garage": "Diagnostic mode...", "park": "Nature protocol engaged...", "kitchen": "Refueling...", "bed": "Powering down..." };
         let signageSlides = [];
         let activeSlideTimer = null;
+        let canvaAutoplayTimer = null;
         let slideIndex = -1; // -1 means Dashboard
 
         // Buddy Draggable Logic & Obfuscation Detection
@@ -1872,7 +1873,10 @@
         });
 
         function runSignageLoop() {
-            clearTimeout(activeSlideTimer);
+            if (activeSlideTimer && activeSlideTimer !== 'forever') clearTimeout(activeSlideTimer);
+            activeSlideTimer = null;
+            if (canvaAutoplayTimer) clearInterval(canvaAutoplayTimer);
+            canvaAutoplayTimer = null;
             const overlay = document.getElementById('signage-overlay');
             
             const nowMs = new Date().getTime();
@@ -1902,7 +1906,11 @@
             if (slide.type === 'dashboard') {
                 overlay.style.opacity = '0';
                 setTimeout(() => overlay.style.display = 'none', 1000);
-                activeSlideTimer = setTimeout(runSignageLoop, slide.duration * 1000);
+                if (slide.duration > 0) {
+                    activeSlideTimer = setTimeout(runSignageLoop, slide.duration * 1000);
+                } else {
+                    activeSlideTimer = 'forever';
+                }
                 return;
             }
             overlay.style.display = 'block';
@@ -1936,10 +1944,47 @@
                 } else {
                     overlay.innerHTML = `<iframe src="${slide.url}" style="width:100%; height:100%; border:none;" allowfullscreen="allowfullscreen" allow="${slide.autoplay ? 'autoplay; ' : ''}fullscreen"></iframe>`;
                 }
+                
+                // Per-Slide Canva Sub-Loop Routine
+                if (slide.content_type === 'canva' && slide.canva_total_slides > 1) {
+                    let currentCanvaSlide = 1;
+                    const baseUrl = slide.url.split('#')[0];
+                    
+                    canvaAutoplayTimer = setInterval(() => {
+                        currentCanvaSlide++;
+                        let shouldReset = false;
+                        if (currentCanvaSlide > slide.canva_total_slides) {
+                            currentCanvaSlide = 1;
+                            shouldReset = true;
+                        }
+                        
+                        const iframeEl = overlay.querySelector('iframe');
+                        if (!iframeEl) return;
+                        
+                        if (shouldReset) {
+                            iframeEl.src = baseUrl + '#page=1';
+                        } else {
+                            try {
+                                // Attempt 1: Direct DOM Click (Will likely fail due to Cross-Origin blocks)
+                                const nextBtn = iframeEl.contentDocument.querySelector('button[aria-label="Next page"]');
+                                if (nextBtn) nextBtn.click();
+                                else throw new Error("CORS Blocked");
+                            } catch (e) {
+                                // Attempt 2: Keyboard Simulation + Target Slide Append Hack
+                                iframeEl.contentWindow.postMessage(JSON.stringify({ type: 'keydown', code: 'ArrowRight' }), '*');
+                                iframeEl.src = baseUrl + '#page=' + currentCanvaSlide;
+                            }
+                        }
+                    }, slide.canva_slide_duration * 1000);
+                }
             }
             void overlay.offsetWidth; // Force reflow
             overlay.style.opacity = '1';
-            activeSlideTimer = setTimeout(runSignageLoop, slide.duration * 1000);
+            if (slide.duration > 0) {
+                activeSlideTimer = setTimeout(runSignageLoop, slide.duration * 1000);
+            } else {
+                activeSlideTimer = 'forever';
+            }
         }
 
         fetchState();
