@@ -803,7 +803,8 @@ def internal_action():
 
     data = request.json
     action = data.get('action')
-    log_system_event("INTERNAL_API_CALL", f"Received internal action: {action}", data)
+    if action != 'update_host_services':
+        log_system_event("INTERNAL_API_CALL", f"Received internal action: {action}", data)
 
     if action == 'trigger_sync':
         threading.Thread(target=run_sync, daemon=True).start()
@@ -844,6 +845,11 @@ def internal_action():
                 with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
             except: pass
         return jsonify(success=True, message="Emergency state updated.")
+
+    elif action == 'update_host_services':
+        with state_lock:
+            state['host_services'] = data.get('services', [])
+        return jsonify(success=True, message="Host services updated.")
 
     return jsonify(success=False, error="Unknown action"), 400
 
@@ -1045,29 +1051,10 @@ def cooladmin():
             except Exception as e:
                 cleanup_summary = f"Error running cleanup: {e}"
         
-    import subprocess
-    services_to_check = ['docker', 'cloudflared', 'cron', 'systemd-journald']
-    service_status = []
-    sys_env = os.environ.copy()
-    sys_env['DBUS_SYSTEM_BUS_ADDRESS'] = 'unix:path=/var/run/dbus/system_bus_socket'
-    
-    for s in services_to_check:
-        try:
-            res = subprocess.run(['systemctl', 'is-active', s], capture_output=True, text=True, timeout=2, env=sys_env)
-            status_text = res.stdout.strip()
-            is_active = (status_text == 'active')
-            context = ""
-            if not is_active:
-                status_res = subprocess.run(['systemctl', 'status', s], capture_output=True, text=True, timeout=2, env=sys_env)
-                full_ctx = f"{status_res.stdout.strip()}\n{status_res.stderr.strip()}".strip()
-                if "Failed to connect to system scope bus" in full_ctx:
-                    status_text = "isolated"
-                    context = "Container Isolation: Cannot query host systemd services from within this container/environment."
-                else:
-                    context = full_ctx[:300] + "..." if full_ctx else "No context available."
-            service_status.append({"name": s, "active": is_active, "status": status_text, "context": context})
-        except Exception as e:
-            service_status.append({"name": s, "active": False, "status": "isolated", "context": f"Container isolation or systemctl unavailable: {e}"})
+    with state_lock:
+        service_status = state.get('host_services', [])
+        if not service_status:
+            service_status = [{"name": "Host Services", "active": False, "status": "pending", "context": "Waiting for host D-Bus listener to report..."}]
             
     try:
         with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
