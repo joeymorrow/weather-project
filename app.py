@@ -1145,8 +1145,8 @@ def dynamic_school(slug):
         page_state['school_closings'] = state.get('school_closings', {})
         return render_template('school_dashboard.html', **page_state)
 
-@app.route('/cooladmin', methods=['GET', 'POST'])
-@app.route('/joeyadmin', methods=['GET', 'POST']) # Legacy support
+@app.route('/cooladmin', methods=['GET', 'POST'], strict_slashes=False)
+@app.route('/joeyadmin', methods=['GET', 'POST'], strict_slashes=False) # Legacy support
 def cooladmin():
     auth = request.authorization
         
@@ -1409,7 +1409,7 @@ def cooladmin():
 
     return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin)
 
-@app.route('/admin', methods=['GET', 'POST'])
+@app.route('/admin', methods=['GET', 'POST'], strict_slashes=False)
 def admin():
     is_sso_editor = session.get("role") in ["Admin", "Editor", "Sales"]
     if request.method == 'POST':

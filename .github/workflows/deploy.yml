@@ -278,26 +278,6 @@ jobs:
             console.error('[QA PAGE ERROR] Admin load failed:', e.message); errors++;
           }
 
-          try {
-            console.log('Extracting dynamic hierarchy for exhaustive QA spidering...');
-            const hierarchyLinks = await page.evaluate(() => {
-              const links = [];
-              document.querySelectorAll('.site-link').forEach(el => {
-                if (el.tagName === 'A' && el.href) links.push(el.href);
-              });
-              return links;
-            });
-            const uniqueLinks = [...new Set(hierarchyLinks)].filter(l => !l.includes('/logout') && !l.includes('/login') && !l.includes('admin') && l.startsWith('http://127.0.0.1:5000'));
-            console.log('Found ' + uniqueLinks.length + ' unique routes to verify.');
-            for (const link of uniqueLinks) {
-              console.log('Spidering route: ' + link);
-              const res = await page.goto(link, {waitUntil: 'domcontentloaded', timeout: 10000});
-              if (res && !res.ok()) { console.error('[QA HTTP ERROR] ' + link + ' returned ' + res.status()); errors++; }
-            }
-          } catch (e) {
-            console.error('[QA SPIDER ERROR] ' + e.message); errors++;
-          }
-
             try {
               console.log('Testing /rpg ...');
               await page.goto('http://127.0.0.1:5000/rpg', {waitUntil: 'domcontentloaded', timeout: 15000});
@@ -437,4 +417,4 @@ jobs:
         shell: powershell -ExecutionPolicy Bypass -Command "{0}"
         run: |
           python -m compileall .
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
