@@ -6,3 +6,6 @@ pytz
 gunicorn
 markdown
 msal
+filelock
+psutil
+beautifulsoup4
