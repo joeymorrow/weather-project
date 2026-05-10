@@ -19,10 +19,12 @@ if [ ! -f .env ]; then
     read -p "Enter Gemini API Key: " GEMINI_API_KEY
     read -p "Enter OpenWeatherMap API Key: " OWM_API_KEY
     read -p "Enter Admin Password (for /admin override): " ADMIN_PASS
+    INTERNAL_API_SECRET=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32)
     
     echo "GEMINI_API_KEY=\"$GEMINI_API_KEY\"" > .env
     echo "OPENWEATHERMAP_API_KEY=\"$OWM_API_KEY\"" >> .env
     echo "ADMIN_PASSWORD=\"$ADMIN_PASS\"" >> .env
+    echo "INTERNAL_API_SECRET=\"$INTERNAL_API_SECRET\"" >> .env
     chmod 600 .env
     echo "✅ .env file generated securely."
 else
@@ -45,6 +47,11 @@ if ! command -v cloudflared &> /dev/null; then
 else
     echo "✅ Cloudflared is already installed."
 fi
+
+echo -e "\n[BONUS] D-Bus Service for external control"
+echo "This project includes a D-Bus listener to allow other system processes to securely send commands (like 'Trigger Sync') to the application."
+echo "To install it, make this script executable ('chmod +x install_dbus_service.sh') and run: sudo ./install_dbus_service.sh"
+echo "This is optional but recommended for advanced system integration."
 
 echo -e "\n[4/4] GitHub Actions CI/CD Next Steps"
 echo "-------------------------------------------------"

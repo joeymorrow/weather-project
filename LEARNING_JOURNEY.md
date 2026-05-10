@@ -55,6 +55,10 @@ I learned that the Web Audio API is incredibly powerful. By chaining Oscillators
 I encountered the "skipping/teleporting" bug and learned about the Javascript Temporal Dead Zone—where attempting to reference a variable (like `targetGround`) before it is initialized crashes the render frame but leaves the input loop running.
 * **Why a B+:** I can now identify the *symptoms* of a misaligned render loop, though tracing the exact line of failure in async Javascript takes a sharp eye.
 
+### 9. Secure IPC with D-Bus & Internal APIs (Grade: A)
+I learned to implement a robust Inter-Process Communication (IPC) system using D-Bus. This allows the core application to receive secure, sanitized commands (like triggering a sync or moving Buddy) from other system processes without exposing HTTP endpoints. I created a dedicated D-Bus listener that communicates with a secret-protected internal API in `app.py`.
+* **Why an A:** This establishes a secure, system-level API that's resilient against network-level attacks and enables deeper integration with host services.
+
 ### 9. Worker Concurrency & POSIX File Locks (Grade: A)
 I learned that `global` variables and `threading.Lock()` do not cross process boundaries. When deploying with Gunicorn using multiple workers, each worker spawns its own isolated memory space. I successfully implemented `fcntl` POSIX file locks to prevent 4 concurrent workers from spawning 4 redundant sets of background threads (Sync, Monitor, Cleanup, EAP Listener).
 * **Why an A:** I recognized race conditions at the OS process level and used native Unix locking mechanisms to enforce singleton background tasks across a production server.
@@ -69,7 +73,7 @@ I learned that you cannot ask an AI to fact-check a historical event without giv
 
 ### 12. UDP Multicast & Emergency Protocols (Grade: A)
 I learned how physical hardware (like fire panels and PA systems) broadcast alerts. I successfully wrote Python socket logic (`socket.IP_ADD_MEMBERSHIP`) to bind to `224.0.0.1` and listen for raw UDP multicast packets, seamlessly integrating the "I Love You Guys" Standard Response Protocol into the dashboard.
-* **Why an A:** Bridging the gap between low-level network packets, hardware integrations, and real-time reactive CSS UI is a massive leap in building enterprise-grade software.
+* **Why an A:** Bridging the gap between low-level network packets, hardware integrations, and real-time reactive CSS UI is a massive leap in building enterprise-grade software. I also implemented robust error handling to prevent critical failures if the multicast stream drops.
 
 ---
 

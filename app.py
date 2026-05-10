@@ -58,6 +58,7 @@ override_expiry = 0
 state_lock = threading.Lock()
 admin_username = os.environ.get("ADMIN_USERNAME", "admin")
 admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
+INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET")
 DENYLIST = ["profanity", "badword", "controversial", "inappropriate"]
 
 def init_db():
@@ -748,6 +749,13 @@ def handle_eap_message(msg_text):
         except: pass
 
 def eap_multicast_listener():
+    # Prevent multiple Gunicorn workers from binding to the UDP port
+    lock_file = open(os.path.join(DATA_DIR, "eap_listener.lock"), "a")
+    try:
+        fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        return # Another worker is running the listener
+
     active_sockets = {}
     while True:
         try:
@@ -773,7 +781,66 @@ def eap_multicast_listener():
                     handle_eap_message(data.decode('utf-8', errors='ignore'))
             else: time.sleep(5)
         except Exception as e:
-            print(f"[EAP ERROR] {e}", flush=True); time.sleep(5)
+            log_system_event("EAP_LISTENER_ERROR", "The EAP multicast listener encountered an error.", str(e))
+            time.sleep(15) # Sleep longer to prevent spamming logs on persistent errors
+
+@app.route('/api/internal/action', methods=['POST'])
+def internal_action():
+    # Security Check
+    if not INTERNAL_API_SECRET:
+        log_system_event("INTERNAL_API_ERROR", "Attempted internal API call, but no secret is configured.")
+        return jsonify(success=False, error="Not configured"), 500
+        
+    secret = request.headers.get('X-Internal-Secret')
+    if secret != INTERNAL_API_SECRET:
+        log_system_event("INTERNAL_API_DENIED", "Forbidden internal API call attempt.", {"remote_addr": request.remote_addr})
+        return jsonify(success=False, error="Forbidden"), 403
+
+    data = request.json
+    action = data.get('action')
+    log_system_event("INTERNAL_API_CALL", f"Received internal action: {action}", data)
+
+    if action == 'trigger_sync':
+        threading.Thread(target=run_sync, daemon=True).start()
+        return jsonify(success=True, message="Sync triggered.")
+        
+    elif action == 'move_buddy':
+        station = data.get('station')
+        if station:
+            # Re-use the logic from the public move_buddy endpoint
+            global manual_override, override_expiry
+            manual_override = station
+            override_expiry = time.time() + 3600
+            now = datetime.now(TZ)
+            bubbles = {
+                "coffee": "Grabbing a brew...", "office": "Compiling data...", 
+                "gym": "Gaining processing power...", "store": "Running errands...", 
+                "library": "Parsing archives...", "garage": "Diagnostic mode...", 
+                "park": "Nature protocol engaged...", "kitchen": "Refueling...", 
+                "bed": "Powering down..."
+            }
+            with state_lock:
+                state.update({"station": station, "is_sleeping": (station == "bed"), "bubble": bubbles.get(station, "Rerouting..."), "acc_css": "none" if station != "bed" else "zzz", "show_bed": (station == "bed" or now.hour >= 21 or now.hour < 6)})
+                try:
+                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                except: pass
+            return jsonify(success=True, message=f"Buddy moved to {station}.")
+        else:
+            return jsonify(success=False, error="Missing station"), 400
+
+    elif action == 'set_emergency':
+        with state_lock:
+            state['emergency'] = {
+                "active": data.get('active', False),
+                "message": data.get('message', ''),
+                "color": data.get('color', '#ff0000')
+            }
+            try:
+                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+            except: pass
+        return jsonify(success=True, message="Emergency state updated.")
+
+    return jsonify(success=False, error="Unknown action"), 400
 
 @app.before_request
 def check_disabled_pages():
@@ -988,7 +1055,11 @@ def cooladmin():
             if not is_active:
                 status_res = subprocess.run(['systemctl', 'status', s], capture_output=True, text=True, timeout=2, env=sys_env)
                 full_ctx = f"{status_res.stdout.strip()}\n{status_res.stderr.strip()}".strip()
-                context = full_ctx[:300] + "..." if full_ctx else "No context available."
+                if "Failed to connect to system scope bus" in full_ctx:
+                    status_text = "isolated"
+                    context = "Container Isolation: Cannot query host systemd services from within this container/environment."
+                else:
+                    context = full_ctx[:300] + "..." if full_ctx else "No context available."
             service_status.append({"name": s, "active": is_active, "status": status_text, "context": context})
         except Exception as e:
             service_status.append({"name": s, "active": False, "status": "isolated", "context": f"Container isolation or systemctl unavailable: {e}"})
