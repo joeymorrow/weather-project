@@ -229,6 +229,20 @@
             </div>
         </div>
 
+        <!-- Full Site Hierarchy -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>🗺️ Full Site Hierarchy</h2>
+            <p style="font-size: 0.9rem; color: #888;">Quick access to all active routes, pitch decks, and documentation.</p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                {% for link in site_hierarchy %}
+                <a href="{{ link.url }}" target="_blank" class="site-link" style="margin-bottom: 0; display: block;">
+                    <strong>{{ link.name }}</strong><br>
+                    <span style="font-size: 0.8rem; color: #ccc;">{{ link.url }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+
         <!-- Nuclear Option -->
         <div class="card" style="border-color: #ff0000; box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);">
             <h2 style="color: #ff0000; border-bottom-color: #ff0000;">☢️ Nuclear Option</h2>
@@ -282,8 +296,11 @@
         <a href="/" class="nav-home" style="margin-top: 0;">← Return to Base</a>
     </div>
 
+    <script id="metrics-data" type="application/json">
+        {{ metrics | tojson | safe }}
+    </script>
     <script>
-        const allMetrics = {{ metrics | tojson | safe }};
+        const allMetrics = JSON.parse(document.getElementById('metrics-data').textContent || '[]');
         let memChart, loadChart;
 
         Chart.defaults.color = '#00ffff';

@@ -4,7 +4,7 @@ import os, requests, threading, time, json, re, sqlite3
 import tracemalloc
 import fcntl
 from contextlib import closing
-from flask import Flask, render_template, jsonify, request, redirect
+from flask import Flask, render_template, jsonify, request, redirect, send_from_directory
 from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
@@ -871,6 +871,12 @@ def check_disabled_pages():
 @app.route('/docs')
 @app.route('/docs/<path:filename>')
 def serve_docs(filename='index'):
+    if filename.endswith('.html'):
+        safe_name = secure_filename(filename)
+        safe_path = os.path.join(BASE_DIR, 'docs', safe_name)
+        if os.path.exists(safe_path):
+            return send_from_directory(os.path.join(BASE_DIR, 'docs'), safe_name)
+            
     safe_name = secure_filename(filename.replace('/', '_'))
     safe_path = os.path.join(BASE_DIR, 'docs', f"{safe_name}.md")
     if not os.path.exists(safe_path):
@@ -884,6 +890,15 @@ def serve_docs(filename='index'):
         
     html_content = markdown.markdown(md_content, extensions=['extra', 'toc'])
     return render_template('doc_viewer.html', content=html_content, title=filename.replace('_', ' ').title())
+
+@app.route('/enterprise')
+@app.route('/sales')
+def sales_landing():
+    return send_from_directory(os.path.join(BASE_DIR, 'docs'), 'sales_landing.html')
+
+@app.route('/architecture-pitch')
+def architecture_pitch():
+    return send_from_directory(os.path.join(BASE_DIR, 'docs'), 'architecture-pitch.html')
 
 @app.route('/')
 def index():
@@ -1083,7 +1098,22 @@ def cooladmin():
     except:
         hallucinations = []
         
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary)
+    site_hierarchy = [
+        {"name": "Main Dashboard", "url": "/"},
+        {"name": "Sault Schools", "url": "/sault-schools"},
+        {"name": "Pickford Schools", "url": "/pickford-schools"},
+        {"name": "3D Sandbox (Buddy's World)", "url": "/rpg"},
+        {"name": "Documentation Hub", "url": "/docs"},
+        {"name": "Enterprise Sales Landing", "url": "/enterprise"},
+        {"name": "Architecture Pitch Deck", "url": "/architecture-pitch"},
+        {"name": "Admin Dashboard", "url": "/admin"},
+        {"name": "Super Admin (CoolAdmin)", "url": "/cooladmin"},
+    ]
+    
+    for page in get_beacon_pages():
+        site_hierarchy.append({"name": f"{page['title']} (Custom)", "url": f"/schools/{page['slug']}"})
+
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy)
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
