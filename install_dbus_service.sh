@@ -20,8 +20,18 @@ DBUS_CONF_FILE="/etc/dbus-1/system.d/com.morrowedge.Beacon.conf"
 echo "[1/4] Installing D-Bus and Python dependencies..."
 apt-get update
 apt-get install -y python3-gi python3-dbus gir1.2-glib-2.0
-# Assuming pip is for python3
-pip install pydbus requests python-dotenv
+
+# Attempt pip install, with fallback to --break-system-packages for externally-managed environments
+echo "Attempting to install Python packages with pip..."
+if ! pip install pydbus requests python-dotenv; then
+    echo "Pip installation failed, attempting with --break-system-packages (due to PEP 668 on some systems)..."
+    if ! pip install pydbus requests python-dotenv --break-system-packages; then
+        echo "FATAL: Failed to install Python dependencies even with --break-system-packages."
+        echo "Please ensure pip is correctly configured or install manually."
+        exit 1
+    fi
+fi
+echo "Python dependencies installed."
 
 echo "[2/4] Creating D-Bus policy file at $DBUS_CONF_FILE..."
 cat > "$DBUS_CONF_FILE" << EOL
@@ -63,6 +73,9 @@ if [ -f "$PROJECT_DIR/.env" ]; then
     echo "Setting ownership of .env to root for service access..."
     chown root:root "$PROJECT_DIR/.env"
     chmod 600 "$PROJECT_DIR/.env" # Ensure only root can read it
+else
+    echo "⚠️ .env file not found. D-Bus service might fail to load INTERNAL_API_SECRET."
+    echo "Please ensure .env is in the project root with INTERNAL_API_SECRET defined."
 fi
 
 echo "[4/4] Enabling and starting the D-Bus listener service..."

@@ -590,6 +590,11 @@ def run_sync():
         locations.append({"slug": p["slug"], "location": p["title"], "query": p["zipcode"]})
         
     for loc in locations:
+        with state_lock: # Acquire lock to safely read disabled_pages
+            if loc['slug'] in state.get('disabled_pages', []):
+                print(f"[SYNC] Skipping disabled page: {loc['slug']}", flush=True)
+                continue # Skip calling sync_for_location for disabled pages
+        
         sync_for_location(loc['slug'], loc['location'], loc['query'])
         time.sleep(2) # Avoid aggressive rate-limiting from OpenWeather/Gemini
 
