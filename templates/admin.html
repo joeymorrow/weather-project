@@ -121,12 +121,12 @@
                 <label>Message:</label>
                 <textarea name="text" rows="3" required placeholder="BLIZZARD WARNING"></textarea>
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;"><label>Background Color:</label><input type="color" name="bg_color" value="#ff0000"></div>
-                    <div style="flex: 1;"><label>Text Color:</label><input type="color" name="text_color" value="#ffffff"></div>
+                    <div style="flex: 1; min-width: 0;"><label>Background Color:</label><input type="color" name="bg_color" value="#ff0000"></div>
+                    <div style="flex: 1; min-width: 0;"><label>Text Color:</label><input type="color" name="text_color" value="#ffffff"></div>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
                 <label>Strobe Effect (High Urgency):</label>
                 <select name="strobe"><option value="no">No</option><option value="yes">Yes</option></select>
@@ -146,8 +146,8 @@
                 <label>Image File (.jpg, .png):</label>
                 <input type="file" name="image" accept="image/*" required style="background: transparent; border: none; padding: 0;">
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
                 <label>Duration (Seconds):</label>
                 <input type="number" name="duration" value="15" min="5" max="300" required>
@@ -163,8 +163,8 @@
                 <input type="hidden" name="action" value="add_beacon_page">
                 <label>Admin Password:</label> <input type="password" name="password" required>
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;"><label>Page Title:</label><input type="text" name="title" required placeholder="e.g. Brimley Schools"></div>
-                    <div style="flex: 1;"><label>URL Slug:</label><input type="text" name="slug" required placeholder="e.g. brimley"></div>
+                    <div style="flex: 1; min-width: 0;"><label>Page Title:</label><input type="text" name="title" required placeholder="e.g. Brimley Schools"></div>
+                    <div style="flex: 1; min-width: 0;"><label>URL Slug:</label><input type="text" name="slug" required placeholder="e.g. brimley"></div>
                 </div>
                 <label>Zip Code / City Query:</label>
                 <input type="text" name="zipcode" required placeholder="e.g. 49715,US or Sault Ste. Marie,MI">
@@ -175,18 +175,18 @@
             {% if beacon_pages %}
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
                 {% for page in beacon_pages %}
-                    <div class="slide-item">
+                    <div class="slide-item" style="flex-direction: column; align-items: stretch; gap: 10px;">
                         <div class="slide-info">
                             <strong>{{ page.title }}</strong><br>
                             <span style="font-size:0.85rem; color:#888;">Route: /schools/{{ page.slug }} | Query: {{ page.zipcode }}</span>
                         </div>
-                        <div style="display: flex; gap: 5px; align-items: center;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <a href="/schools/{{ page.slug }}" target="_blank" style="background: #00ffff; color: #000; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem; margin-right: 10px;">View</a>
-                            <form method="POST" style="margin:0; display:flex; align-items:center;">
+                            <form method="POST" style="margin:0; display:flex; align-items:center; flex-wrap: wrap; gap: 10px;">
                                 <input type="hidden" name="action" value="delete_beacon_page">
                                 <input type="hidden" name="page_id" value="{{ page.id }}">
-                                <input type="password" name="password" placeholder="Admin Pass" required style="width:110px; margin:0 10px 0 0; padding:8px;">
-                                <button type="submit" class="danger" style="margin:0; padding:8px 15px;">Delete</button>
+                                <input type="password" name="password" placeholder="Admin Pass" required style="width:110px; margin:0; padding:8px;">
+                                <button type="submit" class="danger" style="margin:0; padding:8px 15px; width:auto;">Delete</button>
                             </form>
                         </div>
                     </div>
@@ -256,12 +256,12 @@
                 <label>Direct Video URL (.mp4, .webm):</label>
                 <input type="url" name="url" required placeholder="https://example.com/video.mp4">
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;"><label>Duration (Seconds):</label><input type="number" name="duration" value="30" min="5" max="3600" required></div>
-                    <div style="flex: 1;"><label>Picture-in-Picture (PIP):</label><select name="pip"><option value="no">No (Fullscreen)</option><option value="yes">Yes (Corner Overlay)</option></select></div>
+                    <div style="flex: 1; min-width: 0;"><label>Duration (Seconds):</label><input type="number" name="duration" value="30" min="5" max="3600" required></div>
+                    <div style="flex: 1; min-width: 0;"><label>Picture-in-Picture (PIP):</label><select name="pip"><option value="no">No (Fullscreen)</option><option value="yes">Yes (Corner Overlay)</option></select></div>
                 </div>
                 <button type="submit">Add Video Slide</button>
             </form>
@@ -277,8 +277,8 @@
                 <label>Embed URL:</label>
                 <input type="url" name="url" required placeholder="https://www.canva.com/design/.../view?embed">
                 <div style="display: flex; gap: 10px;">
-                    <div style="flex: 1;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
-                    <div style="flex: 1;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>Start Time (Optional):</label><input type="datetime-local" name="start_time"></div>
+                    <div style="flex: 1; min-width: 0;"><label>End Time (Optional):</label><input type="datetime-local" name="end_time"></div>
                 </div>
                 <label>Duration (Seconds):</label>
                 <input type="number" name="duration" value="30" min="5" max="3600" required>
@@ -293,7 +293,7 @@
             {% if slides %}
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                 {% for slide in slides %}
-                    <div class="slide-item">
+                    <div class="slide-item" style="flex-direction: column; align-items: stretch; gap: 10px;">
                         <div class="slide-info">
                             {% if slide.type == 'text' %}
                                 <strong>TEXT ({{ slide.duration }}s)</strong>: "{{ slide.text }}"
@@ -309,10 +309,10 @@
                             {% if slide.start_time %} <br><span style="font-size:0.85rem; color:#888;">Starts: {{ slide.start_time }}</span> {% endif %}
                             {% if slide.end_time %} <span style="font-size:0.85rem; color:#888;">Ends: {{ slide.end_time }}</span> {% endif %}
                         </div>
-                        <form method="POST" style="margin:0; display:flex; align-items:center;">
+                        <form method="POST" style="margin:0; display:flex; align-items:center; flex-wrap: wrap; gap: 10px;">
                             <input type="hidden" name="action" value="delete_slide">
                             <input type="hidden" name="slide_id" value="{{ slide.id }}">
-                            <input type="password" name="password" placeholder="Admin Pass" required style="width:120px; margin:0 10px 0 0; padding:8px;">
+                            <input type="password" name="password" placeholder="Admin Pass" required style="width:120px; margin:0; padding:8px;">
                             <button type="submit" class="danger" style="width: auto; margin:0; padding:8px 15px;">Delete</button>
                         </form>
                     </div>

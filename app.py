@@ -373,7 +373,7 @@ def sync_for_location(slug, loc_name, query):
             date_short = datetime.strptime(dt, '%Y-%m-%d').strftime('%m/%d')
             weekly_list.append({"day": day_name, "date_short": date_short, "high": int(dat['high']), "low": int(dat['low']), "icon": d_icon})
             
-        is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22)
+        is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22) or (now.hour < 6)
 
         weather_desc = w['weather'][0]['description'].lower()
         severe_keywords = ["storm", "tornado", "hurricane", "flood", "thunder", "extreme", "blizzard"]
