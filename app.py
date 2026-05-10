@@ -1265,15 +1265,12 @@ def admin():
                     content_type = request.form.get('content_type', 'custom')
                     autoplay_req = request.form.get('autoplay') == 'yes'
                     
-                    if '<iframe' in raw_url.lower():
-                        try:
-                            from bs4 import BeautifulSoup
-                            soup = BeautifulSoup(raw_url, 'html.parser')
-                            iframe = soup.find('iframe')
-                            if iframe and iframe.get('src'):
-                                parsed_url = iframe.get('src')
-                        except:
-                            pass
+                    if '<iframe' in raw_url.lower() or '&lt;iframe' in raw_url.lower():
+                        import html
+                        raw_url = html.unescape(raw_url)
+                        match = re.search(r'<iframe.*?src=["\'](.*?)["\']', raw_url, re.IGNORECASE | re.DOTALL)
+                        if match:
+                            parsed_url = match.group(1)
 
                     if 'canva.com/design' in parsed_url and '/view' in parsed_url:
                         if 'embed' not in parsed_url:

@@ -290,8 +290,8 @@
                     <option value="custom">Custom Webpage URL</option>
                 </select>
 
-                <label>Embed URL or Link:</label>
-                <input type="url" name="url" id="iframe_url_input" required placeholder="https://www.canva.com/design/.../view?embed">
+                <label>Embed URL or &lt;iframe&gt; Code:</label>
+                <input type="text" name="url" id="iframe_url_input" required placeholder="Paste link or <iframe> code here...">
                 
                 <div style="display: flex; gap: 10px;">
                     <div style="flex: 1; min-width: 0;"><label>Picture-in-Picture (PIP):</label><select name="pip"><option value="no">No (Fullscreen)</option><option value="yes">Yes (Corner Overlay)</option></select></div>
@@ -483,11 +483,11 @@
 
         function updatePlaceholder(select) {
             const input = document.getElementById('iframe_url_input');
-            if (select.value === 'canva') input.placeholder = "https://www.canva.com/design/.../view?embed";
-            else if (select.value === 'youtube') input.placeholder = "https://www.youtube.com/watch?v=...";
-            else if (select.value === 'google_slides') input.placeholder = "https://docs.google.com/presentation/d/.../embed";
-            else if (select.value === 'powerpoint') input.placeholder = "https://onedrive.live.com/embed?resid=...";
-            else input.placeholder = "https://example.com";
+            if (select.value === 'canva') input.placeholder = "Paste Canva URL or Embed Code...";
+            else if (select.value === 'youtube') input.placeholder = "Paste YouTube URL or Embed Code...";
+            else if (select.value === 'google_slides') input.placeholder = "Paste Google Slides URL or Embed Code...";
+            else if (select.value === 'powerpoint') input.placeholder = "Paste PowerPoint URL or Embed Code...";
+            else input.placeholder = "Paste Webpage URL or <iframe> code...";
         }
     </script>
 </body>
