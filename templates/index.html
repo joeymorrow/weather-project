@@ -56,6 +56,9 @@
         #agenda-trigger:hover, #agenda-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         #docs-trigger { position: absolute; top: 20px; left: 125px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
         #docs-trigger:hover, #docs-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #graph-trigger { position: absolute; top: 20px; left: 160px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
+        #graph-trigger:hover, #graph-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #hourly-container { opacity: 0; } #hourly-container.active { opacity: 0.45; }
         #mobile-nav-btn { position: absolute; top: 20px; right: 20px; font-size: 1.2rem; color: var(--accent); z-index: 3500; cursor: pointer; display: none; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 50%; background: rgba(0,0,0,0.5); transition: 0.3s; }
         #mobile-nav-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 10px var(--accent); }
         .pod { position: absolute; width: clamp(60px, 8vmin, 180px); height: clamp(60px, 8vmin, 180px); border-radius: 50%; border: 1px solid var(--pod-border); background: var(--pod-bg); display: flex; align-items: center; justify-content: center; font-size: clamp(1.5rem, 3vmin, 5rem); filter: grayscale(80%) opacity(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; z-index: 5; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
@@ -79,6 +82,9 @@
         .pulse-line:hover, .pulse-line:focus { opacity: 1; outline: none; background: var(--pod-bg); text-shadow: 0 0 10px var(--accent); box-shadow: 0 -10px 10px var(--pod-bg); }
         #build-stamp { position: absolute; bottom: 0; right: 0; padding: 15px; font-size: 0.6rem; color: var(--accent); opacity: 0.2; pointer-events: auto; z-index: 3500; letter-spacing: 1px; transition: opacity 0.3s ease; cursor: pointer; }
         #build-stamp:hover, #build-stamp:focus { opacity: 0.8; outline: none; }
+        /* Ambient Mode (Fullscreen) - Hide UI Overlays */
+        :fullscreen body:not(.ambient-awake) .ambient-hide, :-webkit-full-screen body:not(.ambient-awake) .ambient-hide { opacity: 0 !important; pointer-events: none !important; }
+        @media (display-mode: fullscreen) { body:not(.ambient-awake) .ambient-hide { opacity: 0 !important; pointer-events: none !important; } }
         #egg-modal, #pulse-modal, #weekly-modal, #agenda-modal, #cast-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 2vh, 15px); pointer-events: auto; overflow-y: auto; padding: 5vh 5vw; box-sizing: border-box; }
         .egg-btn { background: rgba(0,255,255,0.1); border: 2px solid var(--accent); color: var(--accent); padding: clamp(10px, 1.5vh, 15px) clamp(15px, 3vw, 30px); font-size: clamp(0.9rem, 2vh, 1.2rem); border-radius: 10px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: clamp(150px, 25vw, 200px); text-align: center; flex-shrink: 0; }
         .egg-btn:hover, .egg-btn:focus { background: var(--accent); color: #000; outline: none; }
@@ -249,7 +255,7 @@
     </style>
 </head>
 <body class="preload-theme {% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
-    <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: 1; pointer-events: none; opacity: 0.45; transition: opacity 1s ease;">
+    <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: 1; pointer-events: none; transition: opacity 1s ease;">
         <canvas id="hourly-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
     </div>
     <div id="header-container">
@@ -257,14 +263,15 @@
         <div class="date-line" id="ui-date">{{ date }}</div>
         <div id="location" style="text-transform: uppercase;">{{ main_config.location if main_config else 'SAULT STE. MARIE, MICHIGAN' }}</div>
     </div>
-    <div id="lore-trigger" tabindex="0">i</div>
+    <div id="lore-trigger" class="ambient-hide" tabindex="0">i</div>
     <div class="lore-box">Hi I'm Buddy! Integrated Model Discovery 6.0 Active. Click my body to meet my creators!<br><br><span style="opacity:0.5; font-size:0.8em; font-style:italic;">Forecast generated by Gemini API using OpenWeather data</span>
         <div id="managed-theme-link" onclick="acceptManagedTheme()" style="display:none; margin-top: 15px; color: #ff4444; font-weight: bold; cursor: pointer; border: 1px solid #ff4444; padding: 8px; border-radius: 8px; text-align: center; transition: 0.2s;">Overwrite my theme with Managed Theme</div>
     </div>
-    <div id="weekly-trigger" role="button" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('weekly-modal').style.display='flex'" title="5-Day Outlook">📅</div>
-    <div id="agenda-trigger" role="button" tabindex="0" onclick="openAgenda()" onkeydown="if(event.key==='Enter')openAgenda()" title="Daily Agenda">🗓️</div>
-    <div id="docs-trigger" role="link" tabindex="0" onclick="window.open('/docs/dashboard', '_blank')" onkeydown="if(event.key==='Enter')window.open('/docs/dashboard', '_blank')" title="Documentation">?</div>
-    <div id="mobile-nav-btn" role="button" tabindex="0" onclick="toggleMobileGraph()" onkeydown="if(event.key==='Enter')toggleMobileGraph()" title="View Hourly Graph">▶</div>
+    <div id="weekly-trigger" class="ambient-hide" role="button" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('weekly-modal').style.display='flex'" title="5-Day Outlook">📅</div>
+    <div id="agenda-trigger" class="ambient-hide" role="button" tabindex="0" onclick="openAgenda()" onkeydown="if(event.key==='Enter')openAgenda()" title="Daily Agenda">🗓️</div>
+    <div id="docs-trigger" class="ambient-hide" role="link" tabindex="0" onclick="window.open('/docs/dashboard', '_blank')" onkeydown="if(event.key==='Enter')window.open('/docs/dashboard', '_blank')" title="Documentation">?</div>
+    <div id="graph-trigger" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="Toggle Hourly Graph">📈</div>
+    <div id="mobile-nav-btn" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="View Hourly Graph">▶</div>
     <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
     <div class="pods"><div class="pod" role="button" id="pos-coffee" tabindex="0" onclick="moveBuddy('coffee')" onkeydown="if(event.key==='Enter')moveBuddy('coffee')">☕</div><div class="pod" role="button" tabindex="0" id="pos-office" onclick="moveBuddy('office')" onkeydown="if(event.key==='Enter')moveBuddy('office')">💻</div><div class="pod" role="button" tabindex="0" id="pos-gym" onclick="moveBuddy('gym')" onkeydown="if(event.key==='Enter')moveBuddy('gym')">💪</div><div class="pod" role="button" tabindex="0" id="pos-store" onclick="moveBuddy('store')" onkeydown="if(event.key==='Enter')moveBuddy('store')">🛍️</div><div class="pod" role="button" tabindex="0" id="pos-library" onclick="moveBuddy('library')" onkeydown="if(event.key==='Enter')moveBuddy('library')">📖</div><div class="pod" role="button" tabindex="0" id="pos-garage" onclick="moveBuddy('garage')" onkeydown="if(event.key==='Enter')moveBuddy('garage')">🔧</div><div class="pod" role="button" tabindex="0" id="pos-park" onclick="moveBuddy('park')" onkeydown="if(event.key==='Enter')moveBuddy('park')">🚲</div><div class="pod" role="button" tabindex="0" id="pos-kitchen" onclick="moveBuddy('kitchen')" onkeydown="if(event.key==='Enter')moveBuddy('kitchen')">🍳</div><div id="pos-bed" role="button" tabindex="0" onclick="moveBuddy('bed')" onkeydown="if(event.key==='Enter')moveBuddy('bed')">🛏️</div></div>
     <div id="egg-modal" onclick="if(event.target === this) triggerEgg('close')">
@@ -715,8 +722,14 @@
             }
         });
 
-        // Track user interaction (mouse/touch) to prevent UI shifting
-        ['mousemove', 'mousedown', 'touchstart'].forEach(evt => window.addEventListener(evt, () => lastInteraction = Date.now()));
+        // Track user interaction (mouse/touch/keyboard) to prevent UI shifting and handle ambient awake
+        let ambientWakeTimer = null;
+        ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(evt => window.addEventListener(evt, () => {
+            lastInteraction = Date.now();
+            document.body.classList.add('ambient-awake');
+            clearTimeout(ambientWakeTimer);
+            ambientWakeTimer = setTimeout(() => document.body.classList.remove('ambient-awake'), 4000);
+        }));
 
         function leaveForMorrowEdge() {
             if (dragMoved) return;
@@ -1074,16 +1087,16 @@
         };
 
         let showingGraph = false;
-        window.toggleMobileGraph = function() {
+        window.toggleMainGraph = function() {
             showingGraph = !showingGraph;
             const navBtn = document.getElementById('mobile-nav-btn');
             const graphContainer = document.getElementById('hourly-container');
             
             if (showingGraph) {
-                navBtn.innerText = '◀';
+                if(navBtn) navBtn.innerText = '◀';
                 graphContainer.classList.add('active');
             } else {
-                navBtn.innerText = '▶';
+                if(navBtn) navBtn.innerText = '▶';
                 graphContainer.classList.remove('active');
             }
             setTimeout(() => drawHourlyGraph(currentHourly), 50);

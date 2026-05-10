@@ -288,6 +288,9 @@ jobs:
           if [ -n "${{ secrets.SMTP_PASS }}" ]; then
             echo "SMTP_PASS=${{ secrets.SMTP_PASS }}" >> .env
           fi
+          if [ -n "${{ secrets.INTERNAL_API_SECRET }}" ]; then
+            echo "INTERNAL_API_SECRET=${{ secrets.INTERNAL_API_SECRET }}" >> .env
+          fi
           echo "BUILD_TIMESTAMP=$(TZ='America/Detroit' date +'%b %d, %Y %I:%M %p')" >> .env
           echo "HOST_DATA_DIR=${{ github.workspace }}/data" >> .env
 

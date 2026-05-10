@@ -1149,10 +1149,37 @@ def admin():
                     }
                     state.setdefault('slides', []).append(slide)
                 elif action == 'add_iframe_slide':
+                    raw_url = request.form.get('url', '').strip()
+                    parsed_url = raw_url
+                    
+                    if '<iframe' in raw_url.lower():
+                        try:
+                            from bs4 import BeautifulSoup
+                            soup = BeautifulSoup(raw_url, 'html.parser')
+                            iframe = soup.find('iframe')
+                            if iframe and iframe.get('src'):
+                                parsed_url = iframe.get('src')
+                        except:
+                            pass
+
+                if 'canva.com/design' in parsed_url and '/view' in parsed_url:
+                    if 'embed' not in parsed_url:
+                        if '?' in parsed_url:
+                            parsed_url = parsed_url.split('?')[0] + '?embed'
+                        else:
+                            parsed_url += '?embed'
+                            
+                if 'youtube.com' in parsed_url or 'youtu.be' in parsed_url:
+                    if 'autoplay=1' not in parsed_url:
+                        sep = '&' if '?' in parsed_url else '?'
+                        parsed_url += f"{sep}autoplay=1&mute=1"
+                    if 'controls=' not in parsed_url:
+                        parsed_url += "&controls=0"
+
                     slide = {
                         "id": str(int(time.time())),
                         "type": "iframe",
-                        "url": request.form.get('url', '').strip(),
+                        "url": parsed_url,
                         "duration": int(request.form.get('duration', 15)),
                         "start_time": request.form.get('start_time', ''),
                         "end_time": request.form.get('end_time', '')
@@ -1241,6 +1268,17 @@ def get_system_logs():
             c.execute("SELECT timestamp, log_type, message, details FROM logs ORDER BY id DESC LIMIT 100")
             logs = [{"timestamp": r[0], "type": r[1], "message": r[2], "details": r[3]} for r in c.fetchall()]
             return jsonify(logs)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/metrics')
+def get_metrics_data():
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT timestamp, load_avg, mem_used_mb, cache_mb FROM metrics WHERE timestamp >= datetime('now', '-1 day') ORDER BY timestamp ASC")
+            metrics_data = [{"time": r[0], "load_avg": r[1], "mem_used_mb": r[2], "cache_mb": r[3]} for r in c.fetchall()]
+            return jsonify(metrics_data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
