@@ -280,7 +280,7 @@ jobs:
 
   deploy:
     needs: qa
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux]
     steps:
       - name: Clean up workspace permissions
         run: |
