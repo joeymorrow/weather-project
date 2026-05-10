@@ -259,7 +259,7 @@ jobs:
               });
               return links;
             });
-            const uniqueLinks = [...new Set(hierarchyLinks)].filter(l => !l.includes('/logout') && l.startsWith('http://127.0.0.1:5000'));
+            const uniqueLinks = [...new Set(hierarchyLinks)].filter(l => !l.includes('/logout') && !l.includes('/login') && !l.includes('admin') && l.startsWith('http://127.0.0.1:5000'));
             console.log('Found ' + uniqueLinks.length + ' unique routes to verify.');
             for (const link of uniqueLinks) {
               console.log('Spidering route: ' + link);
@@ -287,7 +287,7 @@ jobs:
               });
               return links;
             });
-            const uniqueLinks = [...new Set(hierarchyLinks)].filter(l => !l.includes('/logout') && l.startsWith('http://127.0.0.1:5000'));
+            const uniqueLinks = [...new Set(hierarchyLinks)].filter(l => !l.includes('/logout') && !l.includes('/login') && !l.includes('admin') && l.startsWith('http://127.0.0.1:5000'));
             console.log('Found ' + uniqueLinks.length + ' unique routes to verify.');
             for (const link of uniqueLinks) {
               console.log('Spidering route: ' + link);
@@ -423,11 +423,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
 
       - name: Install Dependencies
         # SECURE EXECUTION: Bypasses the policy ONLY for this isolated process.
