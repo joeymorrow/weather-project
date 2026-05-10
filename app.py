@@ -194,15 +194,15 @@ def load_history(today_str=None, yesterday_str=None):
             c = conn.cursor()
             if today_str and yesterday_str:
                 c.execute("""
-                        SELECT date, text, location FROM pulses 
-                    WHERE date = ? OR date = ? OR id IN (
-                        SELECT id FROM pulses ORDER BY id DESC LIMIT 21
-                    )
-                    ORDER BY id DESC
+                        SELECT id, date, text, location FROM pulses 
+                        WHERE date = ? OR date = ? OR id IN (
+                            SELECT id FROM pulses ORDER BY id DESC LIMIT 21
+                        )
+                        ORDER BY id DESC
                 """, (today_str, yesterday_str))
             else:
-                    c.execute("SELECT date, text, location FROM pulses ORDER BY id DESC LIMIT 21")
-                return [{"date": r[0], "text": r[1], "location": r[2] if len(r)>2 and r[2] else ""} for r in c.fetchall()]
+                    c.execute("SELECT id, date, text, location FROM pulses ORDER BY id DESC LIMIT 21")
+                return [{"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
     except Exception as e:
         print(f"[ERROR] load_history: {e}", flush=True)
         return []
@@ -211,8 +211,8 @@ def load_garage_sales():
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
-            c.execute("SELECT date, text, location FROM garage_sales ORDER BY id DESC LIMIT 20")
-            return [{"date": r[0], "text": r[1], "location": r[2] if len(r)>2 and r[2] else ""} for r in c.fetchall()]
+            c.execute("SELECT id, date, text, location FROM garage_sales ORDER BY id DESC LIMIT 20")
+            return [{"id": f"sale_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
     except Exception as e:
         print(f"[ERROR] load_garage_sales: {e}", flush=True)
         return []
