@@ -5,6 +5,8 @@ echo "================================================="
 echo "  BEACON D-Bus Listener Service Setup"
 echo "================================================="
 
+set -e # Exit immediately if any command fails
+
 # Check for root privileges
 if [ "$EUID" -ne 0 ]; then
   echo "Please run as root (sudo ./install_dbus_service.sh)"
@@ -21,14 +23,33 @@ echo "[1/4] Installing D-Bus and Python dependencies..."
 apt-get update
 apt-get install -y python3-gi python3-dbus gir1.2-glib-2.0
 
-# Attempt pip install, with fallback to --break-system-packages for externally-managed environments
-echo "Attempting to install Python packages with pip..."
-if ! pip install pydbus requests python-dotenv; then
-    echo "Pip installation failed, attempting with --break-system-packages (due to PEP 668 on some systems)..."
-    if ! pip install pydbus requests python-dotenv --break-system-packages; then
-        echo "FATAL: Failed to install Python dependencies even with --break-system-packages."
-        echo "Please ensure pip is correctly configured or install manually."
-        exit 1
+# List packages to install with pip
+PIP_PACKAGES="pydbus requests python-dotenv"
+
+# Attempt pip install, with fallback to --break-system-packages
+echo "Attempting to install Python packages with 'python3 -m pip'..."
+if ! python3 -m pip install $PIP_PACKAGES; then
+    echo "Pip installation failed without --break-system-packages. Retrying with it..."
+    if ! python3 -m pip install $PIP_PACKAGES --break-system-packages; then
+        echo "FATAL: Failed to install Python dependencies via pip even with --break-system-packages."
+        echo "This indicates a deeper Python environment issue."
+        echo "Please try manually installing: 'sudo python3 -m pip install $PIP_PACKAGES --break-system-packages'"
+        echo "Or check your Python path: 'sudo python3 -c \"import site; print(site.getsitepackages())\"'"
+        exit 1 # Exit due to fatal error
+    fi
+fi
+
+# Post-install verification: Check if pydbus is actually importable
+echo "Verifying 'pydbus' can be imported by '/usr/bin/python3'..."
+if ! /usr/bin/python3 -c "import pydbus" &> /dev/null; then
+    echo "FATAL: 'pydbus' was installed, but '/usr/bin/python3' cannot import it."
+    echo "This often happens if packages are installed for a different Python environment or user."
+    echo "Please try explicitly installing pydbus for the system Python with:"
+    echo "  sudo apt install python3-pydbus"
+    echo "OR (if apt doesn't have it):"
+    echo "  sudo /usr/bin/python3 -m pip install pydbus --break-system-packages"
+    echo "Then re-run this install script."
+    exit 1 # Exit due to fatal error
     fi
 fi
 echo "Python dependencies installed."
