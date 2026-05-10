@@ -115,11 +115,20 @@ def setup_db():
                             text TEXT UNIQUE,
                             location TEXT
                          )''')
+        conn.execute('''CREATE TABLE IF NOT EXISTS sault_tribe (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            date TEXT,
+                            text TEXT UNIQUE,
+                            location TEXT
+                         )''')
 
 def check_hallucination(text, date_str, item_type="pulse"):
     if item_type == "garage_sale":
         rules = "- Buddy acts as a local scout for garage sales. He searches for VERIFIABLE garage, yard, or estate sales happening today or tomorrow. If the text mentions specific addresses, times, or sales that did not occur or are not scheduled, IT IS A HALLUCINATION."
         instructions = "1. Search Google to see if this specific garage/yard sale was advertised for this location and date.\n2. If you cannot find any proof of a sale at this address/time, it is a hallucination."
+    elif item_type == "sault_tribe":
+        rules = "- Buddy acts as a local scout for Sault Ste. Marie Tribe of Chippewa Indians news and events. He searches for VERIFIABLE tribal news, cultural events, or announcements. Fake events or workshops are HALLUCINATIONS."
+        instructions = "1. Search Google to see if this specific Sault Tribe event/news was published or advertised for this location and date.\n2. If you cannot find any proof, it is a hallucination."
     else:
         rules = """- During the daytime (6 AM - 9:30 PM), Buddy acts as a local speechwriter. He searches for VERIFIABLE recent local news, events, or acts of kindness. If the text mentions specific names, workshops, or times that did not occur in real life, IT IS A HALLUCINATION.
 - During late night (9:30 PM - 6 AM), Buddy acts as a poetic night-owl. He provides quiet, atmospheric observations about the city's nocturnal rhythm. These poetic, non-specific observations are INTENDED and are NOT hallucinations."""
@@ -228,6 +237,9 @@ def main():
         
         cursor.execute("SELECT id, date, text FROM garage_sales")
         garage_sales = cursor.fetchall()
+        
+        cursor.execute("SELECT id, date, text FROM sault_tribe")
+        sault_tribe = cursor.fetchall()
 
         items_to_check = []
         now = datetime.now(pytz.timezone('America/Detroit'))
@@ -269,6 +281,23 @@ def main():
             except ValueError: pass
                 
             items_to_check.append(("garage_sale", sale_id, date_str, text))
+            
+        # Age out Sault Tribe (> 72 hours)
+        for tribe_id, date_str, text in sault_tribe:
+            try:
+                dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
+                dt = pytz.timezone('America/Detroit').localize(dt_naive)
+                if dt > now: dt = dt.replace(year=now.year - 1)
+                
+                age = now - dt
+                if age > timedelta(hours=72):
+                    cursor.execute("DELETE FROM sault_tribe WHERE id = ?", (tribe_id,))
+                    conn.commit()
+                    archived_count += 1
+                    continue
+            except ValueError: pass
+                
+            items_to_check.append(("sault_tribe", tribe_id, date_str, text))
 
         print(f"Found {len(items_to_check)} items to check for hallucinations (Archived/Deleted {archived_count} old items).\n")
         
@@ -283,8 +312,10 @@ def main():
                 cursor.execute("INSERT INTO hallucinations_log (date, text, reason) VALUES (?, ?, ?)", (date, text, reason))
                 if item_type == "pulse":
                     cursor.execute("DELETE FROM pulses WHERE id = ?", (item_id,))
-                else:
+                elif item_type == "garage_sale":
                     cursor.execute("DELETE FROM garage_sales WHERE id = ?", (item_id,))
+                else:
+                    cursor.execute("DELETE FROM sault_tribe WHERE id = ?", (item_id,))
                 conn.commit()
                 print(f"{RED}-> Deleted {item_type} ID: {item_id}\n{RESET}", flush=True)
                 round_results.append((date, text, reason))

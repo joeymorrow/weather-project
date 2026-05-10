@@ -104,6 +104,12 @@ def init_db():
                                 text TEXT UNIQUE,
                                 location TEXT
                              )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS sault_tribe (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                date TEXT,
+                                text TEXT UNIQUE,
+                                location TEXT
+                             )''')
             pulse_conn.execute('''CREATE TABLE IF NOT EXISTS eap_subscriptions (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 multicast_ip TEXT,
@@ -201,7 +207,7 @@ def load_history(today_str=None, yesterday_str=None):
                         ORDER BY id DESC
                 """, (today_str, yesterday_str))
             else:
-                    c.execute("SELECT id, date, text, location FROM pulses ORDER BY id DESC LIMIT 21")
+                c.execute("SELECT id, date, text, location FROM pulses ORDER BY id DESC LIMIT 21")
                 return [{"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
     except Exception as e:
         print(f"[ERROR] load_history: {e}", flush=True)
@@ -215,6 +221,16 @@ def load_garage_sales():
             return [{"id": f"sale_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
     except Exception as e:
         print(f"[ERROR] load_garage_sales: {e}", flush=True)
+        return []
+
+def load_sault_tribe():
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, date, text, location FROM sault_tribe ORDER BY id DESC LIMIT 20")
+            return [{"id": f"tribe_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
+    except Exception as e:
+        print(f"[ERROR] load_sault_tribe: {e}", flush=True)
         return []
 
 def log_system_event(log_type, message, details=""):
@@ -248,6 +264,7 @@ state = {
     "emergency": {"active": False, "message": "", "color": "#ff0000"},
     "branding": {"text": "", "color": "#00ffff"},
     "garage_sales": load_garage_sales(),
+    "sault_tribe": load_sault_tribe(),
     "main_config": {"header": "MORROW EDGE | BEACON Buddy", "location": "SAULT STE. MARIE, MICHIGAN", "query": "Sault+Ste.+Marie,MI,US"},
     "slides": [],
     "managed_theme": "",
@@ -512,6 +529,7 @@ def sync_for_location(slug, loc_name, query):
                 new_pulse_loc = ai.get("location", "")
                 is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
                 ai_garage_sales = ai.get("garage_sales", [])
+                ai_sault_tribe = ai.get("sault_tribe", [])
                 
                 if is_news and new_pulse and "Anchoring" not in new_pulse:
                     try:
@@ -584,6 +602,18 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                                         conn.execute("INSERT INTO garage_sales (date, text, location) VALUES (?, ?, ?)", (date_str, s_text, s_loc))
                             except sqlite3.IntegrityError:
                                 pass
+                                
+                if slug == "main" and isinstance(ai_sault_tribe, list):
+                    for event in ai_sault_tribe:
+                        s_text = event.get("text", "")
+                        s_loc = event.get("location", "")
+                        if s_text:
+                            try:
+                                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                    with conn:
+                                        conn.execute("INSERT INTO sault_tribe (date, text, location) VALUES (?, ?, ?)", (date_str, s_text, s_loc))
+                            except sqlite3.IntegrityError:
+                                pass
                 
                 print(f"[API] Success via {m_id} for {slug}", flush=True)
                 success = True; break
@@ -617,6 +647,7 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 "weekly_summary": ai.get("weekly_summary", "Weekly pattern steady."),
                 "pulse_history": hist,
                 "garage_sales": load_garage_sales(),
+                "sault_tribe": load_sault_tribe(),
                 "school_closings": {"sault_closed": sault_closed, "other_closings": other_closings}
         }
 

@@ -60,6 +60,12 @@
         #docs-trigger:hover, #docs-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         #graph-trigger { position: absolute; top: 20px; left: 160px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
         #graph-trigger:hover, #graph-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #garage-trigger { position: absolute; top: 20px; left: 195px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
+        #garage-trigger:hover, #garage-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #tribe-trigger { position: absolute; top: 20px; left: 230px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
+        #tribe-trigger:hover, #tribe-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #route-trigger { position: absolute; top: 20px; left: 265px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
+        #route-trigger:hover, #route-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         #hourly-container { opacity: 0; } #hourly-container.active { opacity: 0.45; }
         #mobile-nav-btn { position: absolute; top: 20px; right: 20px; font-size: 1.2rem; color: var(--accent); z-index: 3500; cursor: pointer; display: none; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 50%; background: rgba(0,0,0,0.5); transition: 0.3s; }
         #mobile-nav-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 10px var(--accent); }
@@ -102,7 +108,7 @@
             body:not(.ambient-awake) .ambient-hide { opacity: 0 !important; pointer-events: none !important; }
             body:not(.ambient-awake), body:not(.ambient-awake) * { cursor: none !important; }
         }
-        #egg-modal, #pulse-modal, #weekly-modal, #agenda-modal, #cast-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 2vh, 15px); pointer-events: auto; overflow-y: auto; padding: 5vh 5vw; box-sizing: border-box; }
+        #egg-modal, #pulse-modal, #weekly-modal, #agenda-modal, #cast-modal, #garage-modal, #tribe-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 2vh, 15px); pointer-events: auto; overflow-y: auto; padding: 5vh 5vw; box-sizing: border-box; }
         .egg-btn { background: rgba(0,255,255,0.1); border: 2px solid var(--accent); color: var(--accent); padding: clamp(10px, 1.5vh, 15px) clamp(15px, 3vw, 30px); font-size: clamp(0.9rem, 2vh, 1.2rem); border-radius: 10px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: clamp(150px, 25vw, 200px); text-align: center; flex-shrink: 0; }
         .egg-btn:hover, .egg-btn:focus { background: var(--accent); color: #000; outline: none; }
         #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, opacity 0.5s ease, z-index 0s 0.75s; z-index: 1000; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -289,6 +295,9 @@
     <div id="agenda-trigger" class="ambient-hide" role="button" tabindex="0" onclick="openAgenda()" onkeydown="if(event.key==='Enter')openAgenda()" title="Daily Agenda">🗓️</div>
     <div id="docs-trigger" class="ambient-hide" role="link" tabindex="0" onclick="window.open('/docs/dashboard', '_blank')" onkeydown="if(event.key==='Enter')window.open('/docs/dashboard', '_blank')" title="Documentation">?</div>
     <div id="graph-trigger" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="Toggle Hourly Graph">📈</div>
+    <div id="garage-trigger" class="ambient-hide" role="button" tabindex="0" onclick="document.getElementById('garage-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('garage-modal').style.display='flex'" title="Garage Sales">🏷️</div>
+    <div id="tribe-trigger" class="ambient-hide" role="button" tabindex="0" onclick="document.getElementById('tribe-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('tribe-modal').style.display='flex'" title="Sault Tribe News">🪶</div>
+    <div id="route-trigger" class="ambient-hide" role="button" tabindex="0" onclick="launchRoute()" onkeydown="if(event.key==='Enter')launchRoute()" title="Build Route">🛣️</div>
     <div id="mobile-nav-btn" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="View Hourly Graph">▶</div>
     <div id="fs-toggle-main" class="ambient-hide" role="button" tabindex="0" onclick="toggleFullscreen()" onkeydown="if(event.key==='Enter')toggleFullscreen()" title="Toggle Fullscreen">⛶</div>
     <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
@@ -352,6 +361,54 @@
             <strong>🤖 Android / Samsung:</strong><br>Swipe down from the top of your screen and tap <strong>Smart View</strong>, <strong>Cast</strong>, or <strong>Screen Cast</strong>.
         </div>
         <div class="egg-btn" tabindex="0" onclick="document.getElementById('cast-modal').style.display='none'" style="margin-top:clamp(10px, 2vh, 15px); border-color:gray; color:gray;">Close</div>
+    </div>
+    <div id="garage-modal" onclick="if(event.target === this) this.style.display='none'">
+        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 4rem); text-transform: uppercase;">Garage Sales</h2>
+        <div style="width: 100%; max-width: 800px; max-height: 70vh; overflow-y: auto; text-align: left; padding-right: 10px;">
+            {% if garage_sales %}
+                {% for item in garage_sales %}
+                <div style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--pod-border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                        <div style="font-size: clamp(0.9rem, 2vw, 1.1rem); color: #ccc; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; white-space: nowrap;">{{ item.date }}</div>
+                    </div>
+                    <div style="font-size: clamp(1rem, 2.5vw, 1.2rem); color: var(--text-main); opacity: 0.9; line-height: 1.5;">{{ item.text }}</div>
+                    <div style="align-self: flex-start; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                        {% if item.location %}
+                        <span onclick="toggleRouteWaypoint('{{ item.location | escape }}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: grayscale(100%);">📍</span>
+                        {% endif %}
+                        <button class="vote-btn-up-{{ item.id | escape }} agenda-vote-btn agenda-vote-btn-up" onclick="submitAgendaVote('{{ item.id | escape }}', 'up', this)">👍 <span class="up-count" style="margin-left: 5px;">{{ agenda_votes[item.id].up if agenda_votes and item.id in agenda_votes else 0 }}</span></button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="color: var(--accent); opacity: 0.6; text-align: center; margin-top: 20px; font-size: 1.2rem;">No garage sales found for today or tomorrow.</div>
+            {% endif %}
+        </div>
+        <div class="egg-btn" tabindex="0" onclick="document.getElementById('garage-modal').style.display='none'" style="margin-top:clamp(15px, 3vh, 30px); border-color:gray; color:gray;">Close</div>
+    </div>
+    <div id="tribe-modal" onclick="if(event.target === this) this.style.display='none'">
+        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 4rem); text-transform: uppercase;">Sault Tribe News</h2>
+        <div style="width: 100%; max-width: 800px; max-height: 70vh; overflow-y: auto; text-align: left; padding-right: 10px;">
+            {% if sault_tribe %}
+                {% for item in sault_tribe %}
+                <div style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--pod-border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                        <div style="font-size: clamp(0.9rem, 2vw, 1.1rem); color: #ccc; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; white-space: nowrap;">{{ item.date }}</div>
+                    </div>
+                    <div style="font-size: clamp(1rem, 2.5vw, 1.2rem); color: var(--text-main); opacity: 0.9; line-height: 1.5;">{{ item.text }}</div>
+                    <div style="align-self: flex-start; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                        {% if item.location %}
+                        <span onclick="toggleRouteWaypoint('{{ item.location | escape }}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: grayscale(100%);">📍</span>
+                        {% endif %}
+                        <button class="vote-btn-up-{{ item.id | escape }} agenda-vote-btn agenda-vote-btn-up" onclick="submitAgendaVote('{{ item.id | escape }}', 'up', this)">👍 <span class="up-count" style="margin-left: 5px;">{{ agenda_votes[item.id].up if agenda_votes and item.id in agenda_votes else 0 }}</span></button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="color: var(--accent); opacity: 0.6; text-align: center; margin-top: 20px; font-size: 1.2rem;">No recent tribal news or announcements verified.</div>
+            {% endif %}
+        </div>
+        <div class="egg-btn" tabindex="0" onclick="document.getElementById('tribe-modal').style.display='none'" style="margin-top:clamp(15px, 3vh, 30px); border-color:gray; color:gray;">Close</div>
     </div>
     <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: {{ branding.color | default('var(--accent)') }}; opacity: 0; z-index: 3500; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease; display: {% if branding and branding.text %}block{% else %}none{% endif %};">{{ branding.text }}</div>
     <div id="signage-overlay" style="display:none; position:fixed; inset:0; z-index:9000; background:#000; opacity:0; transition: opacity 1s ease;"></div>
@@ -924,6 +981,64 @@
             if(eggName === 'rpg') window.location.href = '/rpg';
         };
 
+        let selectedWaypoints = new Set();
+        
+        window.toggleRouteWaypoint = function(locationStr, element) {
+            if (!locationStr) return;
+            
+            if (selectedWaypoints.has(locationStr)) {
+                selectedWaypoints.delete(locationStr);
+                element.style.filter = "grayscale(100%)";
+            } else {
+                selectedWaypoints.add(locationStr);
+                element.style.filter = "drop-shadow(0 0 5px var(--accent))";
+            }
+            updateRouteLauncher();
+        };
+
+        window.updateRouteLauncher = function() {
+            let launcher = document.getElementById('route-trigger');
+            if (!launcher) return;
+            
+            if (selectedWaypoints.size > 0) {
+                launcher.style.opacity = '1';
+                launcher.style.boxShadow = '0 0 15px var(--accent)';
+                launcher.style.background = 'var(--accent)';
+                launcher.style.color = '#000';
+            } else {
+                launcher.style.opacity = '0.55';
+                launcher.style.boxShadow = 'none';
+                launcher.style.background = 'rgba(0,0,0,0.5)';
+                launcher.style.color = 'var(--accent)';
+            }
+        };
+
+        window.launchRoute = function() {
+            if (selectedWaypoints.size === 0) {
+                alert("No locations selected! Open an archive and click a 📍 to build your route.");
+                return;
+            }
+            
+            const points = Array.from(selectedWaypoints);
+            const destination = encodeURIComponent(points[points.length - 1]);
+            
+            let url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+            
+            if (points.length > 1) {
+                const waypoints = points.slice(0, -1).map(wp => encodeURIComponent(wp)).join('|');
+                url += `&waypoints=${waypoints}`;
+            }
+
+            window.open(url, '_blank');
+
+            selectedWaypoints.clear();
+            updateRouteLauncher();
+            
+            document.querySelectorAll('span[title="Add to Route Map"]').forEach(el => {
+                el.style.filter = 'grayscale(100%)';
+            });
+        };
+
         window.openPulseHistory = function() {
             const list = document.getElementById('pulse-list');
             
@@ -944,7 +1059,14 @@
                 if (match) {
                     let label = match[1].trim();
                     let searchQuery = encodeURIComponent(label + ' Sault Ste. Marie');
-                    searchLink = `<div style="margin-top: 10px;"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" tabindex="0" class="search-link-btn search-link-sm">🔗 Search Google</a></div>`;
+                    searchLink = `<div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+                        <a href="https://www.google.com/search?q=${searchQuery}" target="_blank" tabindex="0" class="search-link-btn search-link-sm">🔗 Search Google</a>
+                        ${p.location ? \`<span onclick="toggleRouteWaypoint('\${p.location.replace(/['"\\\\]/g, '\\\\$&')}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: \${selectedWaypoints && selectedWaypoints.has(p.location) ? 'drop-shadow(0 0 5px var(--accent))' : 'grayscale(100%)'};">📍</span>\` : ''}
+                    </div>`;
+                } else if (p.location) {
+                    searchLink = `<div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+                        <span onclick="toggleRouteWaypoint('\${p.location.replace(/['"\\\\]/g, '\\\\$&')}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: \${selectedWaypoints && selectedWaypoints.has(p.location) ? 'drop-shadow(0 0 5px var(--accent))' : 'grayscale(100%)'};">📍</span>
+                    </div>`;
                 }
                 
                 return `<div style="background: var(--pod-bg); ${borderStyle} padding: 15px 20px; border-radius: 12px; color: var(--text-main); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.4; text-align: left;"><div style="color: var(--accent); font-size: 0.8rem; margin-bottom: 5px; opacity: 0.8; text-transform: uppercase; font-weight: ${p.isCurrent ? 'bold' : 'normal'};">${p.date}</div>${safeText}${searchLink}</div>`;
