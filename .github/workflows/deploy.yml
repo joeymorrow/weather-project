@@ -197,47 +197,47 @@ jobs:
               console.error('[QA PAGE ERROR] Sault Schools load failed:', e.message); errors++;
             }
 
-          try {
-            console.log('Testing /pickford-schools ...');
-            await page.goto('http://127.0.0.1:5000/pickford-schools', {waitUntil: 'domcontentloaded', timeout: 15000});
-            await new Promise(r => setTimeout(r, 1000));
-            await runClashCheck('Pickford Schools 16:9');
-          } catch (e) {
-            console.error('[QA PAGE ERROR] Pickford Schools load failed:', e.message); errors++;
-          }
-git
-          // EAP Featureset & Dispatch QA Test
-          try {
-            console.log('Testing /dispatch (PWA) and EAP Webhook...');
-            
-            // 1. Test Dispatch PWA Unlock
-            await page.goto('http://127.0.0.1:5000/dispatch', {waitUntil: 'domcontentloaded', timeout: 15000});
-            await new Promise(r => setTimeout(r, 1000));
-            await page.type('#pin-input', '123456');
-            await page.click('.auth-btn');
-            await new Promise(r => setTimeout(r, 1000));
-            const dispatchUnlocked = await page.evaluate(() => document.getElementById('dispatch-screen').style.display === 'flex');
-            if (!dispatchUnlocked) { console.error('[QA EAP ERROR] Default PIN failed to unlock dispatch PWA!'); errors++; }
-            
-            // 2. Simulate Partner Webhook
-            console.log('Simulating Partner Inbound Webhook (LOCKDOWN)...');
-            await page.evaluate(async () => {
-              await fetch('/api/eap/webhook', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({IncidentType: 'LOCKDOWN', message: 'Automated QA Webhook Test'})
+            try {
+              console.log('Testing /pickford-schools ...');
+              await page.goto('http://127.0.0.1:5000/pickford-schools', {waitUntil: 'domcontentloaded', timeout: 15000});
+              await new Promise(r => setTimeout(r, 1000));
+              await runClashCheck('Pickford Schools 16:9');
+            } catch (e) {
+              console.error('[QA PAGE ERROR] Pickford Schools load failed:', e.message); errors++;
+            }
+
+            // EAP Featureset & Dispatch QA Test
+            try {
+              console.log('Testing /dispatch (PWA) and EAP Webhook...');
+              
+              // 1. Test Dispatch PWA Unlock
+              await page.goto('http://127.0.0.1:5000/dispatch', {waitUntil: 'domcontentloaded', timeout: 15000});
+              await new Promise(r => setTimeout(r, 1000));
+              await page.type('#pin-input', '123456');
+              await page.click('.auth-btn');
+              await new Promise(r => setTimeout(r, 1000));
+              const dispatchUnlocked = await page.evaluate(() => document.getElementById('dispatch-screen').style.display === 'flex');
+              if (!dispatchUnlocked) { console.error('[QA EAP ERROR] Default PIN failed to unlock dispatch PWA!'); errors++; }
+              
+              // 2. Simulate Partner Webhook
+              console.log('Simulating Partner Inbound Webhook (LOCKDOWN)...');
+              await page.evaluate(async () => {
+                await fetch('/api/eap/webhook', {
+                  method: 'POST',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({IncidentType: 'LOCKDOWN', message: 'Automated QA Webhook Test'})
+                });
               });
-            });
-            await new Promise(r => setTimeout(r, 1500));
-            
-            // 3. Verify State was updated globally
-            const eapState = await page.evaluate(async () => { const res = await fetch('/api/state'); return await res.json(); });
-            if (!eapState.school_alerts || !eapState.school_alerts['sault-schools'] || eapState.school_alerts['sault-schools'].type !== 'LOCKDOWN') {
-              console.error('[QA EAP ERROR] Webhook failed to update global state!'); errors++;
-            } else { console.log('✅ EAP Webhook correctly registered LOCKDOWN across tenants.'); }
-          } catch (e) {
-            console.error('[QA EAP ERROR] EAP test block failed:', e.message); errors++;
-          }
+              await new Promise(r => setTimeout(r, 1500));
+              
+              // 3. Verify State was updated globally
+              const eapState = await page.evaluate(async () => { const res = await fetch('/api/state'); return await res.json(); });
+              if (!eapState.school_alerts || !eapState.school_alerts['sault-schools'] || eapState.school_alerts['sault-schools'].type !== 'LOCKDOWN') {
+                console.error('[QA EAP ERROR] Webhook failed to update global state!'); errors++;
+              } else { console.log('✅ EAP Webhook correctly registered LOCKDOWN across tenants.'); }
+            } catch (e) {
+              console.error('[QA EAP ERROR] EAP test block failed:', e.message); errors++;
+            }
 
           try {
             console.log('Testing /cooladmin ...');
