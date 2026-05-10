@@ -523,7 +523,7 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 "low": today_low,
                 "desc": w['weather'][0]['description'].title(), "icon": w['weather'][0]['icon'],
                 "date": now.strftime(f"%A, %B {day}{suffix}, %Y"), "time": now.strftime('%I:%M %p'), 
-                "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6), 
+                "station": st_id, "is_sleeping": is_sleep, "show_bed": True, 
                 "t_high": t_high, "t_low": t_low, "t_desc": t_desc, "t_pop": t_pop,
                 "tomorrow_label": tomorrow_ui_label,
                 "is_late_night": is_late_night,
@@ -1333,7 +1333,7 @@ def move_buddy(station):
     }
     
     with state_lock:
-        state.update({"station": station, "is_sleeping": (station == "bed"), "bubble": bubbles.get(station, "Rerouting..."), "acc_css": "none" if station != "bed" else "zzz", "show_bed": (station == "bed" or now.hour >= 21 or now.hour < 6)})
+        state.update({"station": station, "is_sleeping": (station == "bed"), "bubble": bubbles.get(station, "Rerouting..."), "acc_css": "none" if station != "bed" else "zzz", "show_bed": True})
     
     # Save state locally so the web UI updates instantly across all connected TVs
     try:
