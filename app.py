@@ -330,8 +330,8 @@ def sync_for_location(slug, loc_name, query):
             sault_closed, other_closings = scrape_closings()
 
         # Calculate tomorrow's forecast (Skipping today's remaining blocks)
-        now_str = now.strftime('%Y-%m-%d')
-        t_items = [i for i in f['list'] if i['dt_txt'].split(' ')[0] != now_str]
+        logical_now_str = (now - timedelta(hours=6)).strftime('%Y-%m-%d')
+        t_items = [i for i in f['list'] if i['dt_txt'].split(' ')[0] != logical_now_str]
         t_high = int(max([i['main']['temp_max'] for i in t_items[:8]])) if t_items else 0
         t_low = int(min([i['main']['temp_min'] for i in t_items[:8]])) if t_items else 0
         t_desc = t_items[min(4, len(t_items)-1)]['weather'][0]['description'].title() if t_items else "..."
@@ -348,7 +348,7 @@ def sync_for_location(slug, loc_name, query):
         uv_str = f"{uv_val} (low)" if uv_val < 3 else (f"{uv_val} (moderate)" if uv_val < 6 else f"{uv_val} (high)")
         
         # Calculate today's high/low accurately instead of overlapping with tomorrow
-        today_items = [i for i in f['list'] if i['dt_txt'].split(' ')[0] == now_str]
+        today_items = [i for i in f['list'] if i['dt_txt'].split(' ')[0] == logical_now_str]
         if today_items:
             today_high = int(max(w['main']['temp_max'], max([i['main']['temp_max'] for i in today_items])))
             today_low = int(min(w['main']['temp_min'], min([i['main']['temp_min'] for i in today_items])))
@@ -373,7 +373,10 @@ def sync_for_location(slug, loc_name, query):
             date_short = datetime.strptime(dt, '%Y-%m-%d').strftime('%m/%d')
             weekly_list.append({"day": day_name, "date_short": date_short, "high": int(dat['high']), "low": int(dat['low']), "icon": d_icon})
             
-        is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22) or (now.hour < 6)
+        is_post_midnight = now.hour < 6
+        is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22) or is_post_midnight
+        tomorrow_label = "later today" if is_post_midnight else "tomorrow"
+        tomorrow_ui_label = "Later Today" if is_post_midnight else "Tomorrow"
 
         weather_desc = w['weather'][0]['description'].lower()
         severe_keywords = ["storm", "tornado", "hurricane", "flood", "thunder", "extreme", "blizzard"]
@@ -403,7 +406,7 @@ def sync_for_location(slug, loc_name, query):
                 last_pulse_topic = state.get("tenants", {}).get(slug, {}).get("pulse", "")
         
         pulse_task = (
-            f"Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of tomorrow's weather into this comforting thought. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the current time. Do not search for news. Set 'is_news' to false." 
+            f"Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of {tomorrow_label}'s weather into this comforting thought. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the current time. Do not search for news. Set 'is_news' to false." 
             if is_late_night else 
             f"Task 2 (Pulse): Adopt the persona of a steadfast, grounded local speechwriter. "
             f"ANTI-HALLUCINATION PROTOCOL (SAC): 1. SEARCH for a verifiable event happening TODAY in {loc_name}. 2. If no specific event is found with a source, DO NOT invent one; instead, describe a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i> or <i>park activity</i>). 3. CONTENT: Provide a 2-sentence update weaving the current weather into the activity. 4. TRUTH BOUNDARY: For scheduled events, include start/end times in <i> tags only if verified. If the city is quiet, describe the quiet with dignity—never use 'filler' events like fake workshops. 5. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid saccharine words like 'sanctuary'. Set 'is_news' to true ONLY if a specific verified event is shared; otherwise, set to false."
@@ -522,6 +525,7 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 "date": now.strftime(f"%A, %B {day}{suffix}, %Y"), "time": now.strftime('%I:%M %p'), 
                 "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or h >= 21 or h < 6), 
                 "t_high": t_high, "t_low": t_low, "t_desc": t_desc, "t_pop": t_pop,
+                "tomorrow_label": tomorrow_ui_label,
                 "is_late_night": is_late_night,
                 "is_day": is_day, "is_golden": is_golden, "pop": pop,
                 "clouds": clouds_val, "humidity": humidity_val,

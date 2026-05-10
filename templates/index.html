@@ -360,7 +360,7 @@
         <div class="forecast-line" id="ui-forecast" aria-live="polite">{{ forecast }}</div>
         <div class="suggestion" id="ui-sugg" aria-live="polite">{% if 'Initializing' in suggestion %}{{ suggestion }}{% else %}🧥 Suggested Attire: {{ suggestion }}{% endif %}</div>
         
-        <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1.8rem); color: var(--accent); opacity: 0.65; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">Tomorrow: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
+        <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1.8rem); color: var(--accent); opacity: 0.65; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">{{ tomorrow_label | default('Tomorrow') }}: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
         <div class="pulse-line" id="ui-pulse" role="button" aria-live="polite" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse | safe }}</div>
     </div>
     <div id="school-closings-container" style="display: none; position: absolute; bottom: 8vh; left: 0; width: 100vw; background: var(--bg); z-index: 1001; pointer-events: none; opacity: 1;">
@@ -1651,7 +1651,7 @@
                 const tEl = document.getElementById('ui-desc-tomorrow');
                 if (s.is_late_night && tEl) {
                     tEl.style.display = 'block';
-                    const newT = `Tomorrow: ${s.t_desc} | H: ${s.t_high}° L: ${s.t_low}° | 💧 ${s.t_pop}% | 🌅 ${s.sunrise} 🌇 ${s.sunset}`;
+                    const newT = `${s.tomorrow_label || 'Tomorrow'}: ${s.t_desc} | H: ${s.t_high}° L: ${s.t_low}° | 💧 ${s.t_pop}%`;
                     if (tEl.dataset.targetText !== newT) softUpdate('ui-desc-tomorrow', newT);
                 } else if (tEl) {
                     tEl.style.display = 'none';
