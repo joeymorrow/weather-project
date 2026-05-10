@@ -24,14 +24,17 @@
 </head>
 <body>
     <div class="container">
-        <h1>BEACON Content Administration</h1>
+          <h1>BEACON Content Administration</h1>
         <a href="/" style="color: #00ffff; text-decoration: none; font-weight: bold;">&larr; Return to Live Dashboard</a>
+        <h1>BEACON Content: <span style="color: #fff;">{{ slug | upper }}</span></h1>
+        <a href="{% if slug == 'main' %}/{% elif slug == 'sault-schools' %}/sault-schools{% elif slug == 'pickford-schools' %}/pickford-schools{% else %}/schools/{{ slug }}{% endif %}" style="color: #00ffff; text-decoration: none; font-weight: bold;">&larr; Return to Live Dashboard</a>
         
         <h2>🚨 Emergency Override Protocol</h2>
         {% if emergency.get('active') %}
             <div class="alert-banner">AN EMERGENCY FLARE IS CURRENTLY ACTIVE!</div>
         {% endif %}
         <form method="POST">
+        <form method="POST" action="/admin/{{ slug }}">
             <input type="hidden" name="action" value="update_flare">
             <div class="form-group">
                 <label>Active Emergency Alert?</label>
@@ -55,6 +58,8 @@
         <div class="flex" style="margin-bottom: 15px;">
             <form method="POST"><input type="hidden" name="action" value="undo_slides"><button type="submit" style="background:#444; color:#fff;">Undo Slide Change</button></form>
             <form method="POST"><input type="hidden" name="action" value="redo_slides"><button type="submit" style="background:#444; color:#fff;">Redo</button></form>
+            <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="undo_slides"><button type="submit" style="background:#444; color:#fff;">Undo Slide Change</button></form>
+            <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="redo_slides"><button type="submit" style="background:#444; color:#fff;">Redo</button></form>
         </div>
 
         {% for slide in slides %}
@@ -72,8 +77,12 @@
                 <form method="POST"><input type="hidden" name="action" value="move_slide_up"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Up</button></form>
                 <form method="POST"><input type="hidden" name="action" value="move_slide_down"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Down</button></form>
                 <form method="POST"><input type="hidden" name="action" value="toggle_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Hide</button></form>
+                <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="move_slide_up"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Up</button></form>
+                <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="move_slide_down"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Down</button></form>
+                <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="toggle_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Hide</button></form>
                 {% if slide.type != 'dashboard' %}
                 <form method="POST"><input type="hidden" name="action" value="delete_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit" class="danger">X</button></form>
+                <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="delete_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit" class="danger">X</button></form>
                 {% endif %}
             </div>
         </div>
@@ -81,6 +90,7 @@
 
         <h3>➕ Add Custom Text Slide</h3>
         <form method="POST">
+        <form method="POST" action="/admin/{{ slug }}">
             <input type="hidden" name="action" value="add_text_slide">
             <div class="form-group">
                 <label>Text Content (HTML Allowed)</label>
@@ -96,6 +106,7 @@
         
         <h3>➕ Add External Media (Canva/YouTube/Slides)</h3>
         <form method="POST">
+        <form method="POST" action="/admin/{{ slug }}">
             <input type="hidden" name="action" value="add_iframe_slide">
             <div class="form-group">
                 <label>URL or IFrame Embed Code</label>
