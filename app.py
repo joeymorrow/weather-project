@@ -189,6 +189,7 @@ state = {
     "slides": [],
     "managed_theme": "",
     "school_closings": {"sault_closed": False, "other_closings": []},
+    "agenda_item_count": 0,
     "school_alerts": {},
     "agenda_votes": {},
     "disabled_pages": []
@@ -580,6 +581,7 @@ def run_sync():
         
     with state_lock:
         state['school_closings'] = {"sault_closed": sault_closed, "other_closings": other_closings}
+        state['agenda_item_count'] = get_agenda_item_count()
 
     # Gather all locations to sync
     locations = []
@@ -1230,7 +1232,7 @@ def get_state():
     with state_lock:
         out = state.copy()
         out["build_timestamp"] = os.environ.get("BUILD_TIMESTAMP", "Local Dev")
-        out["agenda_item_count"] = get_agenda_item_count()
+        out["agenda_item_count"] = state.get("agenda_item_count", 0)
         return jsonify(out)
 
 @app.route('/api/vote', methods=['POST'])
