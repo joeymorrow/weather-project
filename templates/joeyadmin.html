@@ -159,10 +159,25 @@
             {% endif %}
         </div>
 
-        <!-- EAP Subscriptions -->
+        <!-- EAP Integration & Dispatch -->
         <div class="card">
-            <h2>📡 EAP Multicast Subscriptions</h2>
-            <p style="font-size: 0.9rem; color: #888;">Map local network multicast streams (IP/Port) to listen for EAP alerts dynamically.</p>
+            <h2>📡 EAP Integration & Dispatch</h2>
+            <p style="font-size: 0.9rem; color: #888;">Map local network multicast streams to synchronize alerts with fire panels or InformaCast. Broadcast outbound alerts via the PWA.</p>
+            
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                <a href="/dispatch" target="_blank" class="manage-btn" style="background:#ff4444; color:#fff; border-color:#ff4444; font-size: 1rem; flex: 1; text-align: center;">📱 Open Dispatch PWA</a>
+                <form method="POST" style="flex: 2; display: flex; gap: 5px;">
+                    <input type="hidden" name="action" value="update_eap_pin">
+                    <input type="password" name="eap_pin" value="{{ eap_pin }}" maxlength="6" pattern="\d{6}" placeholder="6-Digit PIN" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width: 100px;">
+                    <button type="submit" class="manage-btn">Set PIN</button>
+                </form>
+            </div>
+            
+            <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px;">
+                <span style="font-size: 0.8rem; color: #00ffff; font-weight: bold; text-transform: uppercase;">Partner API Webhook (CAP / Raptor Connect)</span><br>
+                <code style="color: #aaa; font-size: 0.8rem;">POST http://&lt;your-ip&gt;:5000/api/eap/webhook</code>
+            </div>
+            
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px;">
                 <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0;">
                     <input type="hidden" name="action" value="add_eap_sub">
@@ -181,6 +196,11 @@
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="delete_eap_sub"><input type="hidden" name="sub_id" value="{{ sub.id }}"><button type="submit" class="danger-btn">Delete</button></form>
             </div>
             {% endfor %}
+            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="/docs/eap_it_guide" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">📄 EAP Setup Guide</a>
+                <a href="/docs/partner_raptor" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">📄 Raptor Pro-Forma</a>
+                <a href="/docs/partner_singlewire" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">📄 InformaCast Pro-Forma</a>
+            </div>
         </div>
 
         <!-- SSO Configuration -->

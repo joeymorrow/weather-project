@@ -830,6 +830,70 @@ def eap_multicast_listener():
             log_system_event("EAP_LISTENER_ERROR", "The EAP multicast listener encountered an error.", str(e))
             time.sleep(15) # Sleep longer to prevent spamming logs on persistent errors
 
+def broadcast_eap_message(msg_type, message):
+    payload = json.dumps({"type": msg_type, "message": message}).encode('utf-8')
+    subs = get_eap_subscriptions()
+    sent_count = 0
+    for sub in subs:
+        ip = sub['ip']
+        port = sub['port']
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2) # Broadcast to local subnet
+            sock.sendto(payload, (ip, port))
+            sock.close()
+            sent_count += 1
+        except Exception as e:
+            print(f"[ERROR] Multicast Broadcast failed: {e}", flush=True)
+    
+    # Update self directly to ensure local UI reacts instantly
+    handle_eap_message(payload.decode('utf-8'))
+    return sent_count
+
+@app.route('/api/eap/verify_pin', methods=['POST'])
+def verify_eap_pin():
+    pin = request.json.get('pin')
+    with state_lock:
+        expected_pin = state.get('eap_pin', '123456')
+    return jsonify(success=(pin == expected_pin))
+
+@app.route('/api/eap/broadcast', methods=['POST'])
+def api_eap_broadcast():
+    data = request.json
+    pin = data.get('pin')
+    with state_lock:
+        expected_pin = state.get('eap_pin', '123456')
+    if pin != expected_pin:
+        return jsonify(success=False, error="Invalid PIN"), 403
+    
+    msg_type = data.get('type', 'EAP ALERT')
+    message = data.get('message', f'Emergency Protocol Initiated: {msg_type}')
+    
+    log_system_event("EAP_BROADCAST", f"EAP Alert Broadcast triggered via PWA: {msg_type}")
+    sent = broadcast_eap_message(msg_type, message)
+    
+    return jsonify(success=True, sent_to=sent)
+
+@app.route('/api/eap/webhook', methods=['POST'])
+def eap_webhook():
+    # Generic inbound webhook for partners (Raptor Connect, Singlewire, CAP)
+    data = request.json or {}
+    msg_type = data.get('type') or data.get('IncidentType') or 'EAP ALERT'
+    message = data.get('message') or 'Partner EAP Alert Received'
+    
+    # Forward to the local state (Partner integrations expand here later)
+    handle_eap_message(json.dumps({"type": msg_type, "message": message}))
+    return jsonify(success=True)
+
+@app.route('/dispatch')
+def dispatch_pwa():
+    return render_template('dispatch.html')
+
+@app.route('/sw.js')
+def service_worker():
+    sw_code = "self.addEventListener('install', e => e.waitUntil(self.skipWaiting())); self.addEventListener('activate', e => e.waitUntil(self.clients.claim())); self.addEventListener('fetch', e => {});"
+    return sw_code, 200, {'Content-Type': 'application/javascript'}
+
 @app.route('/api/internal/action', methods=['POST'])
 def internal_action():
     # Security Check
@@ -936,6 +1000,21 @@ def architecture_pitch():
     return send_from_directory(os.path.join(BASE_DIR, 'docs'), 'architecture-pitch.html')
 
 @app.route('/favicon.ico')
+@app.route('/manifest.json')
+def web_manifest():
+    return jsonify({
+        "name": "BEACON Dispatch",
+        "short_name": "Dispatch",
+        "start_url": "/dispatch",
+        "display": "standalone",
+        "background_color": "#050510",
+        "theme_color": "#d32f2f",
+        "icons": [{
+            "src": "/favicon.ico",
+            "sizes": "192x192",
+            "type": "image/x-icon"
+        }]
+    })
 def favicon():
     fav_path = os.path.join(app.root_path, 'static', 'favicon.ico')
     if os.path.exists(fav_path):
@@ -1173,6 +1252,16 @@ def cooladmin():
                 with conn:
                     conn.execute("DELETE FROM eap_subscriptions WHERE id = ?", (sub_id,))
             return redirect('/cooladmin')
+            
+        elif action == 'update_eap_pin':
+            new_pin = request.form.get('eap_pin', '').strip()
+            if new_pin and len(new_pin) == 6 and new_pin.isdigit():
+                with state_lock:
+                    state['eap_pin'] = new_pin
+                    try:
+                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                    except: pass
+            return redirect('/cooladmin')
 
         elif action == 'update_sso':
             provider = request.form.get('provider')
@@ -1247,6 +1336,7 @@ def cooladmin():
         current_pulse = state.get('pulse', '')
         pulse_history = state.get('pulse_history', [])
         disabled_pages = state.get('disabled_pages', [])
+        eap_pin = state.get('eap_pin', '123456')
 
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -1272,6 +1362,7 @@ def cooladmin():
         {"name": "Sault Schools", "url": "/sault-schools"},
         {"name": "Pickford Schools", "url": "/pickford-schools"},
         {"name": "3D Sandbox (Buddy's World)", "url": "/rpg"},
+        {"name": "EAP Dispatch (PWA)", "url": "/dispatch"},
         {"name": "Documentation Hub", "url": "/docs"},
         {"name": "Enterprise Sales Landing", "url": "/enterprise"},
         {"name": "Architecture Pitch Deck", "url": "/architecture-pitch"},
@@ -1282,7 +1373,7 @@ def cooladmin():
     for page in get_beacon_pages():
         site_hierarchy.append({"name": f"{page['title']} (Custom)", "url": f"/schools/{page['slug']}"})
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin)
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BEACON Dispatch</title>
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        body { margin: 0; padding: 0; background: #050510; color: #fff; font-family: 'Courier New', Courier, monospace; height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        h1 { color: #00ffff; text-shadow: 0 0 10px #00ffff; text-transform: uppercase; margin-bottom: 10px; }
+        p { color: #888; font-size: 0.9rem; text-align: center; max-width: 80%; }
+        
+        /* Lock Screen */
+        #lock-screen { display: flex; flex-direction: column; align-items: center; width: 100%; }
+        input[type="password"] { background: rgba(0,0,0,0.5); border: 2px solid #00ffff; color: #00ffff; font-size: 2rem; text-align: center; letter-spacing: 10px; padding: 15px; border-radius: 8px; outline: none; width: 250px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(0,255,255,0.1); }
+        .auth-btn { background: #00ffff; color: #000; font-weight: bold; font-size: 1.2rem; padding: 15px 40px; border: none; border-radius: 8px; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
+        .auth-btn:active { transform: scale(0.95); }
+
+        /* Grid Screen */
+        #dispatch-screen { display: none; flex-direction: column; width: 90%; max-width: 400px; height: 100%; justify-content: center; gap: 15px; }
+        .eap-btn { border: 2px solid; border-radius: 12px; background: rgba(0,0,0,0.6); color: #fff; font-size: 1.5rem; font-weight: bold; padding: 25px 10px; text-transform: uppercase; cursor: pointer; transition: 0.2s; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        .eap-btn:active { transform: scale(0.95); }
+        
+        .btn-lockdown { border-color: #d32f2f; color: #d32f2f; }
+        .btn-secure { border-color: #ff8c00; color: #ff8c00; }
+        .btn-hold { border-color: #800080; color: #800080; }
+        .btn-evacuate { border-color: #ff8c00; color: #ff8c00; }
+        .btn-shelter { border-color: #1976d2; color: #1976d2; }
+        .btn-clear { border-color: #388e3c; color: #388e3c; margin-top: 20px; background: rgba(56, 142, 60, 0.2); }
+    </style>
+</head>
+<body>
+
+    <div id="lock-screen">
+        <h1>EAP Dispatch</h1>
+        <p>Enter 6-Digit authorization code to access the Standard Response Protocol network.</p>
+        <input type="password" id="pin-input" maxlength="6" pattern="\d{6}" inputmode="numeric">
+        <button class="auth-btn" onclick="verifyPin()">Unlock</button>
+        <p id="error-msg" style="color: #ff4444; display: none;">Invalid Authorization Code</p>
+    </div>
+
+    <div id="dispatch-screen">
+        <h2 style="text-align: center; margin: 0; color: #aaa;">SRP NETWORK</h2>
+        <button class="eap-btn btn-lockdown" onclick="broadcast('LOCKDOWN', 'Locks, Lights, Out of Sight.')">Lockdown</button>
+        <button class="eap-btn btn-secure" onclick="broadcast('SECURE', 'Get inside. Lock outside doors.')">Secure</button>
+        <div style="display: flex; gap: 15px;">
+            <button class="eap-btn btn-hold" style="flex:1;" onclick="broadcast('HOLD', 'In your room or area. Clear the halls.')">Hold</button>
+            <button class="eap-btn btn-evacuate" style="flex:1;" onclick="broadcast('EVACUATE', 'Evacuate the location immediately.')">Evacuate</button>
+        </div>
+        <button class="eap-btn btn-shelter" onclick="broadcast('SHELTER', 'Evacuate to shelter area.')">Shelter</button>
+        
+        <button class="eap-btn btn-clear" onclick="broadcast('ALL CLEAR', 'The emergency has been resolved.')">All Clear</button>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW setup failed:', err));
+        }
+
+        let activePin = "";
+
+        async function verifyPin() {
+            const pin = document.getElementById('pin-input').value;
+            if(pin.length !== 6) return;
+            
+            const res = await fetch('/api/eap/verify_pin', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({pin: pin})
+            });
+            const data = await res.json();
+            
+            if(data.success) {
+                activePin = pin;
+                document.getElementById('lock-screen').style.display = 'none';
+                document.getElementById('dispatch-screen').style.display = 'flex';
+            } else {
+                document.getElementById('pin-input').value = '';
+                document.getElementById('error-msg').style.display = 'block';
+            }
+        }
+
+        async function broadcast(type, msg) {
+            if(!confirm(`WARNING: Broadcast ${type} across the entire network?`)) return;
+            
+            const res = await fetch('/api/eap/broadcast', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    pin: activePin,
+                    type: type,
+                    message: msg
+                })
+            });
+            
+            const data = await res.json();
+            if(data.success) {
+                alert(`Broadcast Successful. Packets routed to ${data.sent_to} endpoints.`);
+                // Re-lock the screen immediately after an alert is sent
+                document.getElementById('pin-input').value = '';
+                activePin = "";
+                document.getElementById('dispatch-screen').style.display = 'none';
+                document.getElementById('lock-screen').style.display = 'flex';
+            } else {
+                alert("Broadcast Failed: " + (data.error || "Unknown Error"));
+            }
+        }
+    </script>
+</body>
+</html>
