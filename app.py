@@ -223,7 +223,7 @@ def load_history(today_str=None, yesterday_str=None):
                         )
                         ORDER BY id DESC
                 """, (today_str, yesterday_str))
-                    return [{"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
+                return [{"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
             else:
                 c.execute("SELECT id, date, text, location FROM pulses ORDER BY id DESC LIMIT 21")
                 return [{"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
