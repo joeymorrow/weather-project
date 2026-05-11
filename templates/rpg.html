@@ -1306,7 +1306,7 @@
                 const positions = weatherParticles.geometry.attributes.position.array;
                 for(let i=1; i<positions.length; i+=3) {
                     positions[i] -= isRaining ? 2.5 : 0.4; // Rain falls much faster!
-                if(positions[i] < 0) positions[i] = 100;
+                    if(positions[i] < 0) positions[i] = 100;
                 }
                 weatherParticles.geometry.attributes.position.needsUpdate = true;
             // Make weather strictly follow the screen view!
