@@ -82,6 +82,10 @@ def init_db():
                                 title TEXT,
                                 zipcode TEXT
                              )''')
+            try:
+                pulse_conn.execute("ALTER TABLE beacon_pages ADD COLUMN expires_at DATETIME")
+            except sqlite3.OperationalError:
+                pass
             pulse_conn.execute('''CREATE TABLE IF NOT EXISTS hallucinations_log (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 retrieved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -184,8 +188,12 @@ def get_beacon_pages():
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
-            c.execute("SELECT id, slug, title, zipcode FROM beacon_pages ORDER BY title ASC")
-            return [{"id": r[0], "slug": r[1], "title": r[2], "zipcode": r[3]} for r in c.fetchall()]
+            try:
+                c.execute("SELECT id, slug, title, zipcode, expires_at FROM beacon_pages ORDER BY title ASC")
+                return [{"id": r[0], "slug": r[1], "title": r[2], "zipcode": r[3], "expires_at": r[4]} for r in c.fetchall()]
+            except sqlite3.OperationalError:
+                c.execute("SELECT id, slug, title, zipcode FROM beacon_pages ORDER BY title ASC")
+                return [{"id": r[0], "slug": r[1], "title": r[2], "zipcode": r[3], "expires_at": None} for r in c.fetchall()]
     except Exception as e:
         print(f"[ERROR] get_beacon_pages: {e}", flush=True)
         return []
@@ -1063,7 +1071,7 @@ def internal_action():
 
 @app.before_request
 def check_disabled_pages():
-    if request.path.startswith('/cooladmin') or request.path.startswith('/joeyadmin') or request.path.startswith('/admin') or request.path.startswith('/static') or request.path.startswith('/api/') or request.path.startswith('/docs'):
+    if request.path.startswith('/cooladmin') or request.path.startswith('/joeyadmin') or request.path.startswith('/admin') or request.path.startswith('/static') or request.path.startswith('/api/') or request.path.startswith('/docs') or request.path.startswith('/demo'):
         return
     with state_lock:
         disabled = state.get("disabled_pages", [])
@@ -1101,6 +1109,50 @@ def sales_landing():
 @app.route('/architecture-pitch')
 def architecture_pitch():
     return send_from_directory(os.path.join(BASE_DIR, 'docs'), 'architecture-pitch.html')
+
+@app.route('/demo', methods=['GET', 'POST'])
+def demo_hub():
+    if request.method == 'POST':
+        zipcode = request.form.get('zipcode', '').strip()
+        if zipcode:
+            slug = f"demo-{zipcode}"
+            pages = get_beacon_pages()
+            page = next((p for p in pages if p['slug'] == slug), None)
+            
+            if not page:
+                title = f"Demo Area {zipcode}"
+                expires = (datetime.now(TZ) + timedelta(hours=12)).strftime('%Y-%m-%d %H:%M:%S')
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn:
+                            conn.execute("INSERT INTO beacon_pages (slug, title, zipcode, expires_at) VALUES (?, ?, ?, ?)", (slug, title, zipcode, expires))
+                except: pass
+                
+                with state_lock:
+                    if 'tenants' not in state: state['tenants'] = {}
+                    state['tenants'][slug] = {
+                        "pulse": f"Welcome! Generating initial AI pulse for {zipcode}...",
+                        "pulse_history": [
+                            {"date": "EAP READY", "text": "Multicast listener attached. Try the Dispatch PWA to send a Lockdown alert!", "location": "System"},
+                            {"date": "SIGNAGE READY", "text": "Go to /admin to inject Canva slides or YouTube loops.", "location": "System"},
+                            {"date": "SMART CITY", "text": "AI is fetching local garage sales and municipal alerts.", "location": "System"}
+                        ],
+                        "slides": [
+                            {"id": "dashboard", "type": "dashboard", "duration": 15, "hidden": False},
+                            {"id": "demo-text", "type": "text", "text": "This instance self-destructs in 12 hours.", "bg_color": "#000000", "text_color": "#00ffff", "duration": 5, "strobe": False}
+                        ]
+                    }
+                    try:
+                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                    except: pass
+                
+                threading.Thread(target=sync_for_location, args=(slug, title, zipcode), daemon=True).start()
+            
+            return redirect(f"/schools/{slug}")
+            
+    now_str = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
+    active_demos = [p for p in get_beacon_pages() if p['slug'].startswith('demo-') and (not p.get('expires_at') or p['expires_at'] > now_str)]
+    return render_template('demo_hub.html', active_demos=active_demos)
 
 @app.route('/favicon.ico')
 @app.route('/manifest.json')
@@ -1539,6 +1591,7 @@ def cooladmin():
         "/dispatch": "EAP Dispatch (PWA)",
         "/docs": "Documentation Hub",
         "/admin": "Admin Dashboard",
+        "/demo": "Interactive Demo Hub",
         "/cooladmin": "Super Admin (CoolAdmin)",
         "/login": "SSO Login"
     }

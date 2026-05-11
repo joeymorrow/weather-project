@@ -28,6 +28,23 @@ jobs:
           # F821 catches undefined variables in Python!
           flake8 . --select=E9,F63,F7,F82 --show-source --statistics
           
+      - name: Cybersecurity Analysis (SAST - Bandit)
+        run: |
+          pip install bandit
+          # Run Bandit to scan for SQLi, XSS, Path Traversal, and Hardcoded Secrets
+          bandit -r . -ll --exclude venv,data || echo "Bandit found potential security issues. Review logs."
+
+      - name: Dependency Vulnerability Analysis (SCA)
+        run: |
+          pip install pip-audit
+          # Scans the environment against the PyPI advisory database for known CVEs
+          pip-audit || echo "pip-audit found vulnerable packages. Review logs."
+          
+      - name: Secret Leak Detection (TruffleHog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown
+          
       - name: Python Basic Syntax Check
         run: |
           python -m compileall .
@@ -162,22 +179,42 @@ jobs:
               console.error('[QA SCENARIO ERROR] Time travel failed:', e.message); errors++;
             }
 
-              console.log('Testing Modalities...');
-              try {
-                await page.click('#weekly-trigger');
-                if (!(await page.evaluate(() => document.getElementById('weekly-modal').style.display === 'flex'))) { console.error('[QA MODAL ERROR] Weekly modal failed!'); errors++; }
-                await page.evaluate(() => document.getElementById('weekly-modal').style.display = 'none');
-              } catch (e) {
-                console.error('[QA MODAL ERROR] Weekly Interaction failed:', e.message); errors++;
+              console.log('Testing Modalities & Holistic Interactions...');
+              const modalsToTest = [
+                { trigger: '#weekly-trigger', modal: 'weekly-modal' },
+                { trigger: '#agenda-trigger', modal: 'agenda-modal' },
+                { trigger: '#garage-trigger', modal: 'garage-modal' },
+                { trigger: '#tribe-trigger', modal: 'tribe-modal' },
+                { trigger: '#ui-pulse', modal: 'pulse-modal' }
+              ];
+              for (const mt of modalsToTest) {
+                try {
+                  await page.click(mt.trigger);
+                  await new Promise(r => setTimeout(r, 300));
+                  const isOpen = await page.evaluate((m) => {
+                      const el = document.getElementById(m);
+                      return el && (el.style.display === 'flex' || el.style.display === 'block');
+                  }, mt.modal);
+                  if (!isOpen) { console.error(`[QA MODAL ERROR] ${mt.modal} failed to open via ${mt.trigger}!`); errors++; }
+                  
+                  await page.evaluate((m) => {
+                      const closeBtn = Array.from(document.querySelectorAll(`#${m} .egg-btn`)).find(btn => btn.innerText.includes('Close'));
+                      if (closeBtn) closeBtn.click();
+                      else document.getElementById(m).style.display = 'none';
+                  }, mt.modal);
+                  await new Promise(r => setTimeout(r, 200));
+                } catch (e) {
+                  console.error(`[QA MODAL ERROR] Interaction failed for ${mt.trigger}:`, e.message); errors++;
+                }
               }
-                
-              try {
-                await page.click('#ui-pulse');
-                if (!(await page.evaluate(() => document.getElementById('pulse-modal').style.display === 'flex'))) { console.error('[QA MODAL ERROR] Pulse modal failed!'); errors++; }
-                await page.evaluate(() => document.getElementById('pulse-modal').style.display = 'none');
-              } catch (e) {
-                console.error('[QA MODAL ERROR] Pulse Interaction failed:', e.message); errors++;
-              }
+              
+              console.log('Fuzzing hover tooltips & pods...');
+              await page.evaluate(() => {
+                document.querySelectorAll('.pod, .help-tip, [title]').forEach(el => {
+                  el.dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));
+                });
+              });
+              await new Promise(r => setTimeout(r, 500));
 
             // Sault Schools Checks
             try {
@@ -240,6 +277,30 @@ jobs:
               console.error('[QA EAP ERROR] EAP test block failed:', e.message); errors++;
             }
 
+          // --- CYBERSECURITY & FUZZING SUITE ---
+          try {
+            console.log('--- CYBERSECURITY & FUZZING ANALYSIS ---');
+            
+            console.log('Testing Path Traversal (/docs/%2E%2E%2Fapp.py)...');
+            const ptRes = await page.goto('http://127.0.0.1:5000/docs/%2E%2E%2Fapp.py', {waitUntil: 'domcontentloaded'});
+            const ptText = await page.evaluate(() => document.body ? document.body.innerText : '');
+            if (ptText.includes('Flask') && ptText.includes('import')) {
+              console.error('[QA SECURITY ERROR] Path traversal vulnerability detected on /docs!'); errors++;
+            }
+
+            console.log('Testing SQLi Auth Bypass (/login)...');
+            await page.goto('http://127.0.0.1:5000/login', {waitUntil: 'domcontentloaded'});
+            await page.type('input[name="username"]', "' OR '1'='1");
+            await page.type('input[name="password"]', "' OR '1'='1");
+            await Promise.all([
+              page.waitForNavigation({waitUntil: 'domcontentloaded'}),
+              page.evaluate(() => document.querySelector('form[action="/login"]').submit())
+            ]);
+            if (page.url().includes('cooladmin')) {
+              console.error('[QA SECURITY ERROR] SQL Injection Authentication bypass succeeded!'); errors++;
+            }
+          } catch (e) { console.error('[QA SECURITY ERROR] DAST suite crashed:', e.message); errors++; }
+
           try {
             console.log('Testing /cooladmin ...');
             const adminUser = process.env.ADMIN_USERNAME || 'admin';
@@ -249,24 +310,29 @@ jobs:
             await page.type('input[name="password"]', adminPass);
             await Promise.all([
               page.waitForNavigation({waitUntil: 'domcontentloaded'}),
-              page.click('button[type="submit"]')
+              page.evaluate(() => document.querySelector('form[action="/login"]').submit())
             ]);
             await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
             
-            console.log('Testing dynamic site creation...');
-            await page.type('input[name="title"]', 'QA Test School');
+            console.log('Testing dynamic site creation (with XSS Payload)...');
+            await page.type('input[name="title"]', '<script>window.XSS_VULN=true;</script>QA Test School');
             await page.type('input[name="slug"]', 'qa-test');
             await page.type('input[name="zipcode"]', '49783,US');
             await Promise.all([
               page.waitForNavigation({waitUntil: 'domcontentloaded'}),
               page.evaluate(() => { document.querySelector('input[value="add_beacon_page"]').closest('form').submit(); })
             ]);
-            console.log('✅ Created dynamic site.');
+            console.log('✅ Created dynamic site with fuzzed payload.');
 
             console.log('Testing /schools/qa-test ...');
             let res = await page.goto('http://127.0.0.1:5000/schools/qa-test', {waitUntil: 'domcontentloaded'});
             if (!res.ok()) { console.error('[QA PAGE ERROR] Dynamic site failed to load!'); errors++; }
+            
+            const isXssExecuted = await page.evaluate(() => window.XSS_VULN === true);
+            if (isXssExecuted) {
+              console.error('[QA SECURITY ERROR] Stored XSS vulnerability detected in Dynamic Beacon Title!'); errors++;
+            }
             
             console.log('Testing /schools/qa-test/admin ...');
             res = await page.goto('http://127.0.0.1:5000/schools/qa-test/admin', {waitUntil: 'domcontentloaded'});
@@ -314,6 +380,21 @@ jobs:
               console.log('Spidering route: ' + link);
               const res = await page.goto(link, {waitUntil: 'domcontentloaded', timeout: 10000});
               if (res && !res.ok()) { console.error('[QA HTTP ERROR] ' + link + ' returned ' + res.status()); errors++; }
+              
+              const pageText = await page.evaluate(() => document.body ? document.body.innerText : '');
+              if (pageText && (pageText.includes('Internal Server Error') || pageText.includes('The server encountered an internal error'))) {
+                console.error('[QA HTTP 500] Flask crash text detected on ' + link); errors++;
+              }
+              if (pageText && (pageText.includes('{{') || pageText.includes('{%'))) {
+                console.error('[QA RENDER ERROR] Raw Jinja tags leaked on ' + link); errors++;
+              }
+              
+              const brokenImages = await page.evaluate(() => {
+                return Array.from(document.images).filter(img => img.complete && img.naturalWidth === 0).map(img => img.src);
+              });
+              if (brokenImages.length > 0) {
+                console.error('[QA ASSET ERROR] Broken images on ' + link + ': ' + brokenImages.join(', ')); errors++;
+              }
             }
           } catch (e) {
             console.error('[QA SPIDER ERROR] ' + e.message); errors++;

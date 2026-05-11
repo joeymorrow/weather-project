@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BEACON | Interactive Demo Hub</title>
+    <style>
+        body { margin: 0; padding: 0; background: #050510; color: #fff; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+        .hero { text-align: center; padding: 50px 20px; max-width: 800px; }
+        h1 { color: #00ffff; font-size: clamp(2rem, 5vw, 4rem); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; text-shadow: 0 0 20px rgba(0,255,255,0.5); }
+        p { color: #aaa; font-size: 1.2rem; line-height: 1.6; }
+        .form-box { background: rgba(0,50,50,0.3); border: 1px solid #00ffff; padding: 30px; border-radius: 15px; box-shadow: 0 0 30px rgba(0,255,255,0.1); margin-bottom: 40px; text-align: center; width: 90%; max-width: 500px; backdrop-filter: blur(10px); }
+        input[type="text"] { width: 80%; padding: 15px; background: rgba(0,0,0,0.5); border: 2px solid #00ffff; color: #00ffff; font-size: 1.5rem; text-align: center; border-radius: 8px; margin-bottom: 20px; outline: none; transition: 0.3s; }
+        input[type="text"]:focus { box-shadow: 0 0 15px #00ffff; }
+        button { background: #00ffff; color: #000; font-size: 1.2rem; font-weight: bold; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; text-transform: uppercase; }
+        button:hover { background: #fff; box-shadow: 0 0 20px #fff; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; max-width: 1000px; width: 90%; padding: 20px; }
+        .card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; transition: 0.3s; }
+        .card:hover { border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.2); transform: translateY(-5px); }
+        .card h3 { color: #00ffff; margin-top: 0; }
+        .live-demos { width: 90%; max-width: 800px; margin-top: 20px; margin-bottom: 50px; }
+        .demo-item { display: flex; justify-content: space-between; align-items: center; background: rgba(0,255,255,0.1); padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(0,255,255,0.2); text-decoration: none; color: #fff; transition: 0.3s; }
+        .demo-item:hover { background: rgba(0,255,255,0.3); }
+        .badge { background: #ff4444; color: #fff; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+        .timer { color: #ffaa00; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>BEACON Demo Hub</h1>
+        <p>Generate a fully functional, localized smart dashboard instantly. Explore the Emergency Action Plan (EAP) ecosystem, Digital Signage injections, and AI-driven local pulse analysis. <strong>Demos self-destruct after 12 hours.</strong></p>
+    </div>
+    
+    <div class="form-box">
+        <form method="POST">
+            <input type="text" name="zipcode" placeholder="Enter Zip Code" required pattern="\d{5}" title="5-digit Zip Code">
+            <button type="submit" onclick="this.innerText='INITIALIZING...';">Spin Up Instance</button>
+        </form>
+        <p style="font-size: 0.9rem; margin-top: 15px; color: #00aaaa;">It takes ~10 seconds for the AI to anchor the initial localized pulse.</p>
+    </div>
+    
+    <div class="grid">
+        <div class="card">
+            <h3>🏫 K-12 Schools</h3>
+            <p>Integrates natively with <strong>I Love U Guys</strong> SRP protocols. Ties directly into Raptor Connect and InformaCast for instant strobe/lockdown takeovers.</p>
+        </div>
+        <div class="card">
+            <h3>🏢 Corporate & Factory</h3>
+            <p>Push Canva pitch decks and KPIs to your digital signage. Instantly strobe the factory floor during fire alarms or severe weather events.</p>
+        </div>
+        <div class="card">
+            <h3>🏛️ Smart Municipalities</h3>
+            <p>AI aggregates local garage sales and tribal news automatically. Interactive 3D maps and community pulse keeping.</p>
+        </div>
+    </div>
+
+    <div class="live-demos">
+        <h2 style="color: #00ffff; border-bottom: 1px solid #00ffff; padding-bottom: 10px;">Active Live Demos</h2>
+        {% if active_demos %}
+            {% for demo in active_demos %}
+            <a href="/schools/{{ demo.slug }}" class="demo-item" target="_blank">
+                <div>
+                    <strong>{{ demo.title }}</strong>
+                    <div style="font-size: 0.8rem; color: #aaa; margin-top: 5px;">Zip: {{ demo.zipcode }}</div>
+                </div>
+                <div style="text-align: right;">
+                    <span class="badge">ACTIVE</span>
+                    <div class="timer" style="margin-top: 5px; font-size: 0.8rem;">Exp: {{ demo.expires_at.split(' ')[1] if demo.expires_at else 'Unknown' }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <p style="text-align: center; color: #888; font-style: italic;">No active demos right now. Be the first to spin one up!</p>
+        {% endif %}
+    </div>
+</body>
+</html>
