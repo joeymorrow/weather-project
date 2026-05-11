@@ -2,7 +2,7 @@
 Welcome to the **Morrow Edge | BEACON** project! This document serves as the "brain state" so any new instance of an AI coding assistant can get fully up to speed with our architecture, design patterns, and strict project rules.
 
 ## 🏗️ Project Overview
-BEACON is a local weather and scheduling dashboard powered by the Gemini AI API, serving Sault Ste. Marie, Michigan. 
+BEACON is a local weather and scheduling dashboard powered by the Gemini AI API, serving Sault Ste. Marie, Michigan.
 It operates two distinct frontend views:
 1. **`index.html` (The Dashboard):** A beautiful, CSS-heavy, responsive widget dashboard featuring "Buddy", an animated CSS robot. It fetches OpenWeatherMap data and local news, summarizes them via AI, and displays a poetic "Sault Pulse."
 2. **`rpg.html` (Buddy's World):** A fully functional, highly optimized 3D WebGL (Three.js) sandbox engine where users can drive a Passat, sail a freighter, buy guitars, swim, and explore low-poly local landmarks.
@@ -25,7 +25,7 @@ The WebGL environment strictly adheres to a "Valgrind-like" zero-allocation mind
 ## 🚀 Deployment Rules
 - **No local `docker compose up`:** Deployment is strictly managed via GitHub Actions (`.github/workflows/deploy.yml`) on a self-hosted runner.
 - **Secrets Management:** The runner pulls keys (`GEMINI_API_KEY`, etc.) and dynamically injects them into the `.env` file during deployment.
-- **Cloudflare Tunnels:** Remote access is securely piped through a `cloudflared` daemon. 
+- **Cloudflare Tunnels:** Remote access is securely piped through a `cloudflared` daemon.
 
 ## 📚 AI Documentation Protocol (The Docs Hierarchy)
 Whenever you modify a user-facing view, feature, or admin portal (excluding `/rpg`), you MUST review and update the corresponding documentation.

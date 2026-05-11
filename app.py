@@ -145,6 +145,10 @@ def init_db():
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN password TEXT")
             except sqlite3.OperationalError:
                 pass
+            
+            # Seed the default dynamic schools to replace the old static ones
+            pulse_conn.execute("INSERT OR IGNORE INTO beacon_pages (slug, title, zipcode) VALUES ('sault-schools', 'Sault Schools', '49783,US')")
+            pulse_conn.execute("INSERT OR IGNORE INTO beacon_pages (slug, title, zipcode) VALUES ('pickford-schools', 'Pickford Schools', '49774,US')")
     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as log_conn:
         with log_conn:
             log_conn.execute('''CREATE TABLE IF NOT EXISTS logs (
@@ -890,7 +894,7 @@ def handle_eap_message(msg_text):
         
         tenants_to_update = []
         if target == "ALL":
-            tenants_to_update = ['sault-schools', 'pickford-schools', 'main'] + [p['slug'] for p in get_beacon_pages()]
+            tenants_to_update = ['main'] + [p['slug'] for p in get_beacon_pages()]
         elif target == "main":
             tenants_to_update = ['main']
         else:
@@ -1303,32 +1307,18 @@ def sault_weather_redirect():
     return redirect('/')
 
 @app.route('/sault-schools')
-def sault_schools():
-    with state_lock: 
-        page_state = state.get('tenants', {}).get('sault-schools', state).copy()
-        page_state['school_alerts'] = state.get('school_alerts', {})
-        page_state['school_closings'] = state.get('school_closings', {})
-        return render_template('sault_schools.html', **page_state)
-
 @app.route('/sault_schools')
 @app.route('/sault_schools.html')
 @app.route('/sault_schools.html/')
 def sault_schools_redirect():
-    return redirect('/sault-schools')
+    return redirect('/schools/sault-schools')
 
 @app.route('/pickford-schools')
-def pickford_schools():
-    with state_lock: 
-        page_state = state.get('tenants', {}).get('pickford-schools', state).copy()
-        page_state['school_alerts'] = state.get('school_alerts', {})
-        page_state['school_closings'] = state.get('school_closings', {})
-        return render_template('pickford_schools.html', **page_state)
-
 @app.route('/pickford_schools')
 @app.route('/pickford_schools.html')
 @app.route('/pickford_schools.html/')
 def pickford_schools_redirect():
-    return redirect('/pickford-schools')
+    return redirect('/schools/pickford-schools')
 
 @app.route('/schools/<slug>')
 def dynamic_school(slug):
@@ -1556,9 +1546,9 @@ def cooladmin():
         metrics = []
         
     with state_lock:
-        current_pulse = state.get('pulse', '')
-        pulse_history = state.get('pulse_history', [])
-        disabled_pages = state.get('disabled_pages', [])
+        current_pulse = state.get('pulse') or ''
+        pulse_history = state.get('pulse_history') or []
+        disabled_pages = state.get('disabled_pages') or []
         eap_pin = state.get('eap_pin', '123456')
 
     try:
@@ -1580,8 +1570,8 @@ def cooladmin():
     except:
         hallucinations = []
         
-    garage_sales = load_garage_sales()
-    sault_tribe = load_sault_tribe()
+    garage_sales = load_garage_sales() or []
+    sault_tribe = load_sault_tribe() or []
         
     known_routes = {
         "/": "Main Dashboard",

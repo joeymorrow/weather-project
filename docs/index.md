@@ -8,6 +8,9 @@ Welcome to the Morrow Edge BEACON documentation hub. Select a guide below to lea
 - SSO Setup & RBAC - *Identity Provider and Permissions Matrix instructions.*
 - Client SSO Instructions - *What to hand to clients setting up Clever/Google Workspace.*
 
+## End-User Guides
+- [In-Car Display Guide (CarPlay & Android Auto)](carplay_fermata_guide) - *How to display the dashboard in your vehicle.*
+
 ## Emergency Protocol (EAP) Integration
 *BEACON is fully capable of acting as an Enterprise Digital Signage endpoint for emergency alerts.*
 
