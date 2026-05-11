@@ -212,7 +212,8 @@
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
                 {% for provider in ['Microsoft', 'Google', 'Clever', 'ActiveDirectory'] %}
-                {% set p_conf = sso_configs | selectattr('provider', 'equalto', provider) | first | default({'enabled': False, 'client_id': '', 'client_secret': '', 'extra_info': ''}) %}
+                {% set provider_list = sso_configs | selectattr('provider', 'equalto', provider) | list %}
+                {% set p_conf = provider_list[0] if provider_list else {'enabled': False, 'client_id': '', 'client_secret': '', 'extra_info': ''} %}
                 {% if provider == 'Microsoft' %}
                     {% set pid_ph = "Application (client) ID" %}
                     {% set psec_ph = "Client Secret Value" %}
