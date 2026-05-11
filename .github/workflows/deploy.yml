@@ -195,16 +195,16 @@ jobs:
                       const el = document.getElementById(m);
                       return el && (el.style.display === 'flex' || el.style.display === 'block');
                   }, mt.modal);
-                  if (!isOpen) { console.error(`[QA MODAL ERROR] ${mt.modal} failed to open via ${mt.trigger}!`); errors++; }
+                  if (!isOpen) { console.error('[QA MODAL ERROR] ' + mt.modal + ' failed to open via ' + mt.trigger + '!'); errors++; }
                   
                   await page.evaluate((m) => {
-                      const closeBtn = Array.from(document.querySelectorAll(`#${m} .egg-btn`)).find(btn => btn.innerText.includes('Close'));
+                      const closeBtn = Array.from(document.querySelectorAll('#' + m + ' .egg-btn')).find(btn => btn.innerText.includes('Close'));
                       if (closeBtn) closeBtn.click();
                       else document.getElementById(m).style.display = 'none';
                   }, mt.modal);
                   await new Promise(r => setTimeout(r, 200));
                 } catch (e) {
-                  console.error(`[QA MODAL ERROR] Interaction failed for ${mt.trigger}:`, e.message); errors++;
+                  console.error('[QA MODAL ERROR] Interaction failed for ' + mt.trigger + ':', e.message); errors++;
                 }
               }
               
