@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 # 🛑 HARD RULE: This workflow is the ONLY approved method for deploying the docker container.
 # Do not run docker compose manually on the host. The runner manages the deployment lifecycle.
 
@@ -21,6 +22,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
+      - name: YAML Linter (yamllint)
+        run: |
+          pip install yamllint
+          yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable}}" .
 
       - name: Python Linter (Flake8)
         run: |
@@ -290,11 +296,11 @@ jobs:
 
             console.log('Testing SQLi Auth Bypass (/login)...');
             await page.goto('http://127.0.0.1:5000/login', {waitUntil: 'domcontentloaded'});
-            await page.type('input[name="username"]', "' OR '1'='1");
-            await page.type('input[name="password"]', "' OR '1'='1");
+            await page.type('input[name=\"username\"]', \"' OR '1'='1\");
+            await page.type('input[name=\"password\"]', \"' OR '1'='1\");
             await Promise.all([
               page.waitForNavigation({waitUntil: 'domcontentloaded'}),
-              page.evaluate(() => document.querySelector('form[action="/login"]').submit())
+              page.evaluate(() => document.querySelector('form[action=\"/login\"]').submit())
             ]);
             if (page.url().includes('cooladmin')) {
               console.error('[QA SECURITY ERROR] SQL Injection Authentication bypass succeeded!'); errors++;
@@ -306,22 +312,22 @@ jobs:
             const adminUser = process.env.ADMIN_USERNAME || 'admin';
             const adminPass = process.env.ADMIN_PASSWORD || 'changeme';
             await page.goto('http://127.0.0.1:5000/login', {waitUntil: 'domcontentloaded', timeout: 15000});
-            await page.type('input[name="username"]', adminUser);
-            await page.type('input[name="password"]', adminPass);
+            await page.type('input[name=\"username\"]', adminUser);
+            await page.type('input[name=\"password\"]', adminPass);
             await Promise.all([
               page.waitForNavigation({waitUntil: 'domcontentloaded'}),
-              page.evaluate(() => document.querySelector('form[action="/login"]').submit())
+              page.evaluate(() => document.querySelector('form[action=\"/login\"]').submit())
             ]);
             await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
             
             console.log('Testing dynamic site creation (with XSS Payload)...');
-            await page.type('input[name="title"]', '<script>window.XSS_VULN=true;</script>QA Test School');
-            await page.type('input[name="slug"]', 'qa-test');
-            await page.type('input[name="zipcode"]', '49783,US');
+            await page.type('input[name=\"title\"]', '<script>window.XSS_VULN=true;</script>QA Test School');
+            await page.type('input[name=\"slug\"]', 'qa-test');
+            await page.type('input[name=\"zipcode\"]', '49783,US');
             await Promise.all([
               page.waitForNavigation({waitUntil: 'domcontentloaded'}),
-              page.evaluate(() => { document.querySelector('input[value="add_beacon_page"]').closest('form').submit(); })
+              page.evaluate(() => { document.querySelector('input[value=\"add_beacon_page\"]').closest('form').submit(); })
             ]);
             console.log('✅ Created dynamic site with fuzzed payload.');
 
@@ -350,7 +356,7 @@ jobs:
                 const links = Array.from(document.querySelectorAll('.site-link'));
                 for (const link of links) {
                   if (link.innerText.includes('/schools/qa-test')) {
-                    const form = link.querySelector('input[value="delete_beacon_page"]').closest('form');
+                    const form = link.querySelector('input[value=\"delete_beacon_page\"]').closest('form');
                     if (form) form.submit();
                   }
                 }
