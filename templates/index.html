@@ -1063,11 +1063,11 @@
                     let searchQuery = encodeURIComponent(label + ' Sault Ste. Marie');
                     searchLink = `<div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
                         <a href="https://www.google.com/search?q=${searchQuery}" target="_blank" tabindex="0" class="search-link-btn search-link-sm">🔗 Search Google</a>
-                        ${p.location ? \`<span onclick="toggleRouteWaypoint('\${p.location.replace(/['"\\\\]/g, '\\\\$&')}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: \${selectedWaypoints && selectedWaypoints.has(p.location) ? 'drop-shadow(0 0 5px var(--accent))' : 'grayscale(100%)'};">📍</span>\` : ''}
+                        ${p.location ? `<span onclick="toggleRouteWaypoint('${p.location.replace(/['"\\\\]/g, '\\\\$&')}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: ${selectedWaypoints && selectedWaypoints.has(p.location) ? 'drop-shadow(0 0 5px var(--accent))' : 'grayscale(100%)'};">📍</span>` : ''}
                     </div>`;
                 } else if (p.location) {
                     searchLink = `<div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
-                        <span onclick="toggleRouteWaypoint('\${p.location.replace(/['"\\\\]/g, '\\\\$&')}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: \${selectedWaypoints && selectedWaypoints.has(p.location) ? 'drop-shadow(0 0 5px var(--accent))' : 'grayscale(100%)'};">📍</span>
+                        <span onclick="toggleRouteWaypoint('${p.location.replace(/['"\\\\]/g, '\\\\$&')}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: ${selectedWaypoints && selectedWaypoints.has(p.location) ? 'drop-shadow(0 0 5px var(--accent))' : 'grayscale(100%)'};">📍</span>
                     </div>`;
                 }
                 
