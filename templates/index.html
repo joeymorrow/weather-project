@@ -2136,7 +2136,9 @@
                     }
                     
                     const iframeEl = overlay.querySelector('iframe');
-                    if (iframeEl) iframeEl.src = `${baseUrl}#page=1`;
+                    if (iframeEl) {
+                        iframeEl.src = baseUrl + '#page=1';
+                    }
                     
                     canvaAutoplayTimer = setInterval(() => {
                         currentCanvaSlide++;
