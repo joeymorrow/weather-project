@@ -148,7 +148,7 @@
                 </div>
                 <div class="card">
                     <h3>Resilient Edge CI/CD</h3>
-                    <p>Architected a self-hosted GitHub Actions pipeline featuring automated headless DOM testing (Puppeteer), dependency vulnerability analysis, secret leak detection, and zero-downtime Docker Compose edge delivery.</p>
+                    <p>Architected a self-hosted GitHub Actions pipeline featuring automated headless DOM testing (Puppeteer), Static and Dynamic Application Security Testing (SAST/DAST), comprehensive secret leak detection, and zero-downtime Docker Compose edge delivery to maintain robust operational security.</p>
                 </div>
             </div>
         </div>
@@ -186,9 +186,10 @@
  [ 💻 Local Dev ]            [ 🐙 Source Control ]               [ ⚙️ CI/QA (Self-Hosted) ]
  VS Code + Gemini                Git Push                      GitHub Actions Runner
  (Py/HTML/CSS/3JS) ────────────> (Branch: main) ─────────────> ├─> 1. Flake8 & Bandit Linting
-                                                               ├─> 2. Puppeteer Headless UI Test
-                                                               ├─> 3. Jinja2 & Docker Validation
-                                                               └─> 4. Secret Leak Detection
+                                                               ├─> 2. SAST/DAST Security Scanning
+                                                               ├─> 3. Secret Leak Detection
+                                                               ├─> 4. Puppeteer Headless UI Test
+                                                               └─> 5. Jinja2 & Docker Validation
                                                                           │
                                                                           ▼
  [ 🌍 Edge Delivery ]        [ ☁️ Tunneling ]                    [ 🚀 Deployment ]

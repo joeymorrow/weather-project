@@ -12,10 +12,11 @@ This document visually outlines the CI/CD pipeline, architecture, and deployment
  [ 💻 Local Dev ]            [ 🐙 Source Control ]               [ ⚙️ CI/QA (Self-Hosted) ]
  VS Code + Gemini                Git Push                      GitHub Actions Runner
  (Py/HTML/CSS/3JS) ────────────> (Branch: main) ─────────────> ├─> 1. Flake8 Linting
-                                                               ├─> 2. compileall Syntax Check
-                                                               ├─> 3. Jinja2 Validation
-                                                               ├─> 4. Puppeteer UI & Modals
-                                                               └─> 5. Docker Config Check
+                                                               ├─> 2. SAST/DAST & Secret Leak Detection
+                                                               ├─> 3. compileall Syntax Check
+                                                               ├─> 4. Jinja2 Validation
+                                                               ├─> 5. Puppeteer UI & Modals
+                                                               └─> 6. Docker Config Check
                                                                           │
                                                                           ▼
  [ 🌍 Edge Delivery ]        [ ☁️ Tunneling ]                    [ 🚀 Deployment ]
@@ -54,6 +55,7 @@ flowchart TD
         Runner["Self-Hosted Ubuntu Runner"]
         
         QA_Lint["Flake8 / Syntax Tests"]
+        QA_Sec["SAST/DAST & Secret Leak Detection"]
         QA_Jinja["Jinja2 Template Check"]
         QA_Puppet["Puppeteer Headless UI Check"]
         QA_Docker["Docker Config Validation"]
@@ -61,6 +63,7 @@ flowchart TD
         GH --> GHA
         GHA --> Runner
         Runner --> QA_Lint
+        Runner --> QA_Sec
         Runner --> QA_Jinja
         Runner --> QA_Puppet
         Runner --> QA_Docker
