@@ -36,6 +36,11 @@
             <input type="text" name="zipcode" placeholder="Enter Zip Code" required pattern="\d{5}" title="5-digit Zip Code">
             <button type="submit" onclick="this.innerText='INITIALIZING...';">Spin Up Instance</button>
         </form>
+        <div style="margin-top: 20px; color: #00ffff; font-family: monospace; background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px dashed rgba(0,255,255,0.3); text-align: center;">
+            <strong style="text-transform: uppercase;">Demo Admin Credentials</strong><br><br>
+            Username: <code>admin</code><br>
+            Password: <code>changeme</code>
+        </div>
         <p style="font-size: 0.9rem; margin-top: 15px; color: #00aaaa;">It takes ~10 seconds for the AI to anchor the initial localized pulse.</p>
     </div>
     
@@ -58,7 +63,7 @@
         <h2 style="color: #00ffff; border-bottom: 1px solid #00ffff; padding-bottom: 10px;">Active Live Demos</h2>
         {% if active_demos %}
             {% for demo in active_demos %}
-            <a href="/schools/{{ demo.slug }}" class="demo-item" target="_blank">
+            <a href="/demo/{{ demo.slug }}" class="demo-item" target="_blank">
                 <div>
                     <strong>{{ demo.title }}</strong>
                     <div style="font-size: 0.8rem; color: #aaa; margin-top: 5px;">Zip: {{ demo.zipcode }}</div>

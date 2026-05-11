@@ -223,6 +223,7 @@ def load_history(today_str=None, yesterday_str=None):
                         )
                         ORDER BY id DESC
                 """, (today_str, yesterday_str))
+                    return [{"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
             else:
                 c.execute("SELECT id, date, text, location FROM pulses ORDER BY id DESC LIMIT 21")
                 return [{"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
@@ -520,6 +521,13 @@ def sync_for_location(slug, loc_name, query):
             f"ANTI-HALLUCINATION PROTOCOL (SAC): 1. SEARCH for recent local news, community successes, acts of kindness, or verifiable events happening TODAY in {loc_name}. 2. If no specific news or event is found, DO NOT invent names or fake heroics; instead, offer a grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i>). 3. CONTENT: Provide a 2-sentence update. Give a brief shoutout/kudos to a local achievement OR share the real event, weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. 4. TRUTH BOUNDARY: Only include specific details if verified. 5. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid overly saccharine words. Set 'is_news' to true ONLY if specific verified news/events are shared; otherwise, set to false."
         )
 
+        extra_tasks = ""
+        json_format = '{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
+        if slug == "main" and not is_late_night:
+            extra_tasks = "Task 6 (Garage Sales): SEARCH for real Garage/Yard Sales in Sault Ste. Marie TODAY or TOMORROW.\n        Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news/events.\n        "
+            json_format += ', "garage_sales": [{"text": "sale info", "location": "address"}], "sault_tribe": [{"text": "news/event", "location": "location"}]'
+        json_format += ' }'
+
         prompt = f"""
         {loc_name}. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         PREVIOUS PULSE: "{last_pulse_topic}" -> Provide a completely different topic/event.
@@ -529,7 +537,7 @@ def sync_for_location(slug, loc_name, query):
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
         Task 4 (Attire): 2-4 word practical clothing/gear suggestion based on the forecast. Factor in current season ({now.strftime('%B')}).
         Task 5 (Weekly): 1-2 sentence overall outlook for the upcoming 5 days based on the forecast trend.
-        Return JSON: {{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true }}
+        {extra_tasks}Return JSON: {json_format}
         """
         
         success = False
@@ -1011,6 +1019,7 @@ def eap_webhook():
 @app.route('/dispatch')
 @app.route('/<slug>/dispatch')
 @app.route('/schools/<slug>/dispatch')
+@app.route('/demo/<slug>/dispatch')
 def dispatch_pwa(slug="main"):
     return render_template('dispatch.html', slug=slug)
 
@@ -1126,6 +1135,9 @@ def architecture_pitch():
 
 @app.route('/demo', methods=['GET', 'POST'])
 def demo_hub():
+    now_str = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
+    active_demos = [p for p in get_beacon_pages() if p['slug'].startswith('demo-') and (not p.get('expires_at') or p['expires_at'] > now_str)]
+    
     if request.method == 'POST':
         zipcode = request.form.get('zipcode', '').strip()
         if zipcode:
@@ -1134,12 +1146,16 @@ def demo_hub():
             page = next((p for p in pages if p['slug'] == slug), None)
             
             if not page:
+                if len(active_demos) >= 11:
+                    return "<script>alert('Maximum active demos (11) reached. Please try again later once some expire.'); window.location.href='/demo';</script>"
+                
                 title = f"Demo Area {zipcode}"
                 expires = (datetime.now(TZ) + timedelta(hours=12)).strftime('%Y-%m-%d %H:%M:%S')
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn:
                             conn.execute("INSERT INTO beacon_pages (slug, title, zipcode, expires_at) VALUES (?, ?, ?, ?)", (slug, title, zipcode, expires))
+                        send_alert_email(f"New BEACON Demo: {zipcode}", f"A new demo environment has been provisioned.\n\nSlug: {slug}\nZipcode: {zipcode}\nExpires: {expires}\n\nCheck CoolAdmin for details.")
                 except: pass
                 
                 with state_lock:
@@ -1149,24 +1165,92 @@ def demo_hub():
                         "pulse_history": [
                             {"date": "EAP READY", "text": "Multicast listener attached. Try the Dispatch PWA to send a Lockdown alert!", "location": "System"},
                             {"date": "SIGNAGE READY", "text": "Go to /admin to inject Canva slides or YouTube loops.", "location": "System"},
-                            {"date": "SMART CITY", "text": "AI is fetching local garage sales and municipal alerts.", "location": "System"}
+                            {"date": "SMART CITY", "text": "AI is fetching local municipal alerts.", "location": "System"}
                         ],
                         "slides": [
                             {"id": "dashboard", "type": "dashboard", "duration": 15, "hidden": False},
                             {"id": "demo-text", "type": "text", "text": "This instance self-destructs in 12 hours.", "bg_color": "#000000", "text_color": "#00ffff", "duration": 5, "strobe": False}
-                        ]
+                        ],
+                        "is_demo": True,
+                        "sync_status": "pending"
                     }
                     try:
                         with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                     except: pass
                 
-                threading.Thread(target=sync_for_location, args=(slug, title, zipcode), daemon=True).start()
+                def sync_and_ready():
+                    sync_for_location(slug, title, zipcode)
+                    with state_lock:
+                        if slug in state.get('tenants', {}):
+                            state['tenants'][slug]['sync_status'] = "ready"
+                            try:
+                                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                            except: pass
+                
+                threading.Thread(target=sync_and_ready, daemon=True).start()
             
-            return redirect(f"/schools/{slug}")
+            return redirect(f"/demo/loading/{slug}")
             
-    now_str = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
-    active_demos = [p for p in get_beacon_pages() if p['slug'].startswith('demo-') and (not p.get('expires_at') or p['expires_at'] > now_str)]
     return render_template('demo_hub.html', active_demos=active_demos)
+
+@app.route('/demo/loading/<slug>')
+def demo_loading(slug):
+    with state_lock:
+        status = state.get('tenants', {}).get(slug, {}).get('sync_status', 'ready')
+    if status == 'ready':
+        return redirect(f"/demo/{slug}")
+    return f"""
+    <body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0;'>
+        <h2>[ PROVISIONING DEMO ENVIRONMENT ]</h2>
+        <p style='color:#fff; opacity:0.8;'>Fetching AI models, building 3D assets, routing weather... please wait.</p>
+        <div style='width: 50px; height: 50px; border: 5px solid #00ffff; border-top: 5px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;'></div>
+        <style>@keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}</style>
+        <script>
+            setInterval(async () => {{
+                try {{
+                    const res = await fetch('/api/state/{slug}');
+                    const data = await res.json();
+                    if (data.sync_status === 'ready') window.location.href = '/demo/{slug}';
+                }} catch(e) {{}}
+            }}, 2000);
+        </script>
+    </body>
+    """
+
+@app.route('/demo/<slug>')
+def demo_viewer(slug):
+    pages = get_beacon_pages()
+    page = next((p for p in pages if p['slug'] == slug), None)
+    if not page: return "Demo not found", 404
+    return render_template('demo_viewer.html', slug=slug)
+
+@app.route('/demo/<slug>/dashboard')
+def demo_dashboard(slug):
+    pages = get_beacon_pages()
+    page = next((p for p in pages if p['slug'] == slug), None)
+    if not page: return "Demo not found", 404
+    
+    with state_lock: 
+        page_state = state.get('tenants', {}).get(slug, state).copy()
+        page_state['page_title'] = page['title']
+        page_state['page_slug'] = slug
+        page_state['is_demo'] = True
+        return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), is_car_display=False, **page_state)
+
+@app.route('/demo/<slug>/school')
+def demo_school(slug):
+    pages = get_beacon_pages()
+    page = next((p for p in pages if p['slug'] == slug), None)
+    if not page: return "Demo not found", 404
+    
+    with state_lock: 
+        page_state = state.get('tenants', {}).get(slug, state).copy()
+        page_state['page_title'] = page['title']
+        page_state['page_slug'] = slug
+        page_state['is_demo'] = True
+        page_state['school_alerts'] = state.get('school_alerts', {})
+        page_state['school_closings'] = state.get('school_closings', {})
+        return render_template('school_dashboard.html', **page_state)
 
 @app.route('/favicon.ico')
 @app.route('/manifest.json')
@@ -1516,6 +1600,37 @@ def cooladmin():
             except: pass
             return redirect('/cooladmin')
 
+        elif action == 'add_pulse':
+            text = request.form.get('text', '').strip()
+            date_str = request.form.get('date', '').strip() or datetime.now(TZ).strftime('%B %d')
+            loc = request.form.get('location', '').strip()
+            if text:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn: conn.execute("INSERT INTO pulses (date, text, location) VALUES (?, ?, ?)", (date_str, text, loc))
+                except: pass
+            return redirect('/cooladmin')
+        elif action == 'add_garage_sale':
+            text = request.form.get('text', '').strip()
+            date_str = request.form.get('date', '').strip() or datetime.now(TZ).strftime('%B %d')
+            loc = request.form.get('location', '').strip()
+            if text:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn: conn.execute("INSERT INTO garage_sales (date, text, location) VALUES (?, ?, ?)", (date_str, text, loc))
+                except: pass
+            return redirect('/cooladmin')
+        elif action == 'add_sault_tribe':
+            text = request.form.get('text', '').strip()
+            date_str = request.form.get('date', '').strip() or datetime.now(TZ).strftime('%B %d')
+            loc = request.form.get('location', '').strip()
+            if text:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn: conn.execute("INSERT INTO sault_tribe (date, text, location) VALUES (?, ?, ?)", (date_str, text, loc))
+                except: pass
+            return redirect('/cooladmin')
+
         elif action == 'shutdown':
             confirm_user = request.form.get('username')
             confirm_pass = request.form.get('password')
@@ -1651,6 +1766,7 @@ def cooladmin():
 @app.route('/admin', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/<slug>/admin', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/schools/<slug>/admin', methods=['GET', 'POST'], strict_slashes=False)
+@app.route('/demo/<slug>/admin', methods=['GET', 'POST'], strict_slashes=False)
 def admin(slug="main"):
     if slug == 'schools':
         return redirect('/admin')
@@ -1658,7 +1774,7 @@ def admin(slug="main"):
     is_sso_editor = session.get("role") in ["Admin", "Editor", "Sales"]
     is_native_auth = session.get("admin_auth") is True
     
-    if not (is_sso_editor or is_native_auth):
+    if not slug.startswith('demo-') and not (is_sso_editor or is_native_auth):
         return redirect(url_for('login_page', next=request.path))
         
     if request.method == 'POST':

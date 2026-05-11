@@ -111,6 +111,7 @@
                 <div>
                     <strong>{{ page.title }}</strong><br>
                     <span style="font-size: 0.8rem; color: #ccc;">Route: /schools/{{ page.slug }}</span>
+                    {% if page.expires_at %}<span style="color: #ffaa00; font-size: 0.8rem; margin-left: 10px;">[DEMO EXPIRES: {{ page.expires_at }}]</span>{% endif %}
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap: wrap;">
                     {% set pr = '/schools/' ~ page.slug %}
@@ -119,8 +120,8 @@
                     {% else %}
                     <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="{{ pr }}"><button type="submit" class="danger-btn">Disable</button></form>
                     {% endif %}
-                    <a href="/schools/{{ page.slug }}" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
-                    <a href="/schools/{{ page.slug }}/admin" target="_blank" class="manage-btn">Manage Site</a>
+                    <a href="{% if page.slug.startswith('demo-') %}/demo/{{ page.slug }}{% else %}/schools/{{ page.slug }}{% endif %}" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
+                    <a href="{% if page.slug.startswith('demo-') %}/demo/{{ page.slug }}/admin{% else %}/schools/{{ page.slug }}/admin{% endif %}" target="_blank" class="manage-btn">Manage Site</a>
                     <form method="POST" style="margin:0;"><input type="hidden" name="action" value="delete_beacon_page"><input type="hidden" name="page_id" value="{{ page.id }}"><button type="submit" class="danger-btn" onclick="return confirm('Delete this dynamic page?')">Delete</button></form>
                 </div>
             </div>
@@ -307,12 +308,19 @@
                 <span>📡 Pulse Archives & Management</span>
                 <span style="font-size: 0.9rem; color: #00ffff; background: rgba(0, 255, 255, 0.1); padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(0, 255, 255, 0.3);">Agenda Items: {{ agenda_item_count }}</span>
             </h2>
+            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
+                <input type="hidden" name="action" value="add_pulse">
+                <input type="text" name="text" placeholder="Pulse/Event Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="text" name="date" placeholder="Date (Optional)" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <button type="submit" class="manage-btn">Add Pulse</button>
+            </form>
             <div style="margin-bottom: 15px;">
                 <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Current Pulse</h3>
                 {% if current_pulse %}
                 <div class="site-link" style="align-items: flex-start;">
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
-                        {{ current_pulse }}
+                        {{ current_pulse | safe }}
                     </div>
                     <form method="POST" style="margin:0;">
                         <input type="hidden" name="action" value="delete_pulse">
@@ -333,7 +341,7 @@
                     <div class="site-link" style="align-items: flex-start; margin-bottom: 5px;">
                         <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                             <strong style="color: #00aaaa; font-size: 0.75rem;">{{ p.date }}</strong><br>
-                            {{ p.text }}
+                            {{ p.text | safe }}
                         </div>
                         <form method="POST" style="margin:0;">
                             <input type="hidden" name="action" value="delete_pulse">
@@ -407,12 +415,19 @@
             <p style="font-size: 0.9rem; color: #888;">Manage Garage Sales and Sault Tribe news.</p>
             
             <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Garage Sales</h3>
+            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
+                <input type="hidden" name="action" value="add_garage_sale">
+                <input type="text" name="text" placeholder="Garage Sale Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="text" name="date" placeholder="Date (Optional)" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <button type="submit" class="manage-btn">Add Sale</button>
+            </form>
             <div style="max-height: 200px; overflow-y: auto; margin-bottom: 15px; padding-right: 5px;">
                 {% for sale in garage_sales %}
                 <div class="site-link" style="align-items: flex-start; margin-bottom: 5px;">
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                         <strong style="color: #00aaaa; font-size: 0.75rem;">{{ sale.date }}</strong><br>
-                        {{ sale.text }}
+                        {{ sale.text | safe }}
                     </div>
                     <form method="POST" style="margin:0;">
                         <input type="hidden" name="action" value="delete_garage_sale">
@@ -425,12 +440,19 @@
             </div>
 
             <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Sault Tribe News</h3>
+            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
+                <input type="hidden" name="action" value="add_sault_tribe">
+                <input type="text" name="text" placeholder="Tribe News Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="text" name="date" placeholder="Date (Optional)" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <button type="submit" class="manage-btn">Add News</button>
+            </form>
             <div style="max-height: 200px; overflow-y: auto; padding-right: 5px;">
                 {% for tribe in sault_tribe %}
                 <div class="site-link" style="align-items: flex-start; margin-bottom: 5px;">
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                         <strong style="color: #00aaaa; font-size: 0.75rem;">{{ tribe.date }}</strong><br>
-                        {{ tribe.text }}
+                        {{ tribe.text | safe }}
                     </div>
                     <form method="POST" style="margin:0;">
                         <input type="hidden" name="action" value="delete_sault_tribe">
