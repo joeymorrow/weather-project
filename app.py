@@ -1417,24 +1417,24 @@ def cooladmin():
             username = request.form.get('username', '').strip()
             rtype = request.form.get('type', 'User')
             override_group = request.form.get('override_group') == 'yes'
-                provider = request.form.get('provider', 'Local')
-                role = request.form.get('role', 'Viewer')
-                password = request.form.get('password', '')
-                
-                hashed_pw = generate_password_hash(password) if password else None
-                
+            provider = request.form.get('provider', 'Local')
+            role = request.form.get('role', 'Viewer')
+            password = request.form.get('password', '')
+            
+            hashed_pw = generate_password_hash(password) if password else None
+            
             if username:
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn:
-                                if hashed_pw:
-                                    conn.execute("INSERT OR REPLACE INTO rbac_users (username, role, provider, type, override_group, password) VALUES (?, ?, ?, ?, ?, ?)", 
-                                                 (username, role, provider, rtype, override_group, hashed_pw))
-                                else:
-                                    conn.execute("INSERT OR IGNORE INTO rbac_users (username, role, provider, type, override_group) VALUES (?, ?, ?, ?, ?)", 
-                                                 (username, role, provider, rtype, override_group))
-                                    conn.execute("UPDATE rbac_users SET role=?, provider=?, type=?, override_group=? WHERE username=?",
-                                                 (role, provider, rtype, override_group, username))
+                            if hashed_pw:
+                                conn.execute("INSERT OR REPLACE INTO rbac_users (username, role, provider, type, override_group, password) VALUES (?, ?, ?, ?, ?, ?)", 
+                                             (username, role, provider, rtype, override_group, hashed_pw))
+                            else:
+                                conn.execute("INSERT OR IGNORE INTO rbac_users (username, role, provider, type, override_group) VALUES (?, ?, ?, ?, ?)", 
+                                             (username, role, provider, rtype, override_group))
+                                conn.execute("UPDATE rbac_users SET role=?, provider=?, type=?, override_group=? WHERE username=?",
+                                             (role, provider, rtype, override_group, username))
                 except Exception as e:
                     print(e, flush=True)
             return redirect('/cooladmin')
