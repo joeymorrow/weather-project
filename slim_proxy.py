@@ -89,7 +89,7 @@ def handle_client(client_socket):
 def start_proxy():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind(('0.0.0.0', 8080))
+    server.bind(('0.0.0.0', 8080))  # nosec B104
     server.listen(100)
     print("[SLIM PROXY] Novelty shield active on port 8080. Forwarding to weather-dashboard:5000...", flush=True)
     

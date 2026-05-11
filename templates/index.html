@@ -2122,9 +2122,19 @@
                 }
                 
                 // Per-Slide Canva Sub-Loop Routine
-                if (slide.content_type === 'canva' && slide.canva_total_slides > 1) {
+                if (slide.url.includes('canva.com') && slide.canva_total_slides > 1) {
                     let currentCanvaSlide = 1;
-                    const baseUrl = slide.url.split('#')[0];
+                    let baseUrl = slide.url.split('#')[0];
+                    
+                    const initCb = `&cb=${new Date().getTime()}`;
+                    if (baseUrl.includes('&cb=')) {
+                        baseUrl = baseUrl.replace(/&cb=\d+/, initCb);
+                    } else {
+                        baseUrl = baseUrl.includes('?') ? `${baseUrl}${initCb}` : `${baseUrl}?${initCb}`;
+                    }
+                    
+                    const iframeEl = overlay.querySelector('iframe');
+                    if (iframeEl) iframeEl.src = `${baseUrl}#page=1`;
                     
                     canvaAutoplayTimer = setInterval(() => {
                         currentCanvaSlide++;
@@ -2138,6 +2148,8 @@
                         if (!iframeEl) return;
                         
                         if (shouldReset) {
+                            const loopCb = `&cb=${new Date().getTime()}`;
+                            baseUrl = baseUrl.replace(/&cb=\d+/, loopCb);
                             iframeEl.src = baseUrl + '#page=1';
                         } else {
                             try {

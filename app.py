@@ -1391,26 +1391,20 @@ def auto_display():
         return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), is_car_display=True, **state.copy())
 
 @app.route('/index')
-@app.route('/index.html')
 def index_redirect():
     return redirect('/')
 
-@app.route('/sault_weather.html')
 @app.route('/sault-weather')
 def sault_weather_redirect():
     return redirect('/')
 
 @app.route('/sault-schools')
 @app.route('/sault_schools')
-@app.route('/sault_schools.html')
-@app.route('/sault_schools.html/')
 def sault_schools_redirect():
     return redirect('/schools/sault-schools')
 
 @app.route('/pickford-schools')
 @app.route('/pickford_schools')
-@app.route('/pickford_schools.html')
-@app.route('/pickford_schools.html/')
 def pickford_schools_redirect():
     return redirect('/schools/pickford-schools')
 
@@ -1874,6 +1868,21 @@ def admin(slug="main"):
                             parsed_url += '?embed'
                             
                 if 'youtube.com' in parsed_url or 'youtu.be' in parsed_url:
+                    import urllib.parse
+                    video_id = None
+                    parsed_obj = urllib.parse.urlparse(parsed_url)
+                    
+                    if 'youtu.be' in parsed_obj.netloc:
+                        video_id = parsed_obj.path.lstrip('/')
+                    elif '/watch' in parsed_obj.path:
+                        qs = urllib.parse.parse_qs(parsed_obj.query)
+                        if 'v' in qs: video_id = qs['v'][0]
+                    elif '/live/' in parsed_obj.path:
+                        video_id = parsed_obj.path.split('/live/')[1]
+                        
+                    if video_id:
+                        parsed_url = f"https://www.youtube.com/embed/{video_id}"
+                        
                     if autoplay_req:
                         if 'autoplay=1' not in parsed_url:
                             sep = '&' if '?' in parsed_url else '?'
@@ -1881,7 +1890,8 @@ def admin(slug="main"):
                     else:
                         parsed_url = parsed_url.replace('autoplay=1', 'autoplay=0').replace('mute=1', '')
                     if 'controls=' not in parsed_url:
-                        parsed_url += "&controls=0"
+                        sep = '&' if '?' in parsed_url else '?'
+                        parsed_url += f"{sep}controls=0"
 
                 # Handle Google Slides embed format automatically
                 if 'docs.google.com/presentation/d/' in parsed_url:
@@ -2171,4 +2181,4 @@ if __name__ == '__main__':
     threading.Thread(target=monitor_loop, daemon=True).start()
     threading.Thread(target=hallucination_cleanup_loop, daemon=True).start()
     threading.Thread(target=eap_multicast_listener, daemon=True).start()
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=False)  # nosec B104

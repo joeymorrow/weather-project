@@ -15,7 +15,7 @@ def run_command(cmd, shell=False, check=False):
     cmd_str = cmd if isinstance(cmd, str) else ' '.join(cmd)
     print(f"Running: {cmd_str}")
     try:
-        subprocess.run(cmd, shell=shell, check=check)
+        subprocess.run(cmd, shell=shell, check=check)  # nosec B602
     except Exception as e:
         print(f"Error running command: {e}")
 
@@ -129,7 +129,7 @@ def install():
         if prompt_yes_no("Install Cloudflare Tunnel (cloudflared)? (Optional, for remote access)", "n"):
             token = prompt_string("Enter Cloudflare Tunnel Token")
             print("Downloading cloudflared...")
-            run_command("curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb", shell=True)
+            run_command(["curl", "-L", "--output", "cloudflared.deb", "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb"])
             run_command(["sudo", "dpkg", "-i", "cloudflared.deb"])
             run_command(["sudo", "cloudflared", "service", "install", token])
             if "cloudflared" not in state["installed_services"]:
