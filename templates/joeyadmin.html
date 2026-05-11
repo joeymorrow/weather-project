@@ -193,7 +193,7 @@
         <!-- SSO Configuration -->
         <div class="card" style="grid-column: 1 / -1;">
             <h2>🔐 Single Sign-On (SSO) Configuration</h2>
-            <p style="font-size: 0.9rem; color: #888;">Configure connections to external Identity Providers. The splash page will only appear if at least one is enabled.</p>
+            <p style="font-size: 0.9rem; color: #888;">Configure connections to external Identity Providers. The login page will display SSO buttons for any enabled providers.</p>
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
                 {% for provider in ['Microsoft', 'Google', 'Clever', 'ActiveDirectory'] %}
@@ -506,7 +506,7 @@
         <!-- Nuclear Option -->
         <div class="card" style="border-color: #ff0000; box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);">
             <h2 style="color: #ff0000; border-bottom-color: #ff0000;">☢️ Nuclear Option</h2>
-            <p style="font-size: 0.9rem; color: #aaa;">Completely shuts down the application server process. You will need host access to restart it.</p>
+            <p style="font-size: 0.9rem; color: #aaa;">Kills the application server process. If using Docker, the container should automatically restart it.</p>
             <form method="POST" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;" onsubmit="return confirm('WARNING: Are you absolutely sure you want to shut down the server?');">
                 <input type="hidden" name="action" value="shutdown">
                 <div>

@@ -363,6 +363,12 @@ def scrape_closings():
 def sync_for_location(slug, loc_name, query):
     try:
         w = http_session.get(f"https://api.openweathermap.org/data/2.5/weather?q={query}&appid={OWM_KEY}&units=imperial", timeout=10).json()
+        
+        # Automatically correct the AI context to the true OpenWeatherMap city name!
+        owm_city = w.get('name')
+        if owm_city and owm_city.strip():
+            loc_name = owm_city
+            
         f = http_session.get(f"https://api.openweathermap.org/data/2.5/forecast?q={query}&appid={OWM_KEY}&units=imperial", timeout=10).json()
         now = datetime.now(TZ)
         h = now.hour
@@ -1106,8 +1112,11 @@ def check_disabled_pages():
         return "<body style='background:#010103; color:#00ffff; font-family:monospace; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0;'><h2>[ SYSTEM OFFLINE ]</h2><p style='color:#fff; opacity:0.5;'>This page has been temporarily disabled.</p></body>", 503
 
 @app.route('/docs')
+@app.route('/docs/')
 @app.route('/docs/<path:filename>')
 def serve_docs(filename='index'):
+    if request.path == '/docs':
+        return redirect('/docs/')
     if filename.endswith('.html'):
         safe_name = secure_filename(filename)
         safe_path = os.path.join(BASE_DIR, 'docs', safe_name)
@@ -1143,6 +1152,28 @@ def demo_hub():
     active_demos = [p for p in get_beacon_pages() if p['slug'].startswith('demo-') and (not p.get('expires_at') or p['expires_at'] > now_str)]
     
     if request.method == 'POST':
+        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+        now_ts = time.time()
+        
+        with state_lock:
+            if 'demo_rate_limits' not in state:
+                state['demo_rate_limits'] = {}
+                
+            limit_data = state['demo_rate_limits'].get(client_ip, {"attempts": [], "blocked_until": 0})
+            
+            if now_ts < limit_data["blocked_until"]:
+                return "<script>alert('Too many attempts. Please wait 30 seconds before trying again.'); window.location.href='/demo';</script>"
+            
+            attempts = [ts for ts in limit_data["attempts"] if now_ts - ts < 30]
+            if len(attempts) >= 3:
+                limit_data["blocked_until"] = now_ts + 30
+                state['demo_rate_limits'][client_ip] = limit_data
+                return "<script>alert('Too many attempts. Please wait 30 seconds before trying again.'); window.location.href='/demo';</script>"
+                
+            attempts.append(now_ts)
+            limit_data["attempts"] = attempts
+            state['demo_rate_limits'][client_ip] = limit_data
+
         zipcode = request.form.get('zipcode', '').strip()
         if zipcode:
             slug = f"demo-{zipcode}"
@@ -1153,7 +1184,14 @@ def demo_hub():
                 if len(active_demos) >= 11:
                     return "<script>alert('Maximum active demos (11) reached. Please try again later once some expire.'); window.location.href='/demo';</script>"
                 
-                title = f"Demo Area {zipcode}"
+                try:
+                    w_res = requests.get(f"https://api.openweathermap.org/data/2.5/weather?q={zipcode},US&appid={OWM_KEY}", timeout=5).json()
+                    if str(w_res.get("cod")) != "200" or not w_res.get("name"):
+                        return f"<script>alert('Invalid zip code ({zipcode}). OpenWeather could not find a city for this location. Please try again.'); window.location.href='/demo';</script>"
+                    title = w_res.get("name")
+                except:
+                    return "<script>alert('Error verifying zip code. Please try again later.'); window.location.href='/demo';</script>"
+
                 expires = (datetime.now(TZ) + timedelta(hours=12)).strftime('%Y-%m-%d %H:%M:%S')
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -1165,7 +1203,12 @@ def demo_hub():
                 with state_lock:
                     if 'tenants' not in state: state['tenants'] = {}
                     state['tenants'][slug] = {
-                        "pulse": f"Welcome! Generating initial AI pulse for {zipcode}...",
+                        "pulse": f"Welcome! Generating initial AI pulse for {title}...",
+                        "main_config": {
+                            "header": "BEACON DEMO",
+                            "location": title.upper(),
+                            "query": f"{zipcode},US"
+                        },
                         "pulse_history": [
                             {"date": "EAP READY", "text": "Multicast listener attached. Try the Dispatch PWA to send a Lockdown alert!", "location": "System"},
                             {"date": "SIGNAGE READY", "text": "Go to /admin to inject Canva slides or YouTube loops.", "location": "System"},
@@ -1183,7 +1226,7 @@ def demo_hub():
                     except: pass
                 
                 def sync_and_ready():
-                    sync_for_location(slug, title, zipcode)
+                    sync_for_location(slug, title, f"{zipcode},US")
                     with state_lock:
                         if slug in state.get('tenants', {}):
                             state['tenants'][slug]['sync_status'] = "ready"
@@ -1226,7 +1269,57 @@ def demo_viewer(slug):
     pages = get_beacon_pages()
     page = next((p for p in pages if p['slug'] == slug), None)
     if not page: return "Demo not found", 404
-    return render_template('demo_viewer.html', slug=slug)
+    
+    try:
+        expires_str = page.get('expires_at')
+        if expires_str:
+            dt_aware = TZ.localize(datetime.strptime(expires_str, '%Y-%m-%d %H:%M:%S'))
+            expires_ts = dt_aware.timestamp() * 1000
+        else: expires_ts = 0
+    except: expires_ts = 0
+        
+    return render_template('demo_viewer.html', slug=slug, expires_ts=expires_ts)
+
+@app.route('/demo/<slug>/docs')
+def demo_docs(slug):
+    pages = get_beacon_pages()
+    page = next((p for p in pages if p['slug'] == slug), None)
+    if not page: return "Demo not found", 404
+    
+    docs_list = []
+    try:
+        docs_dir = os.path.join(BASE_DIR, 'docs')
+        if os.path.exists(docs_dir):
+            for f in sorted(os.listdir(docs_dir)):
+                if f == 'index.md': continue
+                if f.endswith('.md'):
+                    docs_list.append({"name": f.replace('.md', '').replace('_', ' ').title(), "url": f"/docs/{f.replace('.md', '')}"})
+                elif f.endswith('.html'):
+                    docs_list.append({"name": f.replace('.html', '').replace('_', ' ').title(), "url": f"/docs/{f}"})
+    except: pass
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Demo Docs - {slug}</title>
+        <style>
+            body {{ background: #050510; color: #00ffff; font-family: monospace; padding: 20px; }}
+            h2 {{ border-bottom: 1px solid #00ffff; padding-bottom: 10px; margin-top: 0; }}
+            a.doc-link {{ color: #fff; text-decoration: none; display: block; padding: 15px; background: rgba(0,255,255,0.05); margin-bottom: 10px; border: 1px solid rgba(0,255,255,0.2); border-radius: 8px; transition: 0.2s; font-size: 1.1rem; }}
+            a.doc-link:hover {{ background: rgba(0,255,255,0.2); box-shadow: 0 0 15px #00ffff; transform: translateX(5px); }}
+        </style>
+    </head>
+    <body>
+        <h2>📚 BEACON Documentation Hub</h2>
+        <p style="color: #aaa; font-size: 1.1rem; margin-bottom: 20px;">Select a document below to view its contents.</p>
+    """
+    for doc in docs_list:
+        html += f"<a href='{doc['url']}' target='_blank' class='doc-link'>📄 {doc['name']}</a>\\n"
+    
+    html += "</body></html>"
+    return html
 
 @app.route('/demo/<slug>/dashboard')
 def demo_dashboard(slug):

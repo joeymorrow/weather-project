@@ -3,13 +3,16 @@ Welcome to the **Morrow Edge | BEACON** project! This document serves as the "br
 
 ## 🏗️ Project Overview
 BEACON is a local weather and scheduling dashboard powered by the Gemini AI API, serving Sault Ste. Marie, Michigan.
-It operates two distinct frontend views:
+It operates as a multi-tenant platform with several frontend views:
 1. **`index.html` (The Dashboard):** A beautiful, CSS-heavy, responsive widget dashboard featuring "Buddy", an animated CSS robot. It fetches OpenWeatherMap data and local news, summarizes them via AI, and displays a poetic "Sault Pulse."
 2. **`rpg.html` (Buddy's World):** A fully functional, highly optimized 3D WebGL (Three.js) sandbox engine where users can drive a Passat, sail a freighter, buy guitars, swim, and explore low-poly local landmarks.
+3. **`school_dashboard.html` (Dynamic Beacons):** A digital signage view tailored for K-12 deployments with "I Love U Guys" SRP integration and full-screen emergency takeovers.
+4. **`admin.html` & `joeyadmin.html` (CoolAdmin):** RBAC-protected management interfaces to configure slides, manage SSO/SSO overrides, edit local feeds (Garage Sales/Tribe News), and monitor system telemetry.
+5. **`dispatch.html` (EAP Dispatch PWA):** A standalone mobile-friendly web app allowing authorized users to trigger global lockdown or evacuate alerts via WebSockets/Multicast.
 
 ## ⚙️ Backend Architecture (`app.py`)
 - **Framework:** Python, Flask, Gunicorn.
-- **Concurrency:** We use background threads (`threading.Thread`) alongside `fcntl` locks to prevent multiple Gunicorn workers from spawning duplicate sync or memory-monitor loops.
+- **Concurrency:** We use background threads (`threading.Thread`) alongside `filelock` (POSIX locks) to prevent multiple Gunicorn workers from spawning duplicate sync or memory-monitor loops.
 - **AI Integration:** Uses `google.genai` SDK. The AI adopts the persona of a masterful, charismatic presidential speechwriter focused on the "indomitable human spirit."
 - **Data Persistence:** SQLite is used for `pulse_history.db` and `system_logs.db`. Local JSON (`buddy_state.json`) handles state persistence across device reloads.
 - **Memory Monitoring:** `tracemalloc` actively watches the heap and automatically triages severe memory leaks via an AI evaluation before sending an emergency SMTP email.

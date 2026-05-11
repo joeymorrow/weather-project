@@ -213,18 +213,12 @@
 </head>
 <body>
     <div id="signage-overlay" style="display:none; position:fixed; inset:0; z-index:9000; background:#000; opacity:0; transition: opacity 1s ease;"></div>
+    <div id="emergency-takeover" style="display:none; position:fixed; inset:0; z-index:10000; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:5vw; animation: strobe-bg 1s infinite alternate;"></div>
     <div class="dashboard">
         <div id="eap-trigger" onclick="setEap()"></div>
         <a id="docs-trigger" href="/docs/school" target="_blank" title="School Documentation">?</a>
         <div class="banners">
             <div id="eap-banner" class="alert-banner" style="display:none;" onclick="clearEap(event)"></div>
-            {% set srp = school_alerts.get(page_slug) if school_alerts else None %}
-            {% if srp %}
-            <div class="alert-banner" style="background: {{ srp.color }}; display: flex; flex-direction: column; gap: 0.5cqw;">
-                <div style="font-size: 3cqw; letter-spacing: 2px;">{{ srp.type }}</div>
-                {% if srp.message %}<div style="font-size: 1.8cqw; font-weight: 500;">{{ srp.message }}</div>{% endif %}
-            </div>
-            {% endif %}
         </div>
 
         {% if closings_source == '9and10' and school_closings and (school_closings.sault_closed or school_closings.other_closings) %}
@@ -449,6 +443,23 @@
                     if (!signageSlides.find(sl => sl.type === 'dashboard')) {
                         signageSlides.unshift({ id: "dashboard", type: "dashboard", duration: 15, hidden: false });
                     }
+                }
+                
+                let activeEap = null;
+                if (s.school_alerts && s.school_alerts[reqSlug]) {
+                    activeEap = s.school_alerts[reqSlug];
+                }
+                const takeoverEl = document.getElementById('emergency-takeover');
+                if (activeEap) {
+                    takeoverEl.style.display = 'flex';
+                    takeoverEl.style.background = activeEap.color;
+                    takeoverEl.innerHTML = `<h1 style="color:#fff; font-size:clamp(4rem, 10vw, 12rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">${activeEap.type}</h1><p style="color:#fff; font-size:clamp(2rem, 5vw, 4rem); text-shadow:0 2px 15px rgba(0,0,0,0.6); margin-top:20px;">${activeEap.message}</p>`;
+                } else if (s.emergency && s.emergency.active) {
+                    takeoverEl.style.display = 'flex';
+                    takeoverEl.style.background = s.emergency.color || '#ff0000';
+                    takeoverEl.innerHTML = `<h1 style="color:#fff; font-size:clamp(4rem, 10vw, 12rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">EMERGENCY</h1><p style="color:#fff; font-size:clamp(2rem, 5vw, 4rem); text-shadow:0 2px 15px rgba(0,0,0,0.6); margin-top:20px;">${s.emergency.message}</p>`;
+                } else {
+                    takeoverEl.style.display = 'none';
                 }
                 
                 if (!activeSlideTimer) runSignageLoop();

@@ -1472,7 +1472,7 @@
 
             // Tooltips
             let showTip = false;
-            const tAct = (t) => touchActive ? 'Tap ' + t : 'Press ' + (t==='USE'?'E or ENTER':t==='RIDE'?'F or ENTER':t==='DANCE'?'R':t==='TUNE'?'M':t==='HONK'?'H':t);
+            const tAct = (t) => touchActive ? 'Tap ' + t : 'Press ' + (t==='USE'?'E or ENTER':t==='RIDE'?'F or ENTER':t==='DANCE'?'R':t==='TUNE'?'M':t==='HONK'?'H':t==='PLAY 🎸'?'G':t);
             const dAx = playerGroup.position.x - 180; const dAz = playerGroup.position.z + 184;
             if(!inCar && playerGroup.position.distanceToSquared(kioskGroup.position) < 64) {
                 tipUi.innerText = `${tAct('USE')} to Return to Dashboard`;
@@ -1513,7 +1513,7 @@
                 showTip = true;
             } else if(currentLoc === "Secret Rave Zone" && isDancing && !inCar) {
                 if (hasGuitar) {
-                    tipUi.innerText = `${tAct('TUNE')} to Change Track | ${tAct('PLAY 🎸')} (G) to Strum | ${tAct('DANCE')} to Switch Moves`;
+                    tipUi.innerText = `${tAct('TUNE')} to Change Track | ${tAct('PLAY 🎸')} to Strum | ${tAct('DANCE')} to Switch Moves`;
                 } else {
                     tipUi.innerText = `${tAct('TUNE')} to Change Track | ${tAct('DANCE')} to Switch Moves`;
                 }

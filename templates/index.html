@@ -3,7 +3,7 @@
   =========================================
   🥚 EASTER EGG HUNT! 🥚
   Type these secret words directly on your keyboard:
-  - "matrix", "spin", "rave", "kaiju", "date"
+  - "matrix", "spin", "rave", "kaiju", "date", "rpg"
   
   MOBILE / TV USERS:
   Tap the "MORROW EDGE | BEACON Buddy" header
@@ -807,6 +807,7 @@
                 if (keyBuffer.endsWith('rave')) { activateRaveMode(); keyBuffer = ""; }
                 if (keyBuffer.endsWith('kaiju')) { unleashKaijuBuddy(); keyBuffer = ""; }
                 if (keyBuffer.endsWith('date')) { takeBuddyOnDate(); keyBuffer = ""; }
+                if (keyBuffer.endsWith('rpg')) { triggerEgg('rpg'); keyBuffer = ""; }
             }
         });
 
