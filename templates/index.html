@@ -453,11 +453,11 @@
     </div>
     <script>
         let currentStation = "{{ station }}";
-        let lastPulse = JSON.parse(decodeURIComponent("{{ pulse | tojson | urlencode }}"));
+        let lastPulse = JSON.parse(decodeURIComponent("{{ pulse | tojson | urlencode }}")) || "";
         let lastInteraction = 0;
         let keyBuffer = "";
-        let pulseHistory = JSON.parse(decodeURIComponent("{{ pulse_history | default([]) | tojson | urlencode }}"));
-        let currentHourly = JSON.parse(decodeURIComponent("{{ hourly_list | default([]) | tojson | urlencode }}"));
+        let pulseHistory = JSON.parse(decodeURIComponent("{{ pulse_history | default([]) | tojson | urlencode }}")) || [];
+        let currentHourly = JSON.parse(decodeURIComponent("{{ hourly_list | default([]) | tojson | urlencode }}")) || [];
         const podOrder = ['coffee', 'office', 'gym', 'store', 'library', 'garage', 'park', 'kitchen'];
         const defaultBubbles = { "coffee": "Grabbing a brew...", "office": "Compiling data...", "gym": "Gaining processing power...", "store": "Running errands...", "library": "Parsing archives...", "garage": "Diagnostic mode...", "park": "Nature protocol engaged...", "kitchen": "Refueling...", "bed": "Powering down..." };
         let signageSlides = [];
