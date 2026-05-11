@@ -94,7 +94,7 @@
                     <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/sault-schools"><button type="submit" class="danger-btn">Disable</button></form>
                     {% endif %}
                     <a href="/sault-schools" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
-                    <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
+                    <a href="/sault-schools/admin" target="_blank" class="manage-btn">Manage Site</a>
                 </div>
             </div>
             <div class="site-link" style="flex-direction: column; align-items: stretch; gap: 10px;">
@@ -109,7 +109,7 @@
                     <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="/pickford-schools"><button type="submit" class="danger-btn">Disable</button></form>
                     {% endif %}
                     <a href="/pickford-schools" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
-                    <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
+                    <a href="/pickford-schools/admin" target="_blank" class="manage-btn">Manage Site</a>
                 </div>
             </div>
             <div class="site-link" style="flex-direction: column; align-items: stretch; gap: 10px;">
@@ -150,7 +150,7 @@
                     <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="{{ pr }}"><button type="submit" class="danger-btn">Disable</button></form>
                     {% endif %}
                     <a href="/schools/{{ page.slug }}" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
-                    <a href="/admin" target="_blank" class="manage-btn">Manage Site</a>
+                    <a href="/schools/{{ page.slug }}/admin" target="_blank" class="manage-btn">Manage Site</a>
                     <form method="POST" style="margin:0;"><input type="hidden" name="action" value="delete_beacon_page"><input type="hidden" name="page_id" value="{{ page.id }}"><button type="submit" class="danger-btn" onclick="return confirm('Delete this dynamic page?')">Delete</button></form>
                 </div>
             </div>

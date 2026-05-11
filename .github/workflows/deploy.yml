@@ -86,6 +86,7 @@ jobs:
             const page = await browser.newPage();
             let errors = 0;
             await page.setViewport({ width: 1280, height: 720 });
+            page.on('dialog', async dialog => { await dialog.accept(); });
             page.on('pageerror', error => { console.error('[PAGE ERROR]', error.message); errors++; });
             page.on('console', msg => { 
               if (msg.type() === 'error' && !msg.text().includes('Failed to load resource')) { 
@@ -246,20 +247,62 @@ jobs:
             await page.authenticate({ username: adminUser, password: adminPass });
             await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
+            
+            console.log('Testing dynamic site creation...');
+            await page.type('input[name="title"]', 'QA Test School');
+            await page.type('input[name="slug"]', 'qa-test');
+            await page.type('input[name="zipcode"]', '49783,US');
+            await Promise.all([
+              page.waitForNavigation({waitUntil: 'domcontentloaded'}),
+              page.evaluate(() => { document.querySelector('input[value="add_beacon_page"]').closest('form').submit(); })
+            ]);
+            console.log('✅ Created dynamic site.');
+
+            console.log('Testing /schools/qa-test ...');
+            let res = await page.goto('http://127.0.0.1:5000/schools/qa-test', {waitUntil: 'domcontentloaded'});
+            if (!res.ok()) { console.error('[QA PAGE ERROR] Dynamic site failed to load!'); errors++; }
+            
+            console.log('Testing /schools/qa-test/admin ...');
+            res = await page.goto('http://127.0.0.1:5000/schools/qa-test/admin', {waitUntil: 'domcontentloaded'});
+            if (!res.ok()) { console.error('[QA PAGE ERROR] Dynamic site admin failed to load!'); errors++; }
+            
+            console.log('Testing /schools/qa-test/dispatch ...');
+            res = await page.goto('http://127.0.0.1:5000/schools/qa-test/dispatch', {waitUntil: 'domcontentloaded'});
+            if (!res.ok()) { console.error('[QA PAGE ERROR] Dynamic site dispatch failed to load!'); errors++; }
+
+            console.log('Cleaning up dynamic site...');
+            await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded'});
+            await Promise.all([
+              page.waitForNavigation({waitUntil: 'domcontentloaded'}),
+              page.evaluate(() => {
+                const links = Array.from(document.querySelectorAll('.site-link'));
+                for (const link of links) {
+                  if (link.innerText.includes('/schools/qa-test')) {
+                    const form = link.querySelector('input[value="delete_beacon_page"]').closest('form');
+                    if (form) form.submit();
+                  }
+                }
+              })
+            ]);
+            console.log('✅ Deleted dynamic site.');
           } catch (e) {
-            console.error('[QA PAGE ERROR] CoolAdmin load failed:', e.message); errors++;
+            console.error('[QA PAGE ERROR] CoolAdmin/Dynamic Site flow failed:', e.message); errors++;
           }
 
           try {
-            console.log('Extracting dynamic hierarchy for exhaustive QA spidering...');
-            const hierarchyLinks = await page.evaluate(() => {
+            console.log('Extracting all internal hyperlinks for exhaustive QA spidering...');
+            await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded', timeout: 15000});
+            const allLinks = await page.evaluate(() => {
               const links = [];
-              document.querySelectorAll('.site-link').forEach(el => {
-                if (el.tagName === 'A' && el.href) links.push(el.href);
-              });
+              document.querySelectorAll('a[href]').forEach(el => links.push(el.href));
               return links;
             });
-            const uniqueLinks = [...new Set(hierarchyLinks)].filter(l => !l.includes('/logout') && !l.includes('/login') && !l.includes('admin') && l.startsWith('http://127.0.0.1:5000'));
+            const uniqueLinks = [...new Set(allLinks)].filter(l => 
+              l.startsWith('http://127.0.0.1:5000') && 
+              !l.includes('/logout') && 
+              !l.includes('/login') && 
+              !l.includes('#')
+            );
             console.log('Found ' + uniqueLinks.length + ' unique routes to verify.');
             for (const link of uniqueLinks) {
               console.log('Spidering route: ' + link);

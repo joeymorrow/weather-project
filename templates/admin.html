@@ -32,7 +32,7 @@
         {% if emergency.get('active') %}
             <div class="alert-banner">AN EMERGENCY FLARE IS CURRENTLY ACTIVE!</div>
         {% endif %}
-        <form method="POST" action="/admin/{{ slug }}">
+        <form method="POST">
             <input type="hidden" name="action" value="update_flare">
             <div class="form-group">
                 <label>Active Emergency Alert? <span class="help-tip" title="Forces a full-screen takeover of the dashboard. Use for active lock-downs or critical scenarios.">?</span></label>
@@ -54,8 +54,8 @@
 
         <h2>📺 Digital Signage Slides</h2>
         <div class="flex" style="margin-bottom: 15px;">
-            <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="undo_slides"><button type="submit" style="background:#444; color:#fff;">Undo Slide Change</button></form>
-            <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="redo_slides"><button type="submit" style="background:#444; color:#fff;">Redo</button></form>
+            <form method="POST"><input type="hidden" name="action" value="undo_slides"><button type="submit" style="background:#444; color:#fff;">Undo Slide Change</button></form>
+            <form method="POST"><input type="hidden" name="action" value="redo_slides"><button type="submit" style="background:#444; color:#fff;">Redo</button></form>
         </div>
 
         {% for slide in slides %}
@@ -70,18 +70,18 @@
                 {% endif %}
             </div>
             <div class="flex">
-                <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="move_slide_up"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Up</button></form>
-                <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="move_slide_down"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Down</button></form>
-                <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="toggle_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Hide</button></form>
+                <form method="POST"><input type="hidden" name="action" value="move_slide_up"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Up</button></form>
+                <form method="POST"><input type="hidden" name="action" value="move_slide_down"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Down</button></form>
+                <form method="POST"><input type="hidden" name="action" value="toggle_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit">Hide</button></form>
                 {% if slide.type != 'dashboard' %}
-                <form method="POST" action="/admin/{{ slug }}"><input type="hidden" name="action" value="delete_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit" class="danger">X</button></form>
+                <form method="POST"><input type="hidden" name="action" value="delete_slide"><input type="hidden" name="slide_id" value="{{ slide.id }}"><button type="submit" class="danger">X</button></form>
                 {% endif %}
             </div>
         </div>
         {% endfor %}
 
         <h3>➕ Add Custom Text Slide</h3>
-        <form method="POST" action="/admin/{{ slug }}">
+        <form method="POST">
             <input type="hidden" name="action" value="add_text_slide">
             <div class="form-group">
                 <label>Text Content (HTML Allowed) <span class="help-tip" title="You can use basic HTML like <br> for line breaks or <b> for bold text.">?</span></label>
@@ -96,7 +96,7 @@
         </form>
         
         <h3>➕ Add External Media (Canva/YouTube/Slides)</h3>
-        <form method="POST" action="/admin/{{ slug }}">
+        <form method="POST">
             <input type="hidden" name="action" value="add_iframe_slide">
             <div class="form-group">
                 <label>URL or IFrame Embed Code <span class="help-tip" title="Paste a direct URL (e.g. YouTube link) or the raw <iframe src='...'> HTML code provided by the vendor.">?</span></label>
