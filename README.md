@@ -51,7 +51,7 @@ A local weather, scheduling, and emergency response dashboard powered by AI and 
    source venv/bin/activate
    # On Windows:
    # venv\Scripts\activate
-   
+
    python app.py
    ```
 
@@ -64,9 +64,9 @@ A local weather, scheduling, and emergency response dashboard powered by AI and 
    ```
 
 **🛑 IMPORTANT DEPLOYMENT RULE 🛑**
-DO NOT start the Docker container manually from the host machine using `docker compose up`. 
-Deployment is STRICTLY managed by the self-hosted GitHub Runner. 
-To deploy, commit your changes and push to the `main` branch. 
+DO NOT start the Docker container manually from the host machine using `docker compose up`.
+Deployment is STRICTLY managed by the self-hosted GitHub Runner.
+To deploy, commit your changes and push to the `main` branch.
 The runner will securely construct the `.env` file automatically using GitHub Secrets and restart the container.
 
 ## Contributing and Setting Up VS Code
@@ -119,7 +119,7 @@ To expose this local dashboard to the internet securely without opening firewall
 
 ## TV Display via ADB & Cron
 
-The project includes a `tv_schedule.sh` script to automatically turn a TV or display on/off and open the weather dashboard using ADB (Android Debug Bridge). 
+The project includes a `tv_schedule.sh` script to automatically turn a TV or display on/off and open the weather dashboard using ADB (Android Debug Bridge).
 
 1. Ensure the `adb` package is installed:
    ```bash

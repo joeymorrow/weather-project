@@ -22,7 +22,7 @@ except ImportError:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "python-dotenv", "google-genai", "pytz"])
     except subprocess.CalledProcessError:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "python-dotenv", "google-genai", "pytz", "--break-system-packages"])
-    
+
     print("-> Packages installed! Restarting script to load them...", flush=True)
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
@@ -75,7 +75,7 @@ def send_report_email(subject, body):
     msg['Subject'] = subject
     msg['From'] = os.environ.get("SMTP_USER", "buddy-alerts@morrowedge.com")
     msg['To'] = "joseph@morrowedge.com"
-    
+
     smtp_server = os.environ.get("SMTP_SERVER", "localhost")
     smtp_port = int(os.environ.get("SMTP_PORT", 587))
     try:
@@ -156,7 +156,7 @@ Evaluate if the following generated text is a hallucination or an intended respo
 """
     models_to_try = get_best_models()
     last_error = None
-    
+
     for m_id in models_to_try:
         try:
             response = client.models.generate_content(
@@ -175,7 +175,7 @@ Evaluate if the following generated text is a hallucination or an intended respo
         except Exception as e:
             last_error = e
             continue
-            
+
     print(f"Error checking text: {last_error}")
     return False, str(last_error)
 
@@ -234,10 +234,10 @@ def main():
         cursor = conn.cursor()
         cursor.execute("SELECT id, date, text FROM pulses")
         pulses = cursor.fetchall()
-        
+
         cursor.execute("SELECT id, date, text FROM garage_sales")
         garage_sales = cursor.fetchall()
-        
+
         cursor.execute("SELECT id, date, text FROM sault_tribe")
         sault_tribe = cursor.fetchall()
 
@@ -252,7 +252,7 @@ def main():
                 dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
                 dt = pytz.timezone('America/Detroit').localize(dt_naive)
                 if dt > now: dt = dt.replace(year=now.year - 1)
-                
+
                 age = now - dt
                 if age > timedelta(hours=36):
                     cursor.execute("INSERT INTO old_pulses (date, text) VALUES (?, ?)", (date_str, text))
@@ -262,16 +262,16 @@ def main():
                     archived_count += 1
                     continue
             except ValueError: pass # Skip unparsable or malformed legacy dates
-                
+
             items_to_check.append(("pulse", pulse_id, date_str, text))
-            
+
         # Age out Garage Sales (> 48 hours to preserve today and tomorrow only)
         for sale_id, date_str, text in garage_sales:
             try:
                 dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
                 dt = pytz.timezone('America/Detroit').localize(dt_naive)
                 if dt > now: dt = dt.replace(year=now.year - 1)
-                
+
                 age = now - dt
                 if age > timedelta(hours=48):
                     cursor.execute("DELETE FROM garage_sales WHERE id = ?", (sale_id,))
@@ -279,16 +279,16 @@ def main():
                     archived_count += 1
                     continue
             except ValueError: pass
-                
+
             items_to_check.append(("garage_sale", sale_id, date_str, text))
-            
+
         # Age out Sault Tribe (> 72 hours)
         for tribe_id, date_str, text in sault_tribe:
             try:
                 dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
                 dt = pytz.timezone('America/Detroit').localize(dt_naive)
                 if dt > now: dt = dt.replace(year=now.year - 1)
-                
+
                 age = now - dt
                 if age > timedelta(hours=72):
                     cursor.execute("DELETE FROM sault_tribe WHERE id = ?", (tribe_id,))
@@ -296,17 +296,17 @@ def main():
                     archived_count += 1
                     continue
             except ValueError: pass
-                
+
             items_to_check.append(("sault_tribe", tribe_id, date_str, text))
 
         print(f"Found {len(items_to_check)} items to check for hallucinations (Archived/Deleted {archived_count} old items).\n")
-        
+
         round_results = []
 
         for item_type, item_id, date, text in items_to_check:
             print(f"Analyzing [{item_type.upper()} {item_id}] {date}: {text}", flush=True)
             is_hallucinated, reason = check_hallucination(text, date, item_type)
-            
+
             if is_hallucinated:
                 print(f"{RED}-> [HALLUCINATION DETECTED] {reason}{RESET}", flush=True)
                 cursor.execute("INSERT INTO hallucinations_log (date, text, reason) VALUES (?, ?, ?)", (date, text, reason))
@@ -321,20 +321,20 @@ def main():
                 round_results.append((date, text, reason))
             else:
                 print(f"-> [VALID] {reason}\n", flush=True)
-                
+
             time.sleep(1) # Prevent hitting API rate limits
-            
+
         # Keep only the last 100 entries in the log
-        cursor.execute('''DELETE FROM hallucinations_log 
+        cursor.execute('''DELETE FROM hallucinations_log
                           WHERE id NOT IN (
-                              SELECT id FROM hallucinations_log 
-                              ORDER BY retrieved_at DESC 
+                              SELECT id FROM hallucinations_log
+                              ORDER BY retrieved_at DESC
                               LIMIT 100
                           )''')
         conn.commit()
 
         print("Cleanup complete!", flush=True)
-        
+
         if args.run_auto:
             if not round_results:
                 subject = "[BEACON BUDDY] - Hallucination Cleanup: None Found"
@@ -344,7 +344,7 @@ def main():
                 body = f"The scheduled hallucination cleanup detected and removed {len(round_results)} hallucinated entries:\n\n"
                 for res in round_results:
                     body += f"Date: {res[0]}\nText: {res[1]}\nReason: {res[2]}\n\n"
-            
+
             send_report_email(subject, body)
         else:
             if round_results:

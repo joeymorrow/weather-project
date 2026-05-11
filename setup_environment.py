@@ -54,7 +54,7 @@ def prompt_string(question, default="", hide=False):
             ans = getpass.getpass(f"{question}{default_text}: ").strip()
         else:
             ans = input(f"{question}{default_text}: ").strip()
-        
+
         if not ans and default:
             return default
         if ans:
@@ -71,7 +71,7 @@ def install():
     print("    BEACON Environment Setup Wizard")
     print("=========================================")
     print(f"Detected Platform: {platform.system()} ({platform.machine()})\n")
-    
+
     # 1. Environment Variables
     if prompt_yes_no("Configure environment variables (.env)?", "y"):
         env_vars = {}
@@ -89,14 +89,14 @@ def install():
         
         if "INTERNAL_API_SECRET" not in env_vars:
             env_vars["INTERNAL_API_SECRET"] = secrets.token_hex(32)
-            
+
         with open(ENV_FILE, 'w') as f:
             for k, v in env_vars.items():
                 f.write(f"{k}={v}\n")
-        
+
         if ENV_FILE not in state["created_files"]:
             state["created_files"].append(ENV_FILE)
-            
+
         print("✅ .env file successfully configured.\n")
 
     # 2. Virtual Environment & Requirements
@@ -113,7 +113,7 @@ def install():
         run_command([pip_cmd, "install", "flask", "requests", "google-genai", "pytz", "python-dotenv", "filelock", "psutil", "msal", "markdown", "Werkzeug", "beautifulsoup4"])
         if os.path.exists("requirements.txt"):
             run_command([pip_cmd, "install", "-r", "requirements.txt"])
-            
+
         print("✅ Python dependencies installed.\n")
 
     # 3. OS-Specific Services
@@ -150,7 +150,7 @@ def uninstall():
     print("=========================================")
     print("    BEACON Environment Uninstall")
     print("=========================================")
-    
+
     if not state.get("created_files") and not state.get("installed_services"):
         print("No installation state found. Nothing to uninstall.")
         return
@@ -171,7 +171,7 @@ def uninstall():
         if os.path.exists(file_path):
             print(f"Removing {file_path}")
             shutil.rmtree(file_path) if os.path.isdir(file_path) else os.remove(file_path)
-                
+
     if os.path.exists(STATE_FILE): os.remove(STATE_FILE)
     print("✅ Uninstall complete.")
 

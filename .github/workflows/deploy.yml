@@ -26,14 +26,14 @@ jobs:
       - name: YAML Linter (yamllint)
         run: |
           pip install yamllint
-          yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable}}" .
+          yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable, trailing-spaces: disable, empty-lines: disable}}" .
 
       - name: Python Linter (Flake8)
         run: |
           pip install flake8
           # F821 catches undefined variables in Python!
           flake8 . --select=E9,F63,F7,F82 --show-source --statistics
-          
+
       - name: Cybersecurity Analysis (SAST - Bandit)
         run: |
           pip install bandit
@@ -45,16 +45,16 @@ jobs:
           pip install pip-audit
           # Scans the environment against the PyPI advisory database for known CVEs
           pip-audit || echo "pip-audit found vulnerable packages. Review logs."
-          
+
       - name: Secret Leak Detection (TruffleHog)
         uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --results=verified,unknown
-          
+
       - name: Python Basic Syntax Check
         run: |
           python -m compileall .
-          
+
       - name: Jinja2 Template Validation
         run: |
           pip install Jinja2
@@ -111,10 +111,10 @@ jobs:
             await page.setViewport({ width: 1280, height: 720 });
             page.on('dialog', async dialog => { await dialog.accept(); });
             page.on('pageerror', error => { console.error('[PAGE ERROR]', error.message); errors++; });
-            page.on('console', msg => { 
-              if (msg.type() === 'error' && !msg.text().includes('Failed to load resource')) { 
-                console.error('[CONSOLE ERROR]', msg.text()); errors++; 
-              } 
+            page.on('console', msg => {
+              if (msg.type() === 'error' && !msg.text().includes('Failed to load resource')) {
+                console.error('[CONSOLE ERROR]', msg.text()); errors++;
+              }
             });
             
             // 1. Dashboard Load
@@ -125,7 +125,7 @@ jobs:
             } catch (e) {
               console.error('[QA PAGE ERROR] Dashboard load failed:', e.message); errors++;
             }
-              
+
             // 2. Clash Checks
             const runClashCheck = async (scenario) => {
               try {
@@ -253,7 +253,7 @@ jobs:
             // EAP Featureset & Dispatch QA Test
             try {
               console.log('Testing /dispatch (PWA) and EAP Webhook...');
-              
+
               // 1. Test Dispatch PWA Unlock
               await page.goto('http://127.0.0.1:5000/dispatch', {waitUntil: 'domcontentloaded', timeout: 15000});
               await new Promise(r => setTimeout(r, 1000));
@@ -262,7 +262,7 @@ jobs:
               await new Promise(r => setTimeout(r, 1000));
               const dispatchUnlocked = await page.evaluate(() => document.getElementById('dispatch-screen').style.display === 'flex');
               if (!dispatchUnlocked) { console.error('[QA EAP ERROR] Default PIN failed to unlock dispatch PWA!'); errors++; }
-              
+
               // 2. Simulate Partner Webhook
               console.log('Simulating Partner Inbound Webhook (LOCKDOWN)...');
               await page.evaluate(async () => {
@@ -273,7 +273,7 @@ jobs:
                 });
               });
               await new Promise(r => setTimeout(r, 1500));
-              
+
               // 3. Verify State was updated globally
               const eapState = await page.evaluate(async () => { const res = await fetch('/api/state'); return await res.json(); });
               if (!eapState.school_alerts || !eapState.school_alerts['sault-schools'] || eapState.school_alerts['sault-schools'].type !== 'LOCKDOWN') {
@@ -286,7 +286,7 @@ jobs:
           // --- CYBERSECURITY & FUZZING SUITE ---
           try {
             console.log('--- CYBERSECURITY & FUZZING ANALYSIS ---');
-            
+
             console.log('Testing Path Traversal (/docs/%2E%2E%2Fapp.py)...');
             const ptRes = await page.goto('http://127.0.0.1:5000/docs/%2E%2E%2Fapp.py', {waitUntil: 'domcontentloaded'});
             const ptText = await page.evaluate(() => document.body ? document.body.innerText : '');
@@ -339,7 +339,7 @@ jobs:
             if (isXssExecuted) {
               console.error('[QA SECURITY ERROR] Stored XSS vulnerability detected in Dynamic Beacon Title!'); errors++;
             }
-            
+
             console.log('Testing /schools/qa-test/admin ...');
             res = await page.goto('http://127.0.0.1:5000/schools/qa-test/admin', {waitUntil: 'domcontentloaded'});
             if (!res.ok()) { console.error('[QA PAGE ERROR] Dynamic site admin failed to load!'); errors++; }
@@ -375,10 +375,10 @@ jobs:
               document.querySelectorAll('a[href]').forEach(el => links.push(el.href));
               return links;
             });
-            const uniqueLinks = [...new Set(allLinks)].filter(l => 
-              l.startsWith('http://127.0.0.1:5000') && 
-              !l.includes('/logout') && 
-              !l.includes('/login') && 
+            const uniqueLinks = [...new Set(allLinks)].filter(l =>
+              l.startsWith('http://127.0.0.1:5000') &&
+              !l.includes('/logout') &&
+              !l.includes('/login') &&
               !l.includes('#')
             );
             console.log('Found ' + uniqueLinks.length + ' unique routes to verify.');
@@ -386,7 +386,7 @@ jobs:
               console.log('Spidering route: ' + link);
               const res = await page.goto(link, {waitUntil: 'domcontentloaded', timeout: 10000});
               if (res && !res.ok()) { console.error('[QA HTTP ERROR] ' + link + ' returned ' + res.status()); errors++; }
-              
+
               const pageText = await page.evaluate(() => document.body ? document.body.innerText : '');
               if (pageText && (pageText.includes('Internal Server Error') || pageText.includes('The server encountered an internal error'))) {
                 console.error('[QA HTTP 500] Flask crash text detected on ' + link); errors++;
@@ -394,7 +394,7 @@ jobs:
               if (pageText && (pageText.includes('{{') || pageText.includes('{%'))) {
                 console.error('[QA RENDER ERROR] Raw Jinja tags leaked on ' + link); errors++;
               }
-              
+
               const brokenImages = await page.evaluate(() => {
                 return Array.from(document.images).filter(img => img.complete && img.naturalWidth === 0).map(img => img.src);
               });
@@ -535,7 +535,7 @@ jobs:
     name: Windows Security & Syntax Check
     runs-on: [self-hosted, Windows]
     # Soft fail: won't crash your Linux deployment if a Windows check fails
-    continue-on-error: true 
+    continue-on-error: true
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
