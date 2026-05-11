@@ -1062,7 +1062,7 @@
             });
             
             list.innerHTML = displayHistory.length ? displayHistory.map(p => {
-                const safeText = p.text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&lt;i&gt;/gi, '<i>').replace(/&lt;\/i&gt;/gi, '</i>');
+                const safeText = p.text.replace(/\*\*/g, '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&lt;i&gt;/gi, '<i>').replace(/&lt;\/i&gt;/gi, '</i>');
                 const borderStyle = p.isCurrent ? "border: 2px solid var(--accent); box-shadow: 0 0 15px rgba(0,255,255,0.2);" : "border: 1px solid var(--pod-border);";
                 
                 const match = p.text.match(/<i>(.*?)<\/i>/i);
@@ -1176,13 +1176,13 @@
                 const match = p.text.match(/<i>(.*?)<\/i>/i);
                 if (!match) return;
                 
-                let label = match[1].trim();
-                if (seenEvents.has(label)) return;
+                let label = match[1].trim().replace(/\*\*/g, '');
+                if (seenEvents.has(label.toLowerCase())) return;
                 
                 let isTomorrow = p.text.toLowerCase().includes('tomorrow');
                 let isAgendaItem = false;
                 
-                const safeText = p.text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&lt;i&gt;/gi, '<i>').replace(/&lt;\/i&gt;/gi, '</i>');
+                const safeText = p.text.replace(/\*\*/g, '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/&lt;i&gt;/gi, '<i>').replace(/&lt;\/i&gt;/gi, '</i>');
 
                 if (p.date === todayStr && !isTomorrow) {
                     todaysEvents.push({ label, text: safeText });
@@ -1192,7 +1192,7 @@
                     isAgendaItem = true;
                 }
                 
-                if (isAgendaItem) seenEvents.add(label);
+                if (isAgendaItem) seenEvents.add(label.toLowerCase());
             });
 
             function parseTimeRange(text) {

@@ -655,6 +655,10 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
             except: continue
         
         if not success: ai["bubble"] = "Optimizing antenna..."
+        
+        ai['bubble'] = ai.get('bubble', '...').replace('**', '') if isinstance(ai.get('bubble'), str) else ai.get('bubble', '...')
+        ai['suggestion'] = ai.get('suggestion', '').replace('**', '') if isinstance(ai.get('suggestion'), str) else ai.get('suggestion')
+        ai['forecast'] = ai.get('forecast', '').replace('**', '') if isinstance(ai.get('forecast'), str) else ai.get('forecast')
 
         day = now.day
         suffix = 'th' if 11 <= day <= 13 else {1:'st', 2:'nd', 3:'rd'}.get(day % 10, 'th')
@@ -1231,7 +1235,8 @@ def demo_dashboard(slug):
     if not page: return "Demo not found", 404
     
     with state_lock: 
-        page_state = state.get('tenants', {}).get(slug, state).copy()
+        page_state = state.copy()
+        page_state.update(state.get('tenants', {}).get(slug, {}))
         page_state['page_title'] = page['title']
         page_state['page_slug'] = slug
         page_state['is_demo'] = True
@@ -1244,7 +1249,8 @@ def demo_school(slug):
     if not page: return "Demo not found", 404
     
     with state_lock: 
-        page_state = state.get('tenants', {}).get(slug, state).copy()
+        page_state = state.copy()
+        page_state.update(state.get('tenants', {}).get(slug, {}))
         page_state['page_title'] = page['title']
         page_state['page_slug'] = slug
         page_state['is_demo'] = True
@@ -1669,6 +1675,7 @@ def cooladmin():
         pulse_history = state.get('pulse_history') or []
         disabled_pages = state.get('disabled_pages') or []
         eap_pin = state.get('eap_pin', '123456')
+        agenda_votes = state.get('agenda_votes', {})
 
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -1759,7 +1766,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, agenda_votes=agenda_votes)
 
 @app.route('/portfolio')
 def portfolio():

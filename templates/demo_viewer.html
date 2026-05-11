@@ -6,7 +6,7 @@
     <title>BEACON Demo - {{ slug }}</title>
     <style>
         body { margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; font-family: monospace; background: #050510; color: #fff; }
-        #sidebar { width: 250px; background: rgba(0, 20, 30, 0.95); border-right: 2px solid #00ffff; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; flex-shrink: 0; z-index: 10; }
+        #sidebar { width: 250px; background: rgba(0, 20, 30, 0.95); border-right: 2px solid #00ffff; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; flex-shrink: 0; z-index: 10; transition: transform 0.3s ease; position: relative; }
         #content { flex-grow: 1; border: none; height: 100%; background: #000; }
         a.nav-link { color: #00ffff; text-decoration: none; font-size: 1rem; margin-bottom: 10px; display: block; transition: 0.2s; }
         a.nav-link:hover, a.nav-link.active { text-shadow: 0 0 10px #00ffff; padding-left: 5px; border-left: 2px solid #00ffff; }
@@ -17,7 +17,10 @@
 </head>
 <body>
     <div id="sidebar">
-        <h2 style="color: #00ffff; margin-top: 0; font-size: 1.5rem; letter-spacing: 2px;">☰ DEMO</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="color: #00ffff; margin: 0; font-size: 1.5rem; letter-spacing: 2px;">☰ DEMO</h2>
+            <button onclick="document.getElementById('sidebar').style.display='none'; document.getElementById('sidebar-open').style.display='block';" style="background:none; border:none; color:#0ff; font-size:1.5rem; cursor:pointer;">&times;</button>
+        </div>
         
         <h3>Live Views</h3>
         <a href="/demo/{{ slug }}/dashboard" target="demo-frame" class="nav-link active" onclick="document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active')); this.classList.add('active');">Buddy Dashboard</a>
@@ -31,10 +34,11 @@
         <h3>Docs</h3>
         <a href="/docs" target="_blank" class="nav-link">Docs Hub ↗</a>
         
-        <div class="creds"><strong style="color: #00ffff;">Demo Admin</strong><br><br>User: <code>admin</code><br>Pass: <code>changeme</code></div>
+        <div class="creds"><strong style="color: #00ffff;">Demo Admin</strong><br><br>User: <code>admin</code><br>Pass: <code>changeme</code><br>EAP PIN: <code>123456</code></div>
         
         <a href="/demo" style="margin-top: 15px; color: #ff4444; text-decoration: none; font-weight: bold; text-align: center; border: 1px solid #ff4444; padding: 10px; border-radius: 4px;">Exit Demo</a>
     </div>
+    <button id="sidebar-open" onclick="document.getElementById('sidebar').style.display='flex'; this.style.display='none';" style="display:none; position:absolute; top:15px; left:15px; z-index:20; background:rgba(0,20,30,0.95); color:#00ffff; border:2px solid #00ffff; padding:10px; border-radius:8px; cursor:pointer; font-size:1.2rem;">☰</button>
     <iframe id="content" name="demo-frame" src="/demo/{{ slug }}/dashboard"></iframe>
 </body>
 </html>

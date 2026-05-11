@@ -96,7 +96,8 @@
                     <a href="/rpg" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
                 </div>
             </div>
-            <h3 style="margin-top: 20px; font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Dynamic Beacons</h3>
+            
+            <h3 style="margin-top: 20px; font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Dynamic School Beacons</h3>
             <div style="margin-bottom: 15px; padding: 10px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px;">
                 <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0;">
                     <input type="hidden" name="action" value="add_beacon_page">
@@ -106,7 +107,7 @@
                     <button type="submit" class="manage-btn">Create Page</button>
                 </form>
             </div>
-            {% for page in beacon_pages %}
+            {% for page in beacon_pages if not page.slug.startswith('demo-') %}
             <div class="site-link" style="flex-direction: column; align-items: stretch; gap: 10px;">
                 <div>
                     <strong>{{ page.title }}</strong><br>
@@ -126,9 +127,22 @@
                 </div>
             </div>
             {% endfor %}
-            {% if not beacon_pages %}
-            <p style="font-size: 0.9rem; color: #666; font-style: italic;">No dynamic pages currently loaded.</p>
-            {% endif %}
+            
+            <h3 style="margin-top: 20px; font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Active Demos</h3>
+            {% for page in beacon_pages if page.slug.startswith('demo-') %}
+            <div class="site-link" style="flex-direction: column; align-items: stretch; gap: 10px;">
+                <div>
+                    <strong>{{ page.title }}</strong><br>
+                    <span style="font-size: 0.8rem; color: #ccc;">Route: /schools/{{ page.slug }}</span>
+                    {% if page.expires_at %}<span style="color: #ffaa00; font-size: 0.8rem; margin-left: 10px;">[DEMO EXPIRES: {{ page.expires_at }}]</span>{% endif %}
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap: wrap;">
+                    <a href="/demo/{{ page.slug }}" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
+                    <a href="/demo/{{ page.slug }}/admin" target="_blank" class="manage-btn">Manage Site</a>
+                    <form method="POST" style="margin:0;"><input type="hidden" name="action" value="delete_beacon_page"><input type="hidden" name="page_id" value="{{ page.id }}"><button type="submit" class="danger-btn" onclick="return confirm('Delete this dynamic page?')">Delete</button></form>
+                </div>
+            </div>
+            {% endfor %}
         </div>
 
         <!-- EAP Integration & Dispatch -->
@@ -321,6 +335,9 @@
                 <div class="site-link" style="align-items: flex-start;">
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                         {{ current_pulse | safe }}
+                        <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+                            <a href="https://www.google.com/search?q={{ current_pulse | striptags | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">🔍 Search</a>
+                        </div>
                     </div>
                     <form method="POST" style="margin:0;">
                         <input type="hidden" name="action" value="delete_pulse">
@@ -342,6 +359,11 @@
                         <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                             <strong style="color: #00aaaa; font-size: 0.75rem;">{{ p.date }}</strong><br>
                             {{ p.text | safe }}
+                            <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+                                <a href="https://www.google.com/search?q={{ p.text | striptags | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">🔍 Search</a>
+                                <span style="font-size: 0.8rem; color: #00ff00;">👍 {{ agenda_votes.get(p.text, {}).get('up', 0) }}</span>
+                                <span style="font-size: 0.8rem; color: #ff4444;">👎 {{ agenda_votes.get(p.text, {}).get('down', 0) }}</span>
+                            </div>
                         </div>
                         <form method="POST" style="margin:0;">
                             <input type="hidden" name="action" value="delete_pulse">
@@ -411,10 +433,7 @@
         
         <!-- Local Feeds Management -->
         <div class="card">
-            <h2>🏷️ Local Feeds Management</h2>
-            <p style="font-size: 0.9rem; color: #888;">Manage Garage Sales and Sault Tribe news.</p>
-            
-            <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Garage Sales</h3>
+            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏷️ Garage Sales</span></h2>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_garage_sale">
                 <input type="text" name="text" placeholder="Garage Sale Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
@@ -428,6 +447,14 @@
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                         <strong style="color: #00aaaa; font-size: 0.75rem;">{{ sale.date }}</strong><br>
                         {{ sale.text | safe }}
+                        <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+                            <a href="https://www.google.com/search?q={{ sale.text | striptags | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">🔍 Search</a>
+                            {% if sale.location %}
+                            <a href="https://www.google.com/maps/search/?api=1&query={{ sale.location | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">📍 Map</a>
+                            {% endif %}
+                            <span style="font-size: 0.8rem; color: #00ff00;">👍 {{ agenda_votes.get(sale.id, {}).get('up', 0) }}</span>
+                            <span style="font-size: 0.8rem; color: #ff4444;">👎 {{ agenda_votes.get(sale.id, {}).get('down', 0) }}</span>
+                        </div>
                     </div>
                     <form method="POST" style="margin:0;">
                         <input type="hidden" name="action" value="delete_garage_sale">
@@ -438,8 +465,11 @@
                 {% endfor %}
                 {% if not garage_sales %}<p style="font-size: 0.8rem; color: #666; font-style: italic;">No garage sales found.</p>{% endif %}
             </div>
+        </div>
 
-            <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Sault Tribe News</h3>
+        <!-- Sault Tribe News -->
+        <div class="card">
+            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🪶 Sault Tribe News</span></h2>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_sault_tribe">
                 <input type="text" name="text" placeholder="Tribe News Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
@@ -453,6 +483,14 @@
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                         <strong style="color: #00aaaa; font-size: 0.75rem;">{{ tribe.date }}</strong><br>
                         {{ tribe.text | safe }}
+                        <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+                            <a href="https://www.google.com/search?q={{ tribe.text | striptags | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">🔍 Search</a>
+                            {% if tribe.location %}
+                            <a href="https://www.google.com/maps/search/?api=1&query={{ tribe.location | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">📍 Map</a>
+                            {% endif %}
+                            <span style="font-size: 0.8rem; color: #00ff00;">👍 {{ agenda_votes.get(tribe.id, {}).get('up', 0) }}</span>
+                            <span style="font-size: 0.8rem; color: #ff4444;">👎 {{ agenda_votes.get(tribe.id, {}).get('down', 0) }}</span>
+                        </div>
                     </div>
                     <form method="POST" style="margin:0;">
                         <input type="hidden" name="action" value="delete_sault_tribe">

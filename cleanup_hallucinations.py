@@ -130,9 +130,10 @@ def check_hallucination(text, date_str, item_type="pulse"):
         rules = "- Buddy acts as a local scout for Sault Ste. Marie Tribe of Chippewa Indians news and events. He searches for VERIFIABLE tribal news, cultural events, or announcements. Fake events or workshops are HALLUCINATIONS."
         instructions = "1. Search Google to see if this specific Sault Tribe event/news was published or advertised for this location and date.\n2. If you cannot find any proof, it is a hallucination."
     else:
-        rules = """- During the daytime (6 AM - 9:30 PM), Buddy acts as a local speechwriter. He searches for VERIFIABLE recent local news, events, or acts of kindness. If the text mentions specific names, workshops, or times that did not occur in real life, IT IS A HALLUCINATION.
-- During late night (9:30 PM - 6 AM), Buddy acts as a poetic night-owl. He provides quiet, atmospheric observations about the city's nocturnal rhythm. These poetic, non-specific observations are INTENDED and are NOT hallucinations."""
-        instructions = "1. Determine if the text sounds like a poetic nighttime observation. If it does, it is NOT a hallucination (valid).\n2. If it sounds like specific daytime news, use Google Search to verify it. Fake events with specific unverified details are hallucinations."
+        rules = """- During the daytime (6 AM - 9:30 PM), Buddy acts as a local speechwriter. He searches for VERIFIABLE recent local news, events, or acts of kindness.
+- During late night (9:30 PM - 6 AM), Buddy acts as a poetic night-owl.
+- DO NOT DELETE generic, harmless community gatherings or poetic observations. ONLY flag as a hallucination if it cites a highly specific, fake news event (e.g. a fake bombing, a named festival that doesn't exist). Err heavily on the side of VALID (hallucinated: false)."""
+        instructions = "1. Determine if the text sounds like a poetic nighttime observation or generic community gathering. If it does, it is NOT a hallucination (valid).\n2. ONLY flag as a hallucination if it cites a highly specific, fabricated news event. Err heavily on the side of VALID (hallucinated: false)."
 
     prompt = f"""
 You are a strict AI Hallucination Evaluator for Beacon Buddy, an ambient dashboard in Sault Ste. Marie, Michigan.
@@ -254,11 +255,11 @@ def main():
                 if dt > now: dt = dt.replace(year=now.year - 1)
 
                 age = now - dt
-                if age > timedelta(hours=36):
+                if age > timedelta(hours=72):
                     cursor.execute("INSERT INTO old_pulses (date, text) VALUES (?, ?)", (date_str, text))
                     cursor.execute("DELETE FROM pulses WHERE id = ?", (pulse_id,))
                     conn.commit()
-                    print(f"-> [ARCHIVED] Pulse ID {pulse_id} ({date_str}) is >36 hours old.", flush=True)
+                    print(f"-> [ARCHIVED] Pulse ID {pulse_id} ({date_str}) is >72 hours old.", flush=True)
                     archived_count += 1
                     continue
             except ValueError: pass # Skip unparsable or malformed legacy dates
@@ -273,7 +274,7 @@ def main():
                 if dt > now: dt = dt.replace(year=now.year - 1)
 
                 age = now - dt
-                if age > timedelta(hours=48):
+                if age > timedelta(hours=72):
                     cursor.execute("DELETE FROM garage_sales WHERE id = ?", (sale_id,))
                     conn.commit()
                     archived_count += 1
