@@ -1422,7 +1422,8 @@ def dynamic_school(slug):
         return "Page not found", 404
     
     with state_lock: 
-        page_state = state.get('tenants', {}).get(slug, state).copy()
+        page_state = state.copy()
+        page_state.update(state.get('tenants', {}).get(slug, {}))
         page_state['page_title'] = page['title']
         page_state['page_slug'] = slug
         page_state['school_alerts'] = state.get('school_alerts', {})
@@ -2056,7 +2057,8 @@ def get_state(slug="main"):
         if slug == "main":
             out = state.copy()
         else:
-            out = state.get('tenants', {}).get(slug, state).copy()
+            out = state.copy()
+            out.update(state.get('tenants', {}).get(slug, {}))
             
         out["build_timestamp"] = os.environ.get("BUILD_TIMESTAMP", "Local Dev")
         out["agenda_item_count"] = state.get("agenda_item_count", 0)

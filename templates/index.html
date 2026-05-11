@@ -2180,10 +2180,10 @@
         }
 
         // Apply local votes for modals already in the DOM (Garage Sales, Sault Tribe)
-        document.getElementById('garage-trigger').addEventListener('click', () => {
+        document.getElementById('garage-trigger')?.addEventListener('click', () => {
             setTimeout(window.applyLocalVotes, 50);
         });
-        document.getElementById('tribe-trigger').addEventListener('click', () => {
+        document.getElementById('tribe-trigger')?.addEventListener('click', () => {
             setTimeout(window.applyLocalVotes, 50);
         });
 
