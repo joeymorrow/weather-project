@@ -52,6 +52,22 @@
             <button type="submit" class="danger">Deploy / Update Emergency State</button>
         </form>
 
+        <h2>🏫 Local Integrations</h2>
+        <form method="POST">
+            <input type="hidden" name="action" value="update_integrations">
+            <div class="form-group">
+                <label>Snow Days / Closings Source <span class="help-tip" title="Enable scrolling marquee for school closures during winter months.">?</span></label>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <select name="closings_source" style="flex: 1; min-width: 250px;">
+                        <option value="none" {% if closings_source == 'none' or not closings_source %}selected{% endif %}>None (Disabled)</option>
+                        <option value="9and10" {% if closings_source == '9and10' %}selected{% endif %}>9&10 News (Eastern Upper Peninsula)</option>
+                    </select>
+                    <a href="https://morrowedge.com" target="_blank" style="text-decoration: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; background: transparent; border: 1px solid #00ffff; color: #00ffff; text-align: center;">Contact Vendor to Add Custom Source</a>
+                </div>
+            </div>
+            <button type="submit">Save Integrations</button>
+        </form>
+
         <h2>📺 Digital Signage Slides</h2>
         <div class="flex" style="margin-bottom: 15px;">
             <form method="POST"><input type="hidden" name="action" value="undo_slides"><button type="submit" style="background:#444; color:#fff;">Undo Slide Change</button></form>

@@ -27,9 +27,9 @@
             max-height: 100vh;
             display: flex;
             flex-direction: column;
-            padding: 4%;
+            padding: 2%;
             box-sizing: border-box;
-            gap: 4%;
+            gap: 2%;
             position: relative;
             margin: auto;
         }
@@ -37,10 +37,10 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            height: 45%;
+            height: 48%;
         }
         .bottom-row {
-            height: 45%;
+            height: 48%;
             background: rgba(240, 240, 240, 0.8);
             border-radius: 20px;
             display: flex;
@@ -55,14 +55,14 @@
             color: #0066b2;
             font-weight: 700;
             text-transform: uppercase;
-            font-size: 3cqw;
+            font-size: 3.8cqw;
             margin: 0;
             line-height: 1.2;
         }
         .location-date h2 {
             color: #4a5568;
             font-weight: 300;
-            font-size: 2.2cqw;
+            font-size: 2.8cqw;
             margin: 0;
             text-transform: uppercase;
         }
@@ -78,20 +78,20 @@
             50% { transform: translateY(-0.2cqw); }
         }
         .current-condition img {
-            width: 12cqw;
+            width: 14cqw;
             margin-bottom: -2cqw;
             animation: subtleFloat 8s ease-in-out infinite;
             filter: drop-shadow(0 4px 15px rgba(0,0,0,0.3));
         }
         .current-condition .temp {
-            font-size: 5cqw;
+            font-size: 6cqw;
             font-weight: 700;
             color: #0066b2;
             margin: 0;
             line-height: 1;
         }
         .current-condition .desc {
-            font-size: 1.8cqw;
+            font-size: 2.2cqw;
             color: #0066b2;
             text-transform: lowercase;
             margin-top: 0.5cqw;
@@ -100,16 +100,16 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 1.2cqw;
+            gap: 1.5cqw;
             align-items: flex-start;
             padding-left: 5cqw;
         }
         .metric-pill {
             background: rgba(240, 240, 240, 0.8);
             border-radius: 20px;
-            padding: 0.8cqw 2cqw;
+            padding: 1cqw 2.5cqw;
             color: #4a5568;
-            font-size: 1.4cqw;
+            font-size: 1.7cqw;
             display: flex;
             align-items: center;
             font-weight: 500;
@@ -124,25 +124,25 @@
             flex: 1;
         }
         .forecast-day .date {
-            font-size: 1.4cqw;
+            font-size: 1.6cqw;
             color: #4a5568;
         }
         .forecast-day .day {
-            font-size: 1.8cqw;
+            font-size: 2.2cqw;
             font-weight: 700;
         }
         .forecast-day img {
-            width: 7cqw;
+            width: 8cqw;
             animation: subtleFloat 8s ease-in-out infinite;
             animation-delay: 1s;
             filter: drop-shadow(0 2px 10px rgba(0,0,0,0.2));
         }
         .forecast-day .high {
-            font-size: 2.2cqw;
+            font-size: 2.8cqw;
             font-weight: 700;
         }
         .forecast-day .low {
-            font-size: 1.8cqw;
+            font-size: 2cqw;
             font-weight: 300;
         }
         .banners {
@@ -164,6 +164,7 @@
             box-sizing: border-box;
             cursor: pointer;
         }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
         #eap-trigger {
             position: absolute;
             top: 0;
@@ -213,9 +214,26 @@
             </div>
             {% endif %}
         </div>
+
+        {% if closings_source == '9and10' and school_closings and (school_closings.sault_closed or school_closings.other_closings) %}
+        <div id="school-closings-container" style="position: absolute; bottom: 0; left: 0; width: 100%; z-index: 1000; background: #f57c00; color: #ffffff; padding: 1cqw 0 1cqw 12cqw; box-sizing: border-box; overflow: hidden; white-space: nowrap;">
+            <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 11cqw; background: #d84315; padding: 0 1cqw; font-weight: 700; font-size: 1.6cqw; display: flex; align-items: center; justify-content: center; z-index: 2; box-shadow: 2px 0 10px rgba(0,0,0,0.3);">CLOSINGS</div>
+            <div id="school-closings-marquee" style="display: inline-block; padding-left: 100%; font-size: 1.6cqw; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; animation: marquee 25s linear infinite;">
+                {% set closings_list = [] %}
+                {% if school_closings.sault_closed %}
+                    {% set _ = closings_list.append("Sault Area Schools Closed") %}
+                {% endif %}
+                {% for c in school_closings.other_closings %}
+                    {% set _ = closings_list.append(c) %}
+                {% endfor %}
+                {{ closings_list | join(' • ') }}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="top-row">
             <div class="location-date">
-                <div id="live-clock" style="font-size: 6.5cqw; font-weight: 700; color: #0066b2; transition: opacity 1s, text-shadow 1s; line-height: 1.1; margin-bottom: 0.5cqw;"></div>
+                <div id="live-clock" style="font-size: 7.5cqw; font-weight: 700; color: #0066b2; transition: opacity 1s, text-shadow 1s; line-height: 1.1; margin-bottom: 0.5cqw;"></div>
                 <h1>{{ page_title }}</h1>
                 <h2>{{ date.split(',')[1] | default(date) }}</h2>
             </div>

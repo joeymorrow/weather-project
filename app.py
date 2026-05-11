@@ -457,7 +457,11 @@ def sync_for_location(slug, loc_name, query):
         # Calculate 5-Day Outlook
         daily_forecasts = {}
         for item in f['list']:
-            d_str = item['dt_txt'].split(' ')[0]
+            # Convert UTC dt_txt to local timezone date string
+            dt_utc = datetime.strptime(item['dt_txt'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.utc)
+            dt_local = dt_utc.astimezone(TZ)
+            d_str = dt_local.strftime('%Y-%m-%d')
+            
             if d_str not in daily_forecasts:
                 daily_forecasts[d_str] = {'high': -100, 'low': 100, 'icons': []}
             daily_forecasts[d_str]['high'] = max(daily_forecasts[d_str]['high'], item['main']['temp_max'])
@@ -465,11 +469,17 @@ def sync_for_location(slug, loc_name, query):
             daily_forecasts[d_str]['icons'].append(item['weather'][0]['icon'].replace('n', 'd'))
             
         weekly_list = []
-        for dt, dat in list(daily_forecasts.items())[1:6]:
-            d_icon = max(set(dat['icons']), key=dat['icons'].count) if dat['icons'] else "01d"
-            day_name = datetime.strptime(dt, '%Y-%m-%d').strftime('%a')
-            date_short = datetime.strptime(dt, '%Y-%m-%d').strftime('%m/%d')
-            weekly_list.append({"day": day_name, "date_short": date_short, "high": int(dat['high']), "low": int(dat['low']), "icon": d_icon})
+        tomorrow_date = (now + timedelta(days=1)).date()
+        for dt_str in sorted(daily_forecasts.keys()):
+            dt_obj = datetime.strptime(dt_str, '%Y-%m-%d').date()
+            if dt_obj >= tomorrow_date:
+                dat = daily_forecasts[dt_str]
+                d_icon = max(set(dat['icons']), key=dat['icons'].count) if dat['icons'] else "01d"
+                day_name = dt_obj.strftime('%a')
+                date_short = dt_obj.strftime('%m/%d')
+                weekly_list.append({"day": day_name, "date_short": date_short, "high": int(dat['high']), "low": int(dat['low']), "icon": d_icon})
+                if len(weekly_list) == 5:
+                    break
             
         is_post_midnight = now.hour < 6
         is_late_night = (now.hour == 21 and now.minute >= 30) or (now.hour >= 22) or is_post_midnight
@@ -1691,6 +1701,8 @@ def admin(slug="main"):
                     "location": request.form.get('location_text', 'SAULT STE. MARIE, MICHIGAN').strip(),
                     "query": request.form.get('query_text', 'Sault+Ste.+Marie,MI,US').strip()
                 }
+            elif action == 'update_integrations':
+                target_state['closings_source'] = request.form.get('closings_source', 'none')
             elif action == 'update_theme':
                 target_state['managed_theme'] = request.form.get('managed_theme', '')
             elif action == 'add_text_slide':
@@ -1888,6 +1900,7 @@ def admin(slug="main"):
                 managed_theme=target_state.get('managed_theme', ''), 
                 beacon_pages=get_beacon_pages(), 
                 school_alerts=state.get('school_alerts') or {},
+                 closings_source=target_state.get('closings_source', 'none'),
                 slug=slug
             )
         except Exception as e:
@@ -1896,11 +1909,20 @@ def admin(slug="main"):
             return f"<h1>500 Internal Error</h1><p>An unexpected Python error occurred: <b>{str(e)}</b></p>", 500
 
 @app.route('/api/state')
-def get_state(): 
+@app.route('/api/state/<slug>')
+def get_state(slug="main"): 
     with state_lock:
-        out = state.copy()
+        if slug == "main":
+            out = state.copy()
+        else:
+            out = state.get('tenants', {}).get(slug, state).copy()
+            
         out["build_timestamp"] = os.environ.get("BUILD_TIMESTAMP", "Local Dev")
         out["agenda_item_count"] = state.get("agenda_item_count", 0)
+        if slug != "main":
+            out["school_alerts"] = state.get("school_alerts", {})
+            out["school_closings"] = state.get("school_closings", {})
+            out["emergency"] = state.get("emergency", {})
         return jsonify(out)
 
 @app.route('/api/vote', methods=['POST'])

@@ -1688,7 +1688,8 @@
             }
             
             try {
-                const res = await fetch('/api/state?_=' + new Date().getTime());
+                const reqSlug = "{{ page_slug | default('main') }}";
+                const res = await fetch('/api/state/' + reqSlug + '?_=' + new Date().getTime());
                 const s = await res.json();
 
                 // Auto-refresh the page if a new deployment came through from the runner!
@@ -1763,10 +1764,9 @@
                 if (!activeSlideTimer) runSignageLoop();
 
                 // Handle Emergency Takeover (EAP & Flares)
-                const currentSlug = "{{ page_slug | default('main') }}";
                 let activeEap = null;
-                if (s.school_alerts && s.school_alerts[currentSlug]) {
-                    activeEap = s.school_alerts[currentSlug];
+                if (s.school_alerts && s.school_alerts[reqSlug]) {
+                    activeEap = s.school_alerts[reqSlug];
                 }
                 
                 const takeoverEl = document.getElementById('emergency-takeover');
