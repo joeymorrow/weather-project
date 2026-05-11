@@ -53,6 +53,7 @@
     </div>
 
     <script>
+        const targetSlug = "{{ slug }}";
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW setup failed:', err));
         }
@@ -89,7 +90,8 @@
                 body: JSON.stringify({
                     pin: activePin,
                     type: type,
-                    message: msg
+                    message: msg,
+                    target: targetSlug
                 })
             });
             

@@ -286,6 +286,7 @@
                     <option value="ActiveDirectory">On-Prem AD</option>
                 </select>
                 
+                <input type="password" name="password" placeholder="Password (Native Only)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:120px;" title="Leave blank to keep existing password">
                 <label style="color: #00ffff; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; flex:1;" title="If checked, this specific user's role will override any role assigned to their broader SSO group.">
                     <input type="checkbox" name="override_group" value="yes" style="margin: 0; width: auto;"> Override Group <span class="help-tip" style="margin-left:0;">?</span>
                 </label>
@@ -375,13 +376,95 @@
         <div class="card" style="grid-column: 1 / -1;">
             <h2>🗺️ Full Site Hierarchy</h2>
             <p style="font-size: 0.9rem; color: #888;">Quick access to all active routes, pitch decks, and documentation.</p>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
-                {% for link in site_hierarchy %}
-                <a href="{{ link.url }}" target="_blank" class="site-link" style="margin-bottom: 0; display: block;">
-                    <strong>{{ link.name }}</strong><br>
-                    <span style="font-size: 0.8rem; color: #ccc;">{{ link.url }}</span>
-                </a>
+            
+            <details open style="margin-bottom: 10px;">
+                <summary style="cursor: pointer; font-size: 1.1rem; color: #00ffff; font-weight: bold; margin-bottom: 10px;">HTML Pages</summary>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 10px; margin-bottom: 20px;">
+                    {% for link in site_hierarchy["HTML Pages"] %}
+                    <a href="{{ link.url }}" target="_blank" class="site-link" style="margin-bottom: 0; display: block;">
+                        <strong>{{ link.name }}</strong><br>
+                        <span style="font-size: 0.8rem; color: #ccc;">{{ link.url }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </details>
+            
+            <details style="margin-bottom: 10px;">
+                <summary style="cursor: pointer; font-size: 1.1rem; color: #00ffff; font-weight: bold; margin-bottom: 10px;">Dynamic Pages</summary>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 10px; margin-bottom: 20px;">
+                    {% for link in site_hierarchy["Dynamic Pages"] %}
+                    <a href="{{ link.url }}" target="_blank" class="site-link" style="margin-bottom: 0; display: block;">
+                        <strong>{{ link.name }}</strong><br>
+                        <span style="font-size: 0.8rem; color: #ccc;">{{ link.url }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </details>
+
+            <details style="margin-bottom: 10px;">
+                <summary style="cursor: pointer; font-size: 1.1rem; color: #00ffff; font-weight: bold; margin-bottom: 10px;">Routes</summary>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 10px; margin-bottom: 20px;">
+                    {% for link in site_hierarchy["Routes"] %}
+                    <a href="{{ link.url }}" target="_blank" class="site-link" style="margin-bottom: 0; display: block;">
+                        <strong>{{ link.name }}</strong><br>
+                        <span style="font-size: 0.8rem; color: #ccc;">{{ link.url }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </details>
+
+            <details style="margin-bottom: 10px;">
+                <summary style="cursor: pointer; font-size: 1.1rem; color: #00ffff; font-weight: bold; margin-bottom: 10px;">Docs</summary>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 10px; margin-bottom: 20px;">
+                    {% for link in site_hierarchy["Docs"] %}
+                    <a href="{{ link.url }}" target="_blank" class="site-link" style="margin-bottom: 0; display: block;">
+                        <strong>{{ link.name }}</strong><br>
+                        <span style="font-size: 0.8rem; color: #ccc;">{{ link.url }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </details>
+        </div>
+        
+        <!-- Local Feeds Management -->
+        <div class="card">
+            <h2>🏷️ Local Feeds Management</h2>
+            <p style="font-size: 0.9rem; color: #888;">Manage Garage Sales and Sault Tribe news.</p>
+            
+            <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Garage Sales</h3>
+            <div style="max-height: 200px; overflow-y: auto; margin-bottom: 15px; padding-right: 5px;">
+                {% for sale in garage_sales %}
+                <div class="site-link" style="align-items: flex-start; margin-bottom: 5px;">
+                    <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
+                        <strong style="color: #00aaaa; font-size: 0.75rem;">{{ sale.date }}</strong><br>
+                        {{ sale.text }}
+                    </div>
+                    <form method="POST" style="margin:0;">
+                        <input type="hidden" name="action" value="delete_garage_sale">
+                        <input type="hidden" name="sale_id" value="{{ sale.id }}">
+                        <button type="submit" class="danger-btn">Delete</button>
+                    </form>
+                </div>
                 {% endfor %}
+                {% if not garage_sales %}<p style="font-size: 0.8rem; color: #666; font-style: italic;">No garage sales found.</p>{% endif %}
+            </div>
+
+            <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Sault Tribe News</h3>
+            <div style="max-height: 200px; overflow-y: auto; padding-right: 5px;">
+                {% for tribe in sault_tribe %}
+                <div class="site-link" style="align-items: flex-start; margin-bottom: 5px;">
+                    <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
+                        <strong style="color: #00aaaa; font-size: 0.75rem;">{{ tribe.date }}</strong><br>
+                        {{ tribe.text }}
+                    </div>
+                    <form method="POST" style="margin:0;">
+                        <input type="hidden" name="action" value="delete_sault_tribe">
+                        <input type="hidden" name="tribe_id" value="{{ tribe.id }}">
+                        <button type="submit" class="danger-btn">Delete</button>
+                    </form>
+                </div>
+                {% endfor %}
+                {% if not sault_tribe %}<p style="font-size: 0.8rem; color: #666; font-style: italic;">No tribe news found.</p>{% endif %}
             </div>
         </div>
 

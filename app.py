@@ -15,6 +15,7 @@ from google.genai import types
 import socket, struct, select
 import pytz
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 import markdown
 import msal
 
@@ -134,6 +135,10 @@ def init_db():
             try:
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN type TEXT DEFAULT 'User'")
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN override_group BOOLEAN DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN password TEXT")
             except sqlite3.OperationalError:
                 pass
     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as log_conn:
@@ -856,9 +861,11 @@ def handle_eap_message(msg_text):
         data = json.loads(msg_text)
         msg_type = data.get("type", "EAP ALERT").upper()
         msg = data.get("message", "Emergency Alert Activated")
+        target = data.get("target", "ALL")
     except:
         msg_type = "EAP ALERT"
         msg = msg_text.strip()
+        target = "ALL"
 
     msg_lower = msg.lower()
     color = "#d32f2f" # Default Red (Lockdown/Fire/Evacuate)
@@ -872,8 +879,16 @@ def handle_eap_message(msg_text):
 
     with state_lock:
         if 'school_alerts' not in state: state['school_alerts'] = {}
-        tenants = ['sault-schools', 'pickford-schools'] + [p['slug'] for p in get_beacon_pages()]
-        for t in tenants:
+        
+        tenants_to_update = []
+        if target == "ALL":
+            tenants_to_update = ['sault-schools', 'pickford-schools', 'main'] + [p['slug'] for p in get_beacon_pages()]
+        elif target == "main":
+            tenants_to_update = ['main']
+        else:
+            tenants_to_update = [target]
+            
+        for t in tenants_to_update:
             state['school_alerts'][t] = {'type': msg_type, 'color': color, 'message': msg, 'timestamp': time.time()}
         try:
             with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
@@ -915,8 +930,8 @@ def eap_multicast_listener():
             log_system_event("EAP_LISTENER_ERROR", "The EAP multicast listener encountered an error.", str(e))
             time.sleep(15) # Sleep longer to prevent spamming logs on persistent errors
 
-def broadcast_eap_message(msg_type, message):
-    payload = json.dumps({"type": msg_type, "message": message}).encode('utf-8')
+def broadcast_eap_message(msg_type, message, target="ALL"):
+    payload = json.dumps({"type": msg_type, "message": message, "target": target}).encode('utf-8')
     subs = get_eap_subscriptions()
     sent_count = 0
     for sub in subs:
@@ -953,9 +968,10 @@ def api_eap_broadcast():
     
     msg_type = data.get('type', 'EAP ALERT')
     message = data.get('message', f'Emergency Protocol Initiated: {msg_type}')
+    target = data.get('target', 'ALL')
     
     log_system_event("EAP_BROADCAST", f"EAP Alert Broadcast triggered via PWA: {msg_type}")
-    sent = broadcast_eap_message(msg_type, message)
+    sent = broadcast_eap_message(msg_type, message, target)
     
     return jsonify(success=True, sent_to=sent)
 
@@ -1112,12 +1128,32 @@ def favicon():
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
     if request.method == 'POST':
-        if request.form.get('username') == admin_username and request.form.get('password') == admin_password:
+        username = request.form.get('username')
+        password = request.form.get('password')
+        next_url = request.form.get('next') or '/cooladmin'
+        
+        if username == admin_username and password == admin_password:
             session['admin_auth'] = True
             session['role'] = 'Admin' # Local admin bypasses RBAC globally
-            return redirect('/cooladmin')
+            return redirect(next_url)
+            
+        try:
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                c = conn.cursor()
+                c.execute("SELECT role, password FROM rbac_users WHERE username=? AND provider='Local'", (username,))
+                row = c.fetchone()
+                if row and row[1] and check_password_hash(row[1], password):
+                    session['user'] = username
+                    session['role'] = row[0]
+                    if row[0] == 'Admin':
+                        session['admin_auth'] = True
+                    return redirect(next_url)
+        except Exception as e:
+            print(f"Login error: {e}", flush=True)
+            
         return f"<script>alert('Invalid credentials'); window.history.back();</script>"
 
+    next_url = request.args.get('next', '')
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
@@ -1129,6 +1165,7 @@ def login_page():
     
     native_form = f"""
     <form method="POST" action="/login" style='margin-top:20px; text-align:left;'>
+        <input type="hidden" name="next" value="{next_url}">
         <input type="text" name="username" placeholder="Username" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #00ffff; background:#000; color:#0ff; border-radius:4px; box-sizing:border-box;">
         <input type="password" name="password" placeholder="Password" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #00ffff; background:#000; color:#0ff; border-radius:4px; box-sizing:border-box;">
         <button type="submit" style="width:100%; padding:10px; background:transparent; border:1px solid #00ffff; color:#00ffff; border-radius:4px; font-weight:bold; cursor:pointer;">Native Login</button>
@@ -1380,12 +1417,24 @@ def cooladmin():
             username = request.form.get('username', '').strip()
             rtype = request.form.get('type', 'User')
             override_group = request.form.get('override_group') == 'yes'
+                provider = request.form.get('provider', 'Local')
+                role = request.form.get('role', 'Viewer')
+                password = request.form.get('password', '')
+                
+                hashed_pw = generate_password_hash(password) if password else None
+                
             if username:
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn:
-                            conn.execute("INSERT OR REPLACE INTO rbac_users (username, role, provider, type, override_group) VALUES (?, ?, ?, ?, ?)", 
-                                         (username, request.form.get('role', 'Viewer'), request.form.get('provider', 'Local'), rtype, override_group))
+                                if hashed_pw:
+                                    conn.execute("INSERT OR REPLACE INTO rbac_users (username, role, provider, type, override_group, password) VALUES (?, ?, ?, ?, ?, ?)", 
+                                                 (username, role, provider, rtype, override_group, hashed_pw))
+                                else:
+                                    conn.execute("INSERT OR IGNORE INTO rbac_users (username, role, provider, type, override_group) VALUES (?, ?, ?, ?, ?)", 
+                                                 (username, role, provider, rtype, override_group))
+                                    conn.execute("UPDATE rbac_users SET role=?, provider=?, type=?, override_group=? WHERE username=?",
+                                                 (role, provider, rtype, override_group, username))
                 except Exception as e:
                     print(e, flush=True)
             return redirect('/cooladmin')
@@ -1393,6 +1442,26 @@ def cooladmin():
             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                 with conn:
                     conn.execute("DELETE FROM rbac_users WHERE id = ?", (request.form.get('user_id'),))
+            return redirect('/cooladmin')
+
+        elif action == 'delete_garage_sale':
+            sale_id = request.form.get('sale_id')
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        real_id = sale_id.replace('sale_', '') if 'sale_' in str(sale_id) else sale_id
+                        conn.execute("DELETE FROM garage_sales WHERE id = ?", (real_id,))
+            except: pass
+            return redirect('/cooladmin')
+            
+        elif action == 'delete_sault_tribe':
+            tribe_id = request.form.get('tribe_id')
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        real_id = tribe_id.replace('tribe_', '') if 'tribe_' in str(tribe_id) else tribe_id
+                        conn.execute("DELETE FROM sault_tribe WHERE id = ?", (real_id,))
+            except: pass
             return redirect('/cooladmin')
 
         elif action == 'shutdown':
@@ -1459,6 +1528,9 @@ def cooladmin():
     except:
         hallucinations = []
         
+    garage_sales = load_garage_sales()
+    sault_tribe = load_sault_tribe()
+        
     known_routes = {
         "/": "Main Dashboard",
         "/sault-schools": "Sault Schools",
@@ -1471,11 +1543,19 @@ def cooladmin():
         "/login": "SSO Login"
     }
     
-    site_hierarchy = []
+    site_hierarchy = {
+        "HTML Pages": [],
+        "Dynamic Pages": [],
+        "Routes": [],
+        "Docs": []
+    }
     added_urls = set()
     
     for url, name in known_routes.items():
-        site_hierarchy.append({"name": name, "url": url})
+        if url.startswith('/docs'):
+            site_hierarchy["Docs"].append({"name": name, "url": url})
+        else:
+            site_hierarchy["HTML Pages"].append({"name": name, "url": url})
         added_urls.add(url)
         
     for rule in app.url_map.iter_rules():
@@ -1483,7 +1563,11 @@ def cooladmin():
             url = str(rule)
             if url not in added_urls and not url.startswith('/api/') and not url.startswith('/static/'):
                 if url.endswith('/') and url[:-1] in added_urls: continue
-                site_hierarchy.append({"name": f"Route: {url}", "url": url})
+                
+                if url.startswith('/docs/'):
+                    site_hierarchy["Docs"].append({"name": f"Route: {url}", "url": url})
+                else:
+                    site_hierarchy["Routes"].append({"name": f"Route: {url}", "url": url})
                 added_urls.add(url)
                 
     try:
@@ -1494,22 +1578,22 @@ def cooladmin():
                 if f.endswith('.md'):
                     doc_url = f"/docs/{f.replace('.md', '')}"
                     if doc_url not in added_urls:
-                        site_hierarchy.append({"name": f"Doc: {f.replace('.md', '').replace('_', ' ').title()}", "url": doc_url})
+                        site_hierarchy["Docs"].append({"name": f"Doc: {f.replace('.md', '').replace('_', ' ').title()}", "url": doc_url})
                         added_urls.add(doc_url)
                 elif f.endswith('.html'):
                     doc_url = f"/docs/{f}"
                     if doc_url not in added_urls:
-                        site_hierarchy.append({"name": f"Doc Page: {f.replace('.html', '').replace('_', ' ').title()}", "url": doc_url})
+                        site_hierarchy["Docs"].append({"name": f"Doc Page: {f.replace('.html', '').replace('_', ' ').title()}", "url": doc_url})
                         added_urls.add(doc_url)
     except: pass
     
     for page in get_beacon_pages():
         url = f"/schools/{page['slug']}"
         if url not in added_urls:
-            site_hierarchy.append({"name": f"{page['title']} (Custom)", "url": url})
+            site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe)
 
 @app.route('/admin', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/<slug>/admin', methods=['GET', 'POST'], strict_slashes=False)
@@ -1521,42 +1605,10 @@ def admin(slug="main"):
     is_sso_editor = session.get("role") in ["Admin", "Editor", "Sales"]
     is_native_auth = session.get("admin_auth") is True
     
-    def render_login(error=False):
-        border_color = "#ff0000" if error else "#00ffff"
-        msg = "⚠️ Incorrect Password" if error else "Admin Login"
-        hidden_inputs = ""
-        if request.method == 'POST':
-            import html
-            for k, v in request.form.items():
-                if k != 'password':
-                    hidden_inputs += f'<input type="hidden" name="{html.escape(str(k))}" value="{html.escape(str(v))}">'
-        else:
-            hidden_inputs = '<input type="hidden" name="action" value="login">'
-            
-        return f'''
-        <body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'>
-            <form method="POST" action="" style='background:rgba(0,50,50,0.2); border:1px solid {border_color}; padding:30px; border-radius:8px; box-shadow:0 0 15px {border_color}44; width:300px; text-align:center;'>
-                <h2 style='margin-top:0; color:{border_color};'>{msg}</h2>
-                {hidden_inputs}
-                <input type="password" name="password" placeholder="Enter Password" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid {border_color}; background:#000; color:#0ff; border-radius:4px; box-sizing:border-box;" autofocus>
-                <button type="submit" style="width:100%; padding:10px; background:{border_color}; color:#000; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">{"Retry Action" if error else "Login"}</button>
-                <br><br><a href="/login" style="color:#00aaaa; text-decoration:none; font-size:0.9rem;">Or use SSO</a>
-            </form>
-        </body>
-        ''', 401 if error else 200
-
-    if request.method == 'GET':
-        if not (is_sso_editor or is_native_auth):
-            return render_login()
-            
+    if not (is_sso_editor or is_native_auth):
+        return redirect(url_for('login_page', next=request.path))
+        
     if request.method == 'POST':
-        provided_pw = request.form.get('password')
-        if not (is_sso_editor or is_native_auth or provided_pw == admin_password):
-            return render_login(error=True)
-            
-        if provided_pw == admin_password:
-            session["admin_auth"] = True
-            
         action = request.form.get('action')
         if action == 'login':
             return redirect(request.path)
