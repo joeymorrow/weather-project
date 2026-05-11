@@ -1749,6 +1749,10 @@ def cooladmin():
                         added_urls.add(doc_url)
     except: pass
     
+    portfolio_url = "/portfolio"
+    if portfolio_url not in added_urls:
+        site_hierarchy["HTML Pages"].append({"name": "Developer Portfolio", "url": portfolio_url})
+
     for page in get_beacon_pages():
         url = f"/schools/{page['slug']}"
         if url not in added_urls:
@@ -1756,6 +1760,10 @@ def cooladmin():
             added_urls.add(url)
 
     return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe)
+
+@app.route('/portfolio')
+def portfolio():
+    return render_template('portfolio.html')
 
 @app.route('/admin', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/<slug>/admin', methods=['GET', 'POST'], strict_slashes=False)

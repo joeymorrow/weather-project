@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joey Morrow | Project Portfolio</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+        :root {
+            --bg: #0a0a14;
+            --text: #d0d0ff;
+            --accent: #00ffff;
+            --card-bg: rgba(0, 50, 50, 0.2);
+            --border: rgba(0, 255, 255, 0.2);
+            --shadow: rgba(0, 255, 255, 0.1);
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        header h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            color: #fff;
+            font-weight: 900;
+            margin: 0;
+            line-height: 1.1;
+        }
+        header h1 span {
+            color: var(--accent);
+            display: block;
+            font-size: 0.7em;
+        }
+        header p {
+            font-size: clamp(1rem, 2vw, 1.2rem);
+            max-width: 700px;
+            margin: 15px auto 0;
+            line-height: 1.6;
+            opacity: 0.8;
+        }
+        .section {
+            margin-bottom: 60px;
+        }
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px var(--shadow);
+        }
+        .card h3 {
+            margin: 0 0 10px;
+            color: #fff;
+            font-size: 1.3rem;
+        }
+        .card p {
+            margin: 0;
+            line-height: 1.6;
+            opacity: 0.8;
+        }
+        .grade {
+            float: right;
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--accent);
+            opacity: 0.5;
+        }
+        .btn-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: var(--accent);
+            color: #000;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: inline-block;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px var(--shadow);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--accent);
+            border: 2px solid var(--accent);
+        }
+        .code-block {
+            background: #000;
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Joey Morrow <span>A Project-Based Portfolio</span></h1>
+            <p>This portfolio is a deep dive into the <strong>BEACON Buddy</strong> project, a local weather, scheduling, and emergency response dashboard. It illustrates the practical application of advanced software engineering principles, from low-level hardware optimizations to scalable cloud infrastructure.</p>
+        </header>
+
+        <div class="section">
+            <h2 class="section-title">Key Learnings &amp; Implementations</h2>
+            <div class="grid">
+                <div class="card">
+                    <span class="grade">A+</span>
+                    <h3>Demoscene Bitwise Rendering</h3>
+                    <p>Bypassed the CPU to manipulate the GPU's memory array directly using bitwise shifts (<code>&gt;&gt;</code>, <code>&lt;&lt;</code>) and XOR (<code>^</code>) on a Unix timestamp, creating zero-cost 24-bit RGB strobe effects for the "Rave" Easter egg.</p>
+                </div>
+                <div class="card">
+                    <span class="grade">A</span>
+                    <h3>3D Engine Memory Optimization</h3>
+                    <p>Implemented zero-allocation particle pools, pre-allocated `THREE.Vector3` variables, and an aggressive idle throttler to drop WebGL to 1 FPS when out of context, preventing browser crashes and ensuring smooth 60fps performance.</p>
+                </div>
+                <div class="card">
+                    <span class="grade">A-</span>
+                    <h3>GPU Geometry Instancing</h3>
+                    <p>Compressed over 650 individual draw calls for trees, clouds, and mountains into single `THREE.InstancedMesh` calls, dramatically reducing CPU bottlenecks and enabling a vast, animated 3D world.</p>
+                </div>
+                <div class="card">
+                    <span class="grade">A+</span>
+                    <h3>Responsive Mobile & Multi-Touch UI</h3>
+                    <p>Mastered `100dvh` and CSS `clamp()` for fluid layouts and tracked `e.changedTouches[i].identifier` to allow independent thumb controls for the joystick and camera, ensuring a seamless experience on any device.</p>
+                </div>
+                <div class="card">
+                    <span class="grade">A</span>
+                    <h3>Worker Concurrency & POSIX File Locks</h3>
+                    <p>Solved OS-level race conditions by implementing `fcntl` POSIX file locks, ensuring that only one Gunicorn worker could spawn background threads, preventing redundant, resource-intensive loops in a multi-process production environment.</p>
+                </div>
+                <div class="card">
+                    <span class="grade">A</span>
+                    <h3>UDP Multicast & Emergency Protocols</h3>
+                    <p>Wrote low-level Python socket logic (`socket.IP_ADD_MEMBERSHIP`) to listen for raw UDP multicast packets, integrating the "I Love You Guys" Standard Response Protocol for real-time emergency alerts on digital signage.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Architecture & CI/CD Pipeline</h2>
+            <p style="text-align: center; max-width: 800px; margin: -10px auto 30px; opacity: 0.8;">The project uses a robust, automated CI/CD pipeline to ensure code quality, security, and reliable deployments to the edge.</p>
+            <div class="code-block">
+=============================================================================================
+                                  BEACON CI/CD PIPELINE
+=============================================================================================
+
+ [ 💻 Local Dev ]            [ 🐙 Source Control ]               [ ⚙️ CI/QA (Self-Hosted) ]
+ VS Code + Gemini                Git Push                      GitHub Actions Runner
+ (Py/HTML/CSS/3JS) ────────────> (Branch: main) ─────────────> ├─> 1. Flake8 & Bandit Linting
+                                                               ├─> 2. Puppeteer Headless UI Test
+                                                               ├─> 3. Jinja2 & Docker Validation
+                                                               └─> 4. Secret Leak Detection
+                                                                          │
+                                                                          ▼
+ [ 🌍 Edge Delivery ]        [ ☁️ Tunneling ]                    [ 🚀 Deployment ]
+ MorrowEdge.com                Cloudflare                      ├─> 1. Inject Secrets (.env)
+ TVs / Displays    <─────────  Zero Trust      <────────────── ├─> 2. Docker Compose Build & Up
+ Mobile & Web                  (cloudflared)                   └─> 3. Smoke Test & Cleanup
+
+=============================================================================================
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Live Demos & Proof of Work</h2>
+            <div class="btn-group">
+                <a href="/" class="btn">Live Dashboard</a>
+                <a href="/rpg" class="btn">3D WebGL World</a>
+                <a href="/docs" class="btn btn-secondary">Project Documentation</a>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

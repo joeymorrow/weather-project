@@ -66,6 +66,7 @@
         #tribe-trigger:hover, #tribe-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         #route-trigger { position: absolute; top: 20px; left: 265px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
         #route-trigger:hover, #route-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #portfolio-link:hover, #portfolio-link:focus { opacity: 1 !important; color: var(--accent) !important; outline: none; }
         #hourly-container { opacity: 0; } #hourly-container.active { opacity: 0.45; }
         #mobile-nav-btn { position: absolute; top: 20px; right: 20px; font-size: 1.2rem; color: var(--accent); z-index: 3500; cursor: pointer; display: none; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 50%; background: rgba(0,0,0,0.5); transition: 0.3s; }
         #mobile-nav-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 10px var(--accent); }
@@ -420,6 +421,7 @@
     {% endif %}
     <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: {{ branding.color | default('var(--accent)') }}; opacity: 0; z-index: 3500; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease; display: {% if branding and branding.text %}block{% else %}none{% endif %};">{{ branding.text }}</div>
     <a id="demo-hub-link" href="/demo" class="ambient-hide" style="position: absolute; bottom: 40px; left: 20px; font-size: 0.8rem; color: var(--accent); text-decoration: none; font-weight: bold; z-index: 3500; opacity: 0.7; transition: opacity 0.3s ease; letter-spacing: 1px;">🚀 DEMO HUB</a>
+    <a id="portfolio-link" href="/portfolio" target="_blank" class="ambient-hide" style="position: absolute; bottom: 80px; left: 20px; font-size: 0.8rem; color: var(--text-main); text-decoration: none; font-weight: bold; z-index: 3500; opacity: 0.5; transition: opacity 0.3s ease, color 0.3s ease; letter-spacing: 1px;">📁 PORTFOLIO</a>
     <div id="signage-overlay" style="display:none; position:fixed; inset:0; z-index:9000; background:#000; opacity:0; transition: opacity 1s ease;"></div>
     <div id="emergency-takeover" style="display:none; position:fixed; inset:0; z-index:10000; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:5vw; animation: strobe-bg 1s infinite alternate;"></div>
     <div id="center-info">
