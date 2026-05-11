@@ -85,13 +85,6 @@
             line-height: 1.6;
             opacity: 0.8;
         }
-        .grade {
-            float: right;
-            font-size: 1.5rem;
-            font-weight: 900;
-            color: var(--accent);
-            opacity: 0.5;
-        }
         .btn-group {
             display: flex;
             gap: 20px;
@@ -135,41 +128,49 @@
     <div class="container">
         <header>
             <h1>Joey Morrow <span>A Project-Based Portfolio</span></h1>
-            <p>This portfolio is a deep dive into the <strong>BEACON Buddy</strong> project, a local weather, scheduling, and emergency response dashboard. It illustrates the practical application of advanced software engineering principles, from low-level hardware optimizations to scalable cloud infrastructure.</p>
+            <p>What started on May 3rd as a simple Python script to determine if I should wear waterproof boots or nice shoes in the melting spring snow evolved in just 7 days into <strong>BEACON Buddy</strong>. It is now a resilient, CI/CD-managed local weather, scheduling, and emergency response dashboard. This portfolio illustrates the practical application of advanced software engineering principles, from low-level systems architecture to scalable cloud infrastructure.</p>
         </header>
 
         <div class="section">
-            <h2 class="section-title">Key Learnings &amp; Implementations</h2>
+            <h2 class="section-title">Infrastructure, Architecture &amp; Systems Engineering</h2>
             <div class="grid">
                 <div class="card">
-                    <span class="grade">A+</span>
+                    <h3>Worker Concurrency &amp; POSIX File Locks</h3>
+                    <p>Solved OS-level race conditions by implementing <code>fcntl</code> POSIX file locks, ensuring that only one Gunicorn worker could spawn background threads, preventing redundant, resource-intensive loops in a multi-process production environment.</p>
+                </div>
+                <div class="card">
+                    <h3>UDP Multicast &amp; Emergency Protocols</h3>
+                    <p>Wrote low-level Python socket logic (<code>socket.IP_ADD_MEMBERSHIP</code>) to listen for raw UDP multicast packets, integrating the "I Love U Guys" Standard Response Protocol for real-time emergency alerts on digital signage.</p>
+                </div>
+                <div class="card">
+                    <h3>Secure IPC with D-Bus</h3>
+                    <p>Implemented robust Inter-Process Communication (IPC) utilizing D-Bus to securely map hardware signals and system services directly to isolated containerized dashboards without exposing bare-metal network ports.</p>
+                </div>
+                <div class="card">
+                    <h3>Resilient Edge CI/CD</h3>
+                    <p>Architected a self-hosted GitHub Actions pipeline featuring automated headless DOM testing (Puppeteer), dependency vulnerability analysis, secret leak detection, and zero-downtime Docker Compose edge delivery.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Interactive Engines, WebGL &amp; UX</h2>
+            <div class="grid">
+                <div class="card">
                     <h3>Demoscene Bitwise Rendering</h3>
                     <p>Bypassed the CPU to manipulate the GPU's memory array directly using bitwise shifts (<code>&gt;&gt;</code>, <code>&lt;&lt;</code>) and XOR (<code>^</code>) on a Unix timestamp, creating zero-cost 24-bit RGB strobe effects for the "Rave" Easter egg.</p>
                 </div>
                 <div class="card">
-                    <span class="grade">A</span>
                     <h3>3D Engine Memory Optimization</h3>
-                    <p>Implemented zero-allocation particle pools, pre-allocated `THREE.Vector3` variables, and an aggressive idle throttler to drop WebGL to 1 FPS when out of context, preventing browser crashes and ensuring smooth 60fps performance.</p>
+                    <p>Implemented zero-allocation particle pools, pre-allocated <code>THREE.Vector3</code> variables, and an aggressive idle throttler to drop WebGL to 1 FPS when out of context, preventing browser crashes and ensuring smooth 60fps performance.</p>
                 </div>
                 <div class="card">
-                    <span class="grade">A-</span>
                     <h3>GPU Geometry Instancing</h3>
-                    <p>Compressed over 650 individual draw calls for trees, clouds, and mountains into single `THREE.InstancedMesh` calls, dramatically reducing CPU bottlenecks and enabling a vast, animated 3D world.</p>
+                    <p>Compressed over 650 individual draw calls for trees, clouds, and mountains into single <code>THREE.InstancedMesh</code> calls, dramatically reducing CPU bottlenecks and enabling a vast, animated 3D world.</p>
                 </div>
                 <div class="card">
-                    <span class="grade">A+</span>
-                    <h3>Responsive Mobile & Multi-Touch UI</h3>
-                    <p>Mastered `100dvh` and CSS `clamp()` for fluid layouts and tracked `e.changedTouches[i].identifier` to allow independent thumb controls for the joystick and camera, ensuring a seamless experience on any device.</p>
-                </div>
-                <div class="card">
-                    <span class="grade">A</span>
-                    <h3>Worker Concurrency & POSIX File Locks</h3>
-                    <p>Solved OS-level race conditions by implementing `fcntl` POSIX file locks, ensuring that only one Gunicorn worker could spawn background threads, preventing redundant, resource-intensive loops in a multi-process production environment.</p>
-                </div>
-                <div class="card">
-                    <span class="grade">A</span>
-                    <h3>UDP Multicast & Emergency Protocols</h3>
-                    <p>Wrote low-level Python socket logic (`socket.IP_ADD_MEMBERSHIP`) to listen for raw UDP multicast packets, integrating the "I Love You Guys" Standard Response Protocol for real-time emergency alerts on digital signage.</p>
+                    <h3>Responsive Mobile &amp; Multi-Touch UI</h3>
+                    <p>Mastered <code>100dvh</code> and CSS <code>clamp()</code> for fluid layouts and tracked <code>e.changedTouches[i].identifier</code> to allow independent thumb controls for the joystick and camera, ensuring a seamless experience on any device.</p>
                 </div>
             </div>
         </div>
