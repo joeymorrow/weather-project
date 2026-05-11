@@ -222,6 +222,10 @@ jobs:
                 });
               });
               await new Promise(r => setTimeout(r, 500));
+              
+              console.log('Teacher Persona: Testing Route Maker alert...');
+              await page.click('#route-trigger');
+              await new Promise(r => setTimeout(r, 500));
 
             // Sault Schools Checks
             try {
@@ -263,6 +267,11 @@ jobs:
               await new Promise(r => setTimeout(r, 1000));
               const dispatchUnlocked = await page.evaluate(() => document.getElementById('dispatch-screen').style.display === 'flex');
               if (!dispatchUnlocked) { console.error('[QA EAP ERROR] Default PIN failed to unlock dispatch PWA!'); errors++; }
+
+              // SRO Persona: Initiate Lockdown via UI
+              console.log('SRO Persona: Initiating Lockdown via UI...');
+              await page.click('.btn-lockdown');
+              await new Promise(r => setTimeout(r, 1500));
 
               // 2. Simulate Partner Webhook
               console.log('Simulating Partner Inbound Webhook (LOCKDOWN)...');
@@ -321,6 +330,15 @@ jobs:
             ]);
             await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
+            
+            console.log('Admin Persona: Adding an EAP Multicast Listener...');
+            await page.type('input[name=\"multicast_ip\"]', '239.1.1.1');
+            await page.type('input[name=\"port\"]', '5001');
+            await Promise.all([
+              page.waitForNavigation({waitUntil: 'domcontentloaded'}),
+              page.evaluate(() => { document.querySelector('input[value=\"add_eap_sub\"]').closest('form').submit(); })
+            ]);
+            console.log('✅ Added EAP Multicast Listener.');
             
             console.log('Testing dynamic site creation (with XSS Payload)...');
             await page.type('input[name=\"title\"]', '<script>window.XSS_VULN=true;</script>QA Test School');
@@ -408,17 +426,30 @@ jobs:
           }
 
           try {
-            console.log('Testing /admin ...');
+            console.log('Principal Persona: Testing /admin and adding a slide...');
             await page.goto('http://127.0.0.1:5000/admin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
+            await page.type('input[name=\"text\"]', 'Welcome Students! (QA Test)');
+            await Promise.all([
+              page.waitForNavigation({waitUntil: 'domcontentloaded'}),
+              page.evaluate(() => { document.querySelector('input[value=\"add_text_slide\"]').closest('form').submit(); })
+            ]);
+            console.log('✅ Principal added a text slide.');
           } catch (e) {
-            console.error('[QA PAGE ERROR] Admin load failed:', e.message); errors++;
+            console.error('[QA PAGE ERROR] Admin load/slide addition failed:', e.message); errors++;
           }
 
             try {
-              console.log('Testing /rpg ...');
+              console.log('Office Worker Persona: Playing /rpg sandbox...');
               await page.goto('http://127.0.0.1:5000/rpg', {waitUntil: 'domcontentloaded', timeout: 15000});
               await new Promise(r => setTimeout(r, 1000));
+              await page.keyboard.press('w');
+              await page.keyboard.press(' ');
+              await page.keyboard.press('f');
+              await new Promise(r => setTimeout(r, 500));
+              await page.keyboard.press('h');
+              await new Promise(r => setTimeout(r, 1000));
+              console.log('✅ Office worker successfully played RPG.');
             } catch (e) {
               console.error('[QA PAGE ERROR] RPG load failed:', e.message); errors++;
             }
