@@ -244,7 +244,13 @@ jobs:
             console.log('Testing /cooladmin ...');
             const adminUser = process.env.ADMIN_USERNAME || 'admin';
             const adminPass = process.env.ADMIN_PASSWORD || 'changeme';
-            await page.authenticate({ username: adminUser, password: adminPass });
+            await page.goto('http://127.0.0.1:5000/login', {waitUntil: 'domcontentloaded', timeout: 15000});
+            await page.type('input[name="username"]', adminUser);
+            await page.type('input[name="password"]', adminPass);
+            await Promise.all([
+              page.waitForNavigation({waitUntil: 'domcontentloaded'}),
+              page.click('button[type="submit"]')
+            ]);
             await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
             
