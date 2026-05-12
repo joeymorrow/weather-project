@@ -1435,25 +1435,22 @@ def check_disabled_pages():
 def serve_docs(filename='index'):
     if request.path == '/docs':
         return redirect('/docs/')
+    if '..' in filename:
+        return "Invalid path.", 400
     if filename.endswith('.html'):
         safe_name = secure_filename(filename)
         safe_path = os.path.join(BASE_DIR, 'docs', safe_name)
         if os.path.exists(safe_path):
             return send_from_directory(os.path.join(BASE_DIR, 'docs'), safe_name)
             
-            honeypot = request.form.get('website_url', '')
-            rendered_at = request.form.get('rendered_at', 0)
-            if honeypot: return "<script>alert('Invalid request.'); window.location.href='/demo';</script>"
-            try:
-                if time.time() - float(rendered_at) < 2.0:
-                    return "<script>alert('Submission too fast.'); window.location.href='/demo';</script>"
-            except: pass
-            
     safe_name = secure_filename(filename.replace('/', '_'))
     safe_path = os.path.join(BASE_DIR, 'docs', f"{safe_name}.md")
     if not os.path.exists(safe_path):
-        if os.path.exists(os.path.join(BASE_DIR, 'docs', 'index.md')):
-            safe_path = os.path.join(BASE_DIR, 'docs', 'index.md')
+        if filename == 'index':
+            if os.path.exists(os.path.join(BASE_DIR, 'docs', 'index.md')):
+                safe_path = os.path.join(BASE_DIR, 'docs', 'index.md')
+            else:
+                return "Documentation not found.", 404
         else:
             return "Documentation not found.", 404
             
@@ -1727,6 +1724,7 @@ def favicon():
 @app.route('/login')
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
+    error_msg = ""
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -1751,7 +1749,7 @@ def login_page():
         except Exception as e:
             print(f"Login error: {e}", flush=True)
             
-        return f"<script>alert('Invalid credentials'); window.history.back();</script>"
+        error_msg = "<p style='color:#ff4444; text-align:center; font-weight:bold;'>Invalid credentials</p>"
 
     next_url = request.args.get('next', '')
     try:
@@ -1771,7 +1769,7 @@ def login_page():
         <button type="submit" style="width:100%; padding:10px; background:transparent; border:1px solid #00ffff; color:#00ffff; border-radius:4px; font-weight:bold; cursor:pointer;">Native Login</button>
     </form>
     """
-    return f"<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><div style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px; box-shadow:0 0 15px rgba(0,255,255,0.1); width:300px;'><h2 style='text-align:center; margin-top:0;'>BEACON LOGIN</h2>{buttons}{native_form}</div></body>"
+    return f"<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><div style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px; box-shadow:0 0 15px rgba(0,255,255,0.1); width:300px;'><h2 style='text-align:center; margin-top:0;'>BEACON LOGIN</h2>{error_msg}{buttons}{native_form}</div></body>"
 
 @app.route('/logout')
 def logout():
