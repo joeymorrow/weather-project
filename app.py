@@ -1725,6 +1725,55 @@ def cooladmin():
                 except: pass
             return redirect('/cooladmin')
 
+        elif action == 'add_sault_school_event':
+            text = request.form.get('text', '').strip()
+            date_str = request.form.get('date', '').strip() or datetime.now(TZ).strftime('%B %d')
+            loc = request.form.get('location', '').strip()
+            if text:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn: conn.execute("INSERT INTO sault_schools (date, text, location) VALUES (?, ?, ?)", (date_str, text, loc))
+                except: pass
+            return redirect('/cooladmin')
+
+        elif action == 'delete_sault_school_event':
+            event_id = request.form.get('event_id')
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        real_id = event_id.replace('school_', '') if 'school_' in str(event_id) else event_id
+                        conn.execute("DELETE FROM sault_schools WHERE id = ?", (real_id,))
+            except: pass
+            return redirect('/cooladmin')
+            
+        elif action == 'add_prompt':
+            prompt_type = request.form.get('prompt_type')
+            prompt_text = request.form.get('prompt_text', '').strip()
+            if prompt_type and prompt_text:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn: conn.execute("INSERT INTO prompts (prompt_type, prompt_text) VALUES (?, ?)", (prompt_type, prompt_text))
+                except: pass
+            return redirect('/cooladmin')
+
+        elif action == 'delete_responses':
+            target = request.form.get('target')
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        conn.execute("DELETE FROM prompts WHERE prompt_type = ? AND is_default = 0 AND id NOT IN (SELECT id FROM prompts WHERE prompt_type = ? ORDER BY id DESC LIMIT 1)", (target, target))
+            except: pass
+            return redirect('/cooladmin')
+
+        elif action == 'delete_tower':
+            target = request.form.get('target')
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        conn.execute("DELETE FROM prompts WHERE prompt_type = ? AND is_default = 0", (target,))
+            except: pass
+            return redirect('/cooladmin')
+
         elif action == 'shutdown':
             confirm_user = request.form.get('username')
             confirm_pass = request.form.get('password')
