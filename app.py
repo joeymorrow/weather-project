@@ -67,6 +67,8 @@ admin_username = os.environ.get("ADMIN_USERNAME", "admin")
 admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET")
 DENYLIST = ["profanity", "badword", "controversial", "inappropriate"]
+last_deep_search = {}
+_best_models_cache = []
 
 app.secret_key = INTERNAL_API_SECRET or os.urandom(24)
 
@@ -485,8 +487,9 @@ if os.path.exists(STATE_FILE):
 gemini_client = None
 
 def get_best_models():
-    """Augmented discovery prioritizing high-RPD models (Flash/Lite)."""
-    global gemini_client
+    """Augmented discovery prioritizing high-RPD models, strictly cached to prevent API spam."""
+    global gemini_client, _best_models_cache
+    if _best_models_cache: return _best_models_cache
     try:
         if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
         all_m = list(gemini_client.models.list())
@@ -494,6 +497,11 @@ def get_best_models():
         for m in all_m:
             n = m.name.lower()
             n_clean = m.name.replace("models/", "")
+            
+            # Block multimodal/experimental models from draining quota on text tasks
+            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath"]):
+                continue
+                
             score = 0
             if "3.1-flash" in n: score = 2000
             elif "3.0-flash" in n: score = 1800
@@ -501,10 +509,10 @@ def get_best_models():
             elif "2.0-flash-lite" in n: score = 1200
             elif "2.0-flash" in n: score = 1000
             elif "1.5-flash" in n: score = 500
-            if "pro" in n or "ultra" in n: score -= 5000
             if score > 0: ranked.append((n_clean, score))
         ranked.sort(key=lambda x: x[1], reverse=True)
-        return [r[0] for r in ranked] if ranked else ["gemini-2.0-flash", "gemini-1.5-flash"]
+        _best_models_cache = [r[0] for r in ranked] if ranked else ["gemini-2.0-flash", "gemini-1.5-flash"]
+        return _best_models_cache
     except Exception as e:
         print(f"[ERROR] get_best_models: {e}", flush=True)
         log_system_event("API_ERROR", "Failed to list Gemini models", str(e))
@@ -708,11 +716,22 @@ def sync_for_location(slug, loc_name, query):
             else:
                 last_pulse_topic = state.get("tenants", {}).get(slug, {}).get("pulse", "")
         
+        global last_deep_search
+        now_ts_sec = time.time()
+        
+        # DEEP SEARCH RATE LIMITER: 
+        # Community event extraction and Search Grounding are heavy. Limit to once per hour.
+        do_deep_search = not is_late_night and (now_ts_sec - last_deep_search.get(slug, 0) > 3600)
+        
         pulse_task = (
             f"Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of {tomorrow_label}'s weather into this comforting thought. IMPORTANT: Because it is currently {time_str}, do NOT refer to 'evening' or 'tonight' as future events. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the exact time. Do not search for news. Set 'is_news' to false." 
             if is_late_night else 
-            f"Task 2 (Pulse): Adopt the persona of an inspiring, steadfast community leader and masterful speechwriter, focused on the indomitable human spirit. "
-            f"ANTI-HALLUCINATION PROTOCOL (SAC): 1. SEARCH for recent local news, community successes, acts of kindness, or verifiable events happening TODAY in {loc_name}. 2. If no specific news or event is found, DO NOT invent names or fake heroics; instead, offer a grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i>). 3. CONTENT: Provide a 2-sentence update. Give a brief shoutout/kudos to a local achievement OR share the real event, weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. 4. TRUTH BOUNDARY: Only include specific details if verified. 5. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid overly saccharine words. Set 'is_news' to true ONLY if specific verified news/events are shared; otherwise, set to false."
+            (
+                f"Task 2 (Pulse): Adopt the persona of an inspiring, steadfast community leader and masterful speechwriter, focused on the indomitable human spirit. "
+                f"SEARCH for recent local news, community successes, acts of kindness, or verifiable events happening TODAY in {loc_name}. If no specific news or event is found, DO NOT invent names or fake heroics; instead, offer a grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i>). CONTENT: Provide a 2-sentence update. Give a brief shoutout/kudos to a local achievement OR share the real event, weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. TRUTH BOUNDARY: Only include specific details if verified. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid overly saccharine words. Set 'is_news' to true ONLY if specific verified news/events are shared; otherwise, set to false."
+                if do_deep_search else
+                f"Task 2 (Pulse): Adopt the persona of an inspiring, steadfast community leader. Offer a 2-sentence grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' in {loc_name} (e.g., <i>shipping traffic</i>), weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. FORMATTING: Wrap specific locations in <i> tags. Set 'is_news' to false."
+            )
         )
 
         vetted_srcs = get_vetted_sources()
@@ -726,11 +745,14 @@ def sync_for_location(slug, loc_name, query):
 
         extra_tasks = ""
         json_format = '{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
-        if slug == "main" and not is_late_night:
-            extra_tasks = f"Task 6 (Garage Sales): SEARCH for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market. The 'location' must contain a valid street/road name.{gs_extra}\n        "
-            extra_tasks += f"Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS.{st_extra}\n        "
-            extra_tasks += f"Task 8 (Sault Schools): SEARCH for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary) in the NEXT 7 DAYS. Check athletics and board meetings.{ss_extra} If an athletic event is found, append pricing: '$2 public, $1 seniors, Free for students/faculty' unless specified otherwise.\n        "
-            json_format += ', "garage_sales": [{"text": "sale info", "location": "address"}], "sault_tribe": [{"text": "news/event", "location": "location"}], "sault_schools": [{"text": "event details", "location": "location"}]'
+        
+        if do_deep_search:
+            last_deep_search[slug] = now_ts_sec
+            if slug == "main":
+                extra_tasks = f"Task 6 (Garage Sales): SEARCH for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market. The 'location' must contain a valid street/road name.{gs_extra}\n        "
+                extra_tasks += f"Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS.{st_extra}\n        "
+                extra_tasks += f"Task 8 (Sault Schools): SEARCH for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary) in the NEXT 7 DAYS. Check athletics and board meetings.{ss_extra} If an athletic event is found, append pricing: '$2 public, $1 seniors, Free for students/faculty' unless specified otherwise.\n        "
+                json_format += ', "garage_sales": [{"text": "sale info", "location": "address"}], "sault_tribe": [{"text": "news/event", "location": "location"}], "sault_schools": [{"text": "event details", "location": "location"}]'
         json_format += ' }'
 
         prompt = f"""
@@ -750,12 +772,14 @@ def sync_for_location(slug, loc_name, query):
         is_news = False
         ai = {}
 
+        tools_config = types.GenerateContentConfig(tools=[{"google_search": {}}]) if do_deep_search else types.GenerateContentConfig()
+        
         for m_id in get_best_models():
             try:
                 resp = gemini_client.models.generate_content(
                     model=m_id, 
                     contents=prompt,
-                    config=types.GenerateContentConfig(tools=[{"google_search": {}}])
+                    config=tools_config
                 )
                 text = resp.text
                 json_start = text.find('{')
@@ -865,7 +889,7 @@ def sync_for_location(slug, loc_name, query):
                         try:
                             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                 c = conn.cursor()
-                                c.execute(f"SELECT id, text, details FROM {table} ORDER BY id DESC LIMIT 20")  # nosec B608
+                                c.execute(f"SELECT id, text, details FROM {table} ORDER BY id DESC LIMIT 20")
                                 rows = c.fetchall()
                                 for r in rows:
                                     r_id, r_text, r_details = r
@@ -889,10 +913,10 @@ def sync_for_location(slug, loc_name, query):
                                         for s in item_details.get('sources', []):
                                             if s.get('url'): src_map[s['url']] = s
                                         item_details['sources'] = list(src_map.values())
-                                        c.execute(f"UPDATE {table} SET text=?, location=?, details=? WHERE id=?", (item_text, item_loc, json.dumps(item_details), r_id))  # nosec B608
+                                        c.execute(f"UPDATE {table} SET text=?, location=?, details=? WHERE id=?", (item_text, item_loc, json.dumps(item_details), r_id))
                                         conn.commit()
                                         return
-                                c.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, item_text, item_loc, json.dumps(item_details)))  # nosec B608
+                                c.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, item_text, item_loc, json.dumps(item_details)))
                                 conn.commit()
                         except sqlite3.IntegrityError: pass
                         except Exception as e: print(f"[ERROR] merge_or_insert {table}: {e}", flush=True)
@@ -2210,7 +2234,7 @@ def cooladmin():
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn:
                             conn.execute("INSERT INTO ai_training_log (topic, action_type, new_details) VALUES (?, ?, ?)", (table, "manual_edit", json.dumps(details)))
-                            conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(details), real_id))  # nosec B608
+                            conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(details), real_id))
                 except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
 
@@ -2229,7 +2253,7 @@ def cooladmin():
                             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                 with conn:
                                     conn.execute("INSERT INTO ai_training_log (topic, original_text, new_details, action_type, gather_prompt) VALUES (?, ?, ?, ?, ?)", (table, text, json.dumps(new_details), "refresh_single", p_used))
-                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), real_id))  # nosec B608
+                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), real_id))
                         except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
 
@@ -2239,7 +2263,7 @@ def cooladmin():
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         c = conn.cursor()
-                        c.execute(f"SELECT id, text FROM {table} ORDER BY id DESC LIMIT 20")  # nosec B608
+                        c.execute(f"SELECT id, text FROM {table} ORDER BY id DESC LIMIT 20")
                         rows = c.fetchall()
                     events_to_verify = [{"id": str(r[0]), "text": r[1]} for r in rows]
                     v_res, p_used = verify_events_batch(events_to_verify)
@@ -2248,7 +2272,7 @@ def cooladmin():
                             for row in rows:
                                 i_id = str(row[0])
                                 if i_id in v_res and not v_res[i_id].get("hallucinated"):
-                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(v_res[i_id].get("details", {})), i_id))  # nosec B608
+                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(v_res[i_id].get("details", {})), i_id))
                             conn.execute("INSERT INTO ai_training_log (topic, action_type, gather_prompt) VALUES (?, ?, ?)", (table, "refresh_tower", p_used))
                 except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
@@ -2301,7 +2325,7 @@ def cooladmin():
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn: 
-                            conn.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, loc, json.dumps(details))) # nosec B608
+                            conn.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, loc, json.dumps(details)))
                 except: pass
 
                 with state_lock:
@@ -2343,7 +2367,7 @@ def cooladmin():
                         }
                         if event_type in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
                             with conn:
-                                conn.execute(f"INSERT INTO {event_type} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, location, json.dumps(details)))  # nosec B608
+                                conn.execute(f"INSERT INTO {event_type} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, location, json.dumps(details)))
                                 conn.execute("UPDATE user_submissions SET status='approved' WHERE id=?", (sub_id,))
                         if notify and submitter_email:
                             send_alert_email("BEACON Event Approved", f"Hi!\n\nYour {event_type} submission ('{text}') has been approved and added to the dashboard.", submitter_email)

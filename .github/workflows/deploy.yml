@@ -528,6 +528,8 @@ jobs:
           fi
           if [ -n "${{ secrets.INTERNAL_API_SECRET }}" ]; then
             echo "INTERNAL_API_SECRET=${{ secrets.INTERNAL_API_SECRET }}" >> .env
+          else
+            echo "INTERNAL_API_SECRET=$(openssl rand -hex 32)" >> .env
           fi
           echo "BUILD_TIMESTAMP=$(TZ='America/Detroit' date +'%b %d, %Y %I:%M %p')" >> .env
           echo "HOST_DATA_DIR=${{ github.workspace }}/data" >> .env

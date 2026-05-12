@@ -56,13 +56,17 @@ def get_best_models():
             n = m.name.lower()
             # Strip models/ prefix to prevent 404s with the v1beta SDK
             n_clean = m.name.replace("models/", "")
+            
+            # Block multimodal/experimental models from draining quota on text tasks
+            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath"]):
+                continue
+                
             score = 0
             if "3.1-flash-lite" in n: score = 2000
             elif "2.5-flash-lite" in n: score = 1500
             elif "3-flash" in n: score = 1000
             elif "2.5-flash" in n: score = 800
             elif "1.5-flash" in n: score = 500
-            if "pro" in n or "ultra" in n: score -= 5000
             if score > 0: ranked.append((n_clean, score))
         ranked.sort(key=lambda x: x[1], reverse=True)
         _best_models_cache = [r[0] for r in ranked] if ranked else ["gemini-2.5-flash", "gemini-1.5-flash"]
