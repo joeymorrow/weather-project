@@ -529,6 +529,7 @@ def sync_for_location(slug, loc_name, query):
         forecast_context = ", ".join([f"{i['dt_txt'].split(' ')[1][:5]} {i['weather'][0]['description']} {int(i['main']['temp'])}F" for i in f['list'][:8]])
         time_str = now.strftime('%I:%M %p')
         date_str = now.strftime('%B %d')
+        temporal_context = " (Late Night - do not refer to evening/tonight as a future event)" if is_late_night else ""
         
         with state_lock:
             if slug == "main":
@@ -537,7 +538,7 @@ def sync_for_location(slug, loc_name, query):
                 last_pulse_topic = state.get("tenants", {}).get(slug, {}).get("pulse", "")
         
         pulse_task = (
-            f"Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of {tomorrow_label}'s weather into this comforting thought. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the current time. Do not search for news. Set 'is_news' to false." 
+            f"Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of {tomorrow_label}'s weather into this comforting thought. IMPORTANT: Because it is currently {time_str}, do NOT refer to 'evening' or 'tonight' as future events. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the exact time. Do not search for news. Set 'is_news' to false." 
             if is_late_night else 
             f"Task 2 (Pulse): Adopt the persona of an inspiring, steadfast community leader and local speechwriter. "
             f"ANTI-HALLUCINATION PROTOCOL (SAC): 1. SEARCH for recent local news, community successes, acts of kindness, or verifiable events happening TODAY in {loc_name}. 2. If no specific news or event is found, DO NOT invent names or fake heroics; instead, offer a grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i>). 3. CONTENT: Provide a 2-sentence update. Give a brief shoutout/kudos to a local achievement OR share the real event, weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. 4. TRUTH BOUNDARY: Only include specific details if verified. 5. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid overly saccharine words. Set 'is_news' to true ONLY if specific verified news/events are shared; otherwise, set to false."
@@ -551,7 +552,7 @@ def sync_for_location(slug, loc_name, query):
         json_format += ' }'
 
         prompt = f"""
-        {loc_name}. Date: {date_str}. Time: {time_str}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
+        {loc_name}. Date: {date_str}. Time: {time_str}{temporal_context}. Weather: {w['weather'][0]['description']}. Precip Chance: {pop}%. Forecast: {forecast_context}. Station: {st_id}. Sleep: {is_sleep}.
         PREVIOUS PULSE: "{last_pulse_topic}" -> Provide a completely different topic/event.
         {buddy_task}
         {pulse_task}
@@ -705,7 +706,7 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                 "low": today_low,
                 "desc": w['weather'][0]['description'].title(), "icon": w['weather'][0]['icon'],
                 "date": now.strftime(f"%A, %B {day}{suffix}, %Y"), "time": now.strftime('%I:%M %p'), 
-                "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed" or now.hour >= 21 or now.hour < 6), 
+                "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed"), 
                 "t_high": t_high, "t_low": t_low, "t_desc": t_desc, "t_pop": t_pop,
                 "tomorrow_label": tomorrow_ui_label,
                 "is_late_night": is_late_night,
@@ -1104,7 +1105,11 @@ def internal_action():
                 "bed": "Powering down..."
             }
             with state_lock:
-                state.update({"station": station, "is_sleeping": (station == "bed"), "bubble": bubbles.get(station, "Rerouting..."), "acc_css": "none" if station != "bed" else "zzz", "show_bed": (station == "bed" or now.hour >= 21 or now.hour < 6)})
+                    updates = {"station": station, "is_sleeping": (station == "bed"), "bubble": bubbles.get(station, "Rerouting..."), "acc_css": "none" if station != "bed" else "zzz", "show_bed": (station == "bed")}
+                    state.update(updates)
+                    if 'tenants' in state:
+                        for tenant in state['tenants'].values():
+                            tenant.update(updates)
                 try:
                     with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                 except: pass
