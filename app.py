@@ -1792,6 +1792,7 @@ def cooladmin():
         
     garage_sales = load_garage_sales() or []
     sault_tribe = load_sault_tribe() or []
+    sault_schools = load_sault_schools() or []
         
     known_routes = {
         "/": "Main Dashboard",
@@ -1860,7 +1861,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, agenda_votes=agenda_votes)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes)
 
 @app.route('/portfolio')
 def portfolio():

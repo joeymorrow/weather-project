@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-R9N02W2P9M"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-R9N02W2P9M');
+    </script>
     <title>BEACON Admin Dashboard</title>
     <style>
         body { background: #050510; color: #00ffff; font-family: monospace; padding: 20px; }
@@ -50,6 +59,28 @@
                 <input type="color" name="color" value="{{ emergency.get('color', '#ff0000') }}" style="width: 100px; padding: 0;">
             </div>
             <button type="submit" class="danger">Deploy / Update Emergency State</button>
+        </form>
+
+        <h2>🛠️ Main Dashboard Branding</h2>
+        <form method="POST">
+            <input type="hidden" name="action" value="update_branding">
+            <div class="form-group">
+                <label>Dashboard Header</label>
+                <input type="text" name="header_text" value="{{ main_config.header if main_config else 'MORROW EDGE | BEACON Buddy' }}" placeholder="MORROW EDGE | BEACON Buddy">
+            </div>
+            <div class="form-group">
+                <label>Location / Sub-heading</label>
+                <input type="text" name="location_text" value="{{ main_config.location if main_config else 'SAULT STE. MARIE, MICHIGAN' }}" placeholder="SAULT STE. MARIE, MICHIGAN">
+            </div>
+            <div class="form-group">
+                <label>Municipal Branding (POWERED BY text)</label>
+                <input type="text" name="branding_text" value="{{ branding.text if branding else '' }}" placeholder="Powered by Sault Area Public Schools">
+            </div>
+            <div class="form-group">
+                <label>Municipal Branding Color</label>
+                <input type="color" name="branding_color" value="{{ branding.color if branding else '#00ffff' }}" style="width: 100px; padding: 0;">
+            </div>
+            <button type="submit">Save Branding</button>
         </form>
 
         <h2>🏫 Local Integrations</h2>

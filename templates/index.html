@@ -17,6 +17,12 @@
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="color-scheme" content="dark">
     <title>Morrow Edge | BEACON</title>
+    <meta name="description" content="Morrow Edge | BEACON is an AI-powered smart community dashboard for Sault Ste. Marie, delivering localized weather, pulse, and digital signage.">
+    <meta name="keywords" content="BEACON, Morrow Edge, Sault Ste. Marie, weather dashboard, smart city, digital signage, Python, AI">
+    <meta property="og:title" content="Morrow Edge | BEACON">
+    <meta property="og:description" content="AI-powered smart community dashboard providing hyper-local weather, pulse, and digital signage.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-R9N02W2P9M"></script>
     <script>
@@ -37,6 +43,7 @@
         @property --pod-active-bg { syntax: '<color>'; inherits: true; initial-value: rgba(0,255,255,0.15); }
         @property --shadow-color { syntax: '<color>'; inherits: true; initial-value: rgba(0,0,0,0.8); }
         :root { color-scheme: dark; --accent: #00ffff; --bg: #010103; --dim: rgba(0, 238, 255, 0.55); --buddy-blue: #e8f0f8; --text-main: #fff; --pod-border: rgba(0,255,255,0.15); --pod-bg: rgba(0,255,255,0.03); --pod-hover-glow: rgba(0, 255, 255, 0.3); --pod-active-bg: rgba(0,255,255,0.15); --shadow-color: rgba(0,0,0,0.8); }
+        html { max-width: 100%; overflow-x: hidden; }
         body.day-mode { color-scheme: light; --bg: #eaf0f6; --accent: #006064; --dim: rgba(0, 96, 100, 0.7); --buddy-blue: #ffffff; --text-main: #002b36; --pod-border: rgba(0,96,100,0.15); --pod-bg: rgba(0,96,100,0.05); --pod-hover-glow: rgba(0, 96, 100, 0.2); --pod-active-bg: rgba(0,96,100,0.1); --shadow-color: rgba(255,255,255,0.8); }
         body.day-mode .suggestion { background: rgba(0, 96, 100, 0.05); border-color: rgba(0, 96, 100, 0.2); }
         body.day-mode .buddy-body { box-shadow: inset 8px 12px 15px rgba(255,255,255,0.9), inset -8px -12px 15px rgba(0,0,0,0.15), 0 0 25px var(--accent), 0 0 45px var(--dim); }
@@ -45,7 +52,7 @@
         body.golden-mode .suggestion { background: rgba(224, 155, 107, 0.05); border-color: rgba(224, 155, 107, 0.2); }
         body.golden-mode .buddy-body { box-shadow: inset 8px 12px 15px rgba(255,255,255,0.5), inset -8px -12px 15px rgba(0,0,0,0.3), 0 0 25px var(--accent), 0 0 45px var(--dim); }
         
-        body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100dvh; width: 100vw; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: --bg 120s ease, --accent 120s ease, --dim 120s ease, --buddy-blue 120s ease, --text-main 120s ease, --pod-border 120s ease, --pod-bg 120s ease, --pod-hover-glow 120s ease, --pod-active-bg 120s ease, --shadow-color 120s ease, background 120s ease, color 120s ease; }
+        body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100dvh; width: 100%; max-width: 100%; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: --bg 120s ease, --accent 120s ease, --dim 120s ease, --buddy-blue 120s ease, --text-main 120s ease, --pod-border 120s ease, --pod-bg 120s ease, --pod-hover-glow 120s ease, --pod-active-bg 120s ease, --shadow-color 120s ease, background 120s ease, color 120s ease; }
         #header-container { display: flex; flex-direction: column; align-items: center; width: fit-content; max-width: 100%; margin: 0 auto; z-index: 20; pointer-events: none; }
         #header { font-size: clamp(1rem, 1.8vw, 3.5rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.65; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); }
         #location { font-size: clamp(1rem, 1.5vw, 3rem); opacity: 0.35; letter-spacing: 2px; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
@@ -64,9 +71,10 @@
         #garage-trigger:hover, #garage-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         #tribe-trigger { position: absolute; top: 20px; left: 230px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
         #tribe-trigger:hover, #tribe-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
-        #route-trigger { position: absolute; top: 20px; left: 265px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
+        #school-trigger { position: absolute; top: 20px; left: 265px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
+        #school-trigger:hover, #school-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #route-trigger { position: absolute; top: 20px; left: 300px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
         #route-trigger:hover, #route-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
-        #portfolio-link:hover, #portfolio-link:focus { opacity: 1 !important; color: var(--accent) !important; outline: none; }
         #hourly-container { opacity: 0; } #hourly-container.active { opacity: 0.45; }
         #mobile-nav-btn { position: absolute; top: 20px; right: 20px; font-size: 1.2rem; color: var(--accent); z-index: 3500; cursor: pointer; display: none; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 50%; background: rgba(0,0,0,0.5); transition: 0.3s; }
         #mobile-nav-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 10px var(--accent); }
@@ -110,6 +118,19 @@
         @media (display-mode: fullscreen) { 
             body:not(.ambient-awake) .ambient-hide { opacity: 0 !important; pointer-events: none !important; }
             body:not(.ambient-awake), body:not(.ambient-awake) * { cursor: none !important; }
+        }
+        @media (max-width: 600px) {
+            body:not(.ambient-awake) .ambient-hide { opacity: 0 !important; pointer-events: none !important; }
+        }
+        @keyframes cgi-strut {
+            0%, 100% { transform: scale(1.15) translateY(0) rotate(0deg); }
+            25% { transform: scale(1.15) translateY(-8px) rotate(6deg); }
+            75% { transform: scale(1.15) translateY(-8px) rotate(-6deg); }
+        }
+        .cgi-walking {
+            animation: cgi-strut 0.4s infinite ease-in-out !important;
+            filter: drop-shadow(0 15px 25px rgba(0,255,255,0.4)) brightness(1.3) contrast(1.1) !important;
+            z-index: 4000 !important;
         }
         #egg-modal, #pulse-modal, #weekly-modal, #agenda-modal, #cast-modal, #garage-modal, #tribe-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 2vh, 15px); pointer-events: auto; overflow-y: auto; padding: 5vh 5vw; box-sizing: border-box; }
         .egg-btn { background: rgba(0,255,255,0.1); border: 2px solid var(--accent); color: var(--accent); padding: clamp(10px, 1.5vh, 15px) clamp(15px, 3vw, 30px); font-size: clamp(0.9rem, 2vh, 1.2rem); border-radius: 10px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: clamp(150px, 25vw, 200px); text-align: center; flex-shrink: 0; }
@@ -282,7 +303,7 @@
     </style>
 </head>
 <body class="preload-theme {% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
-    <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh; z-index: 1; pointer-events: none; transition: opacity 1s ease;">
+    <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100%; height: 100dvh; z-index: 1; pointer-events: none; transition: opacity 1s ease;">
         <canvas id="hourly-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
     </div>
     <div id="header-container">
@@ -301,6 +322,7 @@
     {% if not is_demo %}
     <div id="garage-trigger" class="ambient-hide" role="button" tabindex="0" onclick="document.getElementById('garage-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('garage-modal').style.display='flex'" title="Garage Sales">🏷️</div>
     <div id="tribe-trigger" class="ambient-hide" role="button" tabindex="0" onclick="document.getElementById('tribe-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('tribe-modal').style.display='flex'" title="Sault Tribe News">🪶</div>
+    <div id="school-trigger" class="ambient-hide" role="button" tabindex="0" onclick="document.getElementById('school-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('school-modal').style.display='flex'" title="Sault Schools Archive">🏫</div>
     {% endif %}
     <div id="route-trigger" class="ambient-hide" role="button" tabindex="0" onclick="launchRoute()" onkeydown="if(event.key==='Enter')launchRoute()" title="Build Route">🛣️</div>
     <div id="mobile-nav-btn" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="View Hourly Graph">▶</div>
@@ -383,6 +405,7 @@
                     <div style="align-self: flex-start; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
                         {% if item.location %}
                         <span onclick="toggleRouteWaypoint('{{ item.location | escape }}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: grayscale(100%);">📍</span>
+                        <a href="https://www.google.com/maps/search/?api=1&query={{ item.location | urlencode }}" target="_blank" class="search-link-btn search-link-sm">🗺️ Map</a>
                         {% endif %}
                         <button class="vote-btn-up-{{ item.id | escape }} agenda-vote-btn agenda-vote-btn-up" onclick="submitAgendaVote('{{ item.id | escape }}', 'up', this)">👍 <span class="up-count" style="margin-left: 5px;">{{ agenda_votes[item.id].up if agenda_votes and item.id in agenda_votes else 0 }}</span></button>
                     </div>
@@ -407,6 +430,7 @@
                     <div style="align-self: flex-start; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
                         {% if item.location %}
                         <span onclick="toggleRouteWaypoint('{{ item.location | escape }}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: grayscale(100%);">📍</span>
+                        <a href="https://www.google.com/maps/search/?api=1&query={{ item.location | urlencode }}" target="_blank" class="search-link-btn search-link-sm">🗺️ Map</a>
                         {% endif %}
                         <button class="vote-btn-up-{{ item.id | escape }} agenda-vote-btn agenda-vote-btn-up" onclick="submitAgendaVote('{{ item.id | escape }}', 'up', this)">👍 <span class="up-count" style="margin-left: 5px;">{{ agenda_votes[item.id].up if agenda_votes and item.id in agenda_votes else 0 }}</span></button>
                     </div>
@@ -418,10 +442,37 @@
         </div>
         <div class="egg-btn" tabindex="0" onclick="document.getElementById('tribe-modal').style.display='none'" style="margin-top:clamp(15px, 3vh, 30px); border-color:gray; color:gray;">Close</div>
     </div>
+    <div id="school-modal" onclick="if(event.target === this) this.style.display='none'">
+        <h2 style="color:var(--accent); letter-spacing: 2px; margin-bottom: 5px; font-size: clamp(1.5rem, 3vw, 4rem); text-transform: uppercase; text-align: center;">Sault Schools Archive</h2>
+        <div style="width: 100%; max-width: 800px; max-height: 70vh; overflow-y: auto; text-align: left; padding-right: 10px;">
+            {% if sault_schools %}
+                {% for item in sault_schools %}
+                <div style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--pod-border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                        <div style="font-size: clamp(0.9rem, 2vw, 1.1rem); color: #ccc; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; white-space: nowrap;">{{ item.date }}</div>
+                    </div>
+                    <div style="font-size: clamp(1rem, 2.5vw, 1.2rem); color: var(--text-main); opacity: 0.9; line-height: 1.5;">{{ item.text }}</div>
+                    <div style="align-self: flex-start; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                        {% if item.location %}
+                        <span onclick="toggleRouteWaypoint('{{ item.location | escape }}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: grayscale(100%);">📍</span>
+                        <a href="https://www.google.com/maps/search/?api=1&query={{ item.location | urlencode }}" target="_blank" class="search-link-btn search-link-sm">🗺️ Map</a>
+                        {% endif %}
+                        <button class="vote-btn-up-{{ item.id | escape }} agenda-vote-btn agenda-vote-btn-up" onclick="submitAgendaVote('{{ item.id | escape }}', 'up', this)">👍 <span class="up-count" style="margin-left: 5px;">{{ agenda_votes[item.id].up if agenda_votes and item.id in agenda_votes else 0 }}</span></button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="color: var(--accent); opacity: 0.6; text-align: center; margin-top: 20px; font-size: 1.2rem;">No recent school events verified.</div>
+            {% endif %}
+        </div>
+        <div class="egg-btn" tabindex="0" onclick="document.getElementById('school-modal').style.display='none'" style="margin-top:clamp(15px, 3vh, 30px); border-color:gray; color:gray;">Close</div>
+    </div>
     {% endif %}
     <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: {{ branding.color | default('var(--accent)') }}; opacity: 0; z-index: 3500; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease; display: {% if branding and branding.text %}block{% else %}none{% endif %};">{{ branding.text }}</div>
-    <a id="demo-hub-link" href="/demo" class="ambient-hide" style="position: absolute; bottom: 40px; left: 20px; font-size: 0.8rem; color: var(--accent); text-decoration: none; font-weight: bold; z-index: 3500; opacity: 0.7; transition: opacity 0.3s ease; letter-spacing: 1px;">🚀 DEMO HUB</a>
-    <a id="portfolio-link" href="/portfolio" target="_blank" class="ambient-hide" style="position: absolute; bottom: 80px; left: 20px; font-size: 0.8rem; color: var(--text-main); text-decoration: none; font-weight: bold; z-index: 3500; opacity: 0.5; transition: opacity 0.3s ease, color 0.3s ease; letter-spacing: 1px;">📁 PORTFOLIO</a>
+    <div id="engagement-links" class="ambient-hide" style="position: absolute; top: 20px; right: 70px; display: flex; gap: clamp(10px, 2vw, 15px); z-index: 3500;">
+        <a href="/demo" style="background: rgba(0,255,255,0.15); border: 1px solid var(--accent); color: var(--accent); padding: 6px 15px; border-radius: 20px; font-weight: bold; text-decoration: none; font-size: clamp(0.7rem, 1vw, 0.9rem); transition: 0.3s; text-transform: uppercase; box-shadow: 0 0 10px rgba(0,255,255,0.2); backdrop-filter: blur(4px);">🚀 Demo Hub</a>
+        <a href="/portfolio" target="_blank" style="background: rgba(255,255,255,0.1); border: 1px solid var(--text-main); color: var(--text-main); padding: 6px 15px; border-radius: 20px; font-weight: bold; text-decoration: none; font-size: clamp(0.7rem, 1vw, 0.9rem); transition: 0.3s; text-transform: uppercase; box-shadow: 0 0 10px rgba(255,255,255,0.1); backdrop-filter: blur(4px);">📁 Portfolio</a>
+    </div>
     <div id="signage-overlay" style="display:none; position:fixed; inset:0; z-index:9000; background:#000; opacity:0; transition: opacity 1s ease;"></div>
     <div id="emergency-takeover" style="display:none; position:fixed; inset:0; z-index:10000; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:5vw; animation: strobe-bg 1s infinite alternate;"></div>
     <div id="center-info">
@@ -442,7 +493,7 @@
         <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1.8rem); color: var(--accent); opacity: 0.65; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: clamp(6px, 1vh, 12px) clamp(15px, 2vw, 30px); border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">{{ tomorrow_label | default('Tomorrow') }}: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
         <div class="pulse-line" id="ui-pulse" role="button" aria-live="polite" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse | safe }}</div>
     </div>
-    <div id="school-closings-container" style="display: none; position: absolute; bottom: 8vh; left: 0; width: 100vw; background: var(--bg); z-index: 1001; pointer-events: none; opacity: 1;">
+    <div id="school-closings-container" style="display: none; position: absolute; bottom: 8vh; left: 0; width: 100%; background: var(--bg); z-index: 1001; pointer-events: none; opacity: 1;">
         <div style="display: flex; align-items: center; width: 100%; height: 45px; overflow: hidden; position: relative;">
             <div style="background: var(--accent); color: var(--bg); font-weight: bold; padding: 0 20px; height: 100%; display: flex; align-items: center; z-index: 2; text-transform: uppercase; font-size: 1.1rem; box-shadow: 2px 0 10px rgba(0,0,0,0.5);">EUP Closings</div>
             <div style="flex-grow: 1; overflow: hidden; white-space: nowrap; height: 100%; display: flex; align-items: center;">
@@ -680,6 +731,32 @@
                 }
             }
         }, 4000);
+
+        // Mobile: Fat-Finger Swipe Logic to rotate the wheel of zones
+        let wheelTouchStartX = 0;
+        let wheelTouchStartY = 0;
+        window.addEventListener('touchstart', e => {
+            if (e.touches.length > 0) {
+                wheelTouchStartX = e.touches[0].clientX;
+                wheelTouchStartY = e.touches[0].clientY;
+            }
+        }, {passive: true});
+        
+        window.addEventListener('touchend', e => {
+            if (window.innerWidth > 600 || isDragging || isManuallyMoved) return;
+            if (e.changedTouches.length > 0) {
+                const dx = e.changedTouches[0].clientX - wheelTouchStartX;
+                const dy = e.changedTouches[0].clientY - wheelTouchStartY;
+                if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { // Prominent horizontal intent
+                    let currentIdx = podOrder.indexOf(currentStation);
+                    if (currentIdx !== -1) {
+                        if (dx < 0) currentIdx = (currentIdx + 1) % podOrder.length; // Swipe left -> Next
+                        else currentIdx = (currentIdx - 1 + podOrder.length) % podOrder.length; // Swipe right -> Prev
+                        moveBuddy(podOrder[currentIdx]);
+                    }
+                }
+            }
+        }, {passive: true});
 
         window.fitBubble = function(targetX, targetY) {
             const bbl = document.getElementById('ui-bbl');
@@ -1082,6 +1159,7 @@
                 } else if (p.location) {
                     searchLink = `<div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
                         <span onclick="toggleRouteWaypoint('${p.location.replace(/['"\\\\]/g, '\\\\$&')}', this)" title="Add to Route Map" style="cursor:pointer; font-size:1.5rem; transition: filter 0.2s; filter: ${selectedWaypoints && selectedWaypoints.has(p.location) ? 'drop-shadow(0 0 5px var(--accent))' : 'grayscale(100%)'};">📍</span>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.location)}" target="_blank" class="search-link-btn search-link-sm">🗺️ Map</a>
                     </div>`;
                 }
                 
@@ -1665,7 +1743,7 @@
             }
             const wasSleeping = currentStation === 'bed';
             currentStation = station;
-            if (station === 'bed') document.getElementById('pos-bed').style.display = 'flex';
+            if (station === 'bed' || window.innerWidth > 600) document.getElementById('pos-bed').style.display = 'flex';
             document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
             const t = document.getElementById(`pos-${station}`); if(t) t.classList.add('active');
             
@@ -1684,6 +1762,9 @@
                 setBubbleText((window.innerWidth <= 600 && station !== 'bed') ? (defaultBubbles[station] || "Rerouting...") : "Rerouting...");
                 syncBuddy();
             }
+            
+            b.classList.add('cgi-walking');
+            setTimeout(() => b.classList.remove('cgi-walking'), 1500);
             
             await fetch('/api/move/' + station);
             setTimeout(() => fetchState(true), 1500); // Force update to show reroute response
@@ -1926,7 +2007,7 @@
                 });
                 const t = document.getElementById(targetPodId); 
                 if(t && !t.classList.contains('active')) t.classList.add('active');
-                document.getElementById('pos-bed').style.display = s.show_bed ? 'flex' : 'none';
+                document.getElementById('pos-bed').style.display = (window.innerWidth > 600 || s.show_bed) ? 'flex' : 'none';
                 
                 const hands = {'mug':'☕','wrench':'🛠️','obd2':'🔌','laptop':'💻','book':'📖','zzz':'😴'};
                 if (container.classList.contains('mimicking')) {
@@ -2023,6 +2104,7 @@
                     }
                     
                     destTop = r.top + (r.height/2) - (b.offsetHeight/2) - (currentStation === 'bed' ? 0 : 10);
+                    destTop = Math.max(10, Math.min(window.innerHeight - b.offsetHeight - 10, destTop));
                 }
                 
                 b.style.left = destLeft + 'px';
@@ -2036,7 +2118,7 @@
         // Apply initial visual setup natively before JS loop
         const initHands = {'mug':'☕','wrench':'🛠️','obd2':'🔌','laptop':'💻','book':'📖','zzz':'😴'};
         document.getElementById('ui-hand').innerText = initHands['{{ acc_css }}'] || '';
-        document.getElementById('pos-bed').style.display = '{{ show_bed }}' === 'True' ? 'flex' : 'none';
+        document.getElementById('pos-bed').style.display = ('{{ show_bed }}' === 'True' || window.innerWidth > 600) ? 'flex' : 'none';
         const initPod = document.getElementById(`pos-${currentStation}`);
         if (initPod) initPod.classList.add('active');
         if ('{{ is_sleeping }}' === 'True') document.getElementById('ui-zzz').style.animation = 'drift-zzz 4s infinite';

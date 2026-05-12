@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-R9N02W2P9M"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-R9N02W2P9M');
+    </script>
     <title>CoolAdmin Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -500,6 +509,70 @@
                 </div>
                 {% endfor %}
                 {% if not sault_tribe %}<p style="font-size: 0.8rem; color: #666; font-style: italic;">No tribe news found.</p>{% endif %}
+            </div>
+        </div>
+
+        <!-- Sault Schools Events -->
+        <div class="card">
+            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏫 Sault Schools Activity</span></h2>
+            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
+                <input type="hidden" name="action" value="add_sault_school_event">
+                <input type="text" name="text" placeholder="School Event Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="text" name="date" placeholder="Date (Optional)" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <button type="submit" class="manage-btn">Add Event</button>
+            </form>
+            <div style="max-height: 200px; overflow-y: auto; padding-right: 5px;">
+                {% for ev in sault_schools %}
+                <div class="site-link" style="align-items: flex-start; margin-bottom: 5px;">
+                    <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
+                        <strong style="color: #00aaaa; font-size: 0.75rem;">{{ ev.date }}</strong><br>
+                        {{ ev.text | safe }}
+                    </div>
+                    <form method="POST" style="margin:0;">
+                        <input type="hidden" name="action" value="delete_sault_school_event">
+                        <input type="hidden" name="event_id" value="{{ ev.id }}">
+                        <button type="submit" class="danger-btn">Delete</button>
+                    </form>
+                </div>
+                {% endfor %}
+                {% if not sault_schools %}<p style="font-size: 0.8rem; color: #666; font-style: italic;">No school events found.</p>{% endif %}
+            </div>
+        </div>
+
+        <!-- Prompt & Response Tower Management -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>🧠 AI Prompt & Response Tower Matrix</h2>
+            <p style="font-size: 0.9rem; color: #888;">Manage base AI instructions and purge hallucination response stacks. Default O.G. prompts cannot be deleted.</p>
+            
+            <!-- Main Pulse -->
+            <div style="margin-bottom: 20px; border-left: 3px solid #00ffff; padding-left: 10px;">
+                <h3 style="margin-top: 0; color: #00ffff;">Main Pulse Directives</h3>
+                <form method="POST" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="hidden" name="action" value="add_prompt">
+                    <input type="hidden" name="prompt_type" value="main_pulse">
+                    <textarea name="prompt_text" required placeholder="Enter new instruction set..." style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; resize:vertical; min-height:60px;"></textarea>
+                    <button type="submit" class="manage-btn" style="align-self: flex-start;">Add Prompt</button>
+                </form>
+                <div style="display: flex; gap: 10px;">
+                    <form method="POST"><input type="hidden" name="action" value="delete_responses"><input type="hidden" name="target" value="main_pulse"><button type="submit" class="danger-btn" onclick="return confirm('Delete all but one response for this category?')">Purge Responses (Keep 1)</button></form>
+                    <form method="POST"><input type="hidden" name="action" value="delete_tower"><input type="hidden" name="target" value="main_pulse"><button type="submit" class="danger-btn" style="border-color: #ff0000; color: #ff0000;" onclick="return confirm('Wipe entire tower and revert to default O.G. prompt?')">Nuke Tower</button></form>
+                </div>
+            </div>
+            <!-- School Events -->
+            <div style="margin-bottom: 20px; border-left: 3px solid #00ffff; padding-left: 10px;">
+                <h3 style="margin-top: 0; color: #00ffff;">Sault Schools Directives</h3>
+                <p style="font-size: 0.8rem; color: #aaa; margin: 0 0 10px 0;">O.G.: "Sports, Activities, Graduations, public events. No emergency/private. Include Date, Time, Location. Shortened address format."</p>
+                <form method="POST" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="hidden" name="action" value="add_prompt">
+                    <input type="hidden" name="prompt_type" value="sault_schools">
+                    <textarea name="prompt_text" required placeholder="Override default instructions..." style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; resize:vertical; min-height:60px;"></textarea>
+                    <button type="submit" class="manage-btn" style="align-self: flex-start;">Add Prompt</button>
+                </form>
+                <div style="display: flex; gap: 10px;">
+                    <form method="POST"><input type="hidden" name="action" value="delete_responses"><input type="hidden" name="target" value="sault_schools"><button type="submit" class="danger-btn">Purge Responses (Keep 1)</button></form>
+                    <form method="POST"><input type="hidden" name="action" value="delete_tower"><input type="hidden" name="target" value="sault_schools"><button type="submit" class="danger-btn" style="border-color: #ff0000; color: #ff0000;">Nuke Tower</button></form>
+                </div>
             </div>
         </div>
 
