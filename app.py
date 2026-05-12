@@ -1110,9 +1110,9 @@ def internal_action():
                     if 'tenants' in state:
                         for tenant in state['tenants'].values():
                             tenant.update(updates)
-                try:
-                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-                except: pass
+            try:
+                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+            except: pass
             return jsonify(success=True, message=f"Buddy moved to {station}.")
         else:
             return jsonify(success=False, error="Missing station"), 400
