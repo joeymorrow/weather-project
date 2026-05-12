@@ -9,7 +9,13 @@
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'G-R9N02W2P9M');
+        
+        const isReload = window.location.search.includes('reloaded=true');
+        gtag('config', 'G-R9N02W2P9M', { 'send_page_view': !isReload });
+        
+        if (isReload) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     </script>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; touch-action: none; overscroll-behavior: none; }
