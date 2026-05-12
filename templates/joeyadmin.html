@@ -409,12 +409,16 @@
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="pulses"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
                 <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('main_pulse')">🤖 Analyze Checked & Suggest Prompt</button>
             </div>
-            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
+            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_pulse">
-                <input type="text" name="text" placeholder="Pulse/Event Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <button type="submit" class="manage-btn">Add Pulse</button>
+                <input type="text" name="text" placeholder="Pulse/Event Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:200px;">
+                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:150px;">
+                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:150px;">
+                <div style="flex-basis: 100%; display: flex; gap: 10px; align-items: center;">
+                    <input type="text" name="source_url" placeholder="Source URL (Optional)" style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                    <label style="color:#00ffff; font-size:0.8rem; display:flex; align-items:center; gap:5px; flex:1;"><input type="checkbox" name="save_source" value="yes" style="margin:0;"> Add URL to AI Prompt Sources</label>
+                    <button type="submit" class="manage-btn" style="flex: 1;">Add Pulse</button>
+                </div>
             </form>
             <div style="margin-bottom: 15px;">
                 <h3 style="font-size: 1rem; color: #00aaaa; border-bottom: 1px solid rgba(0, 170, 170, 0.3); padding-bottom: 5px;">Current Pulse</h3>
@@ -450,9 +454,12 @@
                             {% if p.details and p.details.who %}
                             <div style="margin-top: 5px; font-size: 0.75rem; color: #ffaa00; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px; border: 1px dashed rgba(255,170,0,0.3);">
                                 <strong>5Ws:</strong> {{ p.details.who }} | {{ p.details.what }} | {{ p.details.where }} | {{ p.details.when }} | {{ p.details.why }}
-                                {% if p.details.sources %}
-                                <br><strong>Sources:</strong> 
-                                {% for src in p.details.sources %}<a href="{{ src.url }}" target="_blank" style="color: #0ff;">{{ src.title | default('Link') }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+                                {% if p.details.source_saved %}
+                                    <br><span style="color: #00ff00;">✅ Source <strong>{{ p.details.sources[0].url }}</strong> saved to AI Vetted Sources.</span>
+                                {% elif p.details.sources %}
+                                    <br><span>Source: <a href="{{ p.details.sources[0].url }}" target="_blank" style="color: #0ff;">{{ p.details.sources[0].url }}</a></span>
+                                {% else %}
+                                    <br><span style="color: #ff5555;">Source not found / No URL provided.</span>
                                 {% endif %}
                             </div>
                             {% endif %}
@@ -540,10 +547,14 @@
             </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_garage_sale">
-                <input type="text" name="text" placeholder="Garage Sale Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <button type="submit" class="manage-btn">Add Sale</button>
+                <input type="text" name="text" placeholder="Garage Sale Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:200px;">
+                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:150px;">
+                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:150px;">
+                <div style="flex-basis: 100%; display: flex; gap: 10px; align-items: center;">
+                    <input type="text" name="source_url" placeholder="Source URL (Optional)" style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                    <label style="color:#00ffff; font-size:0.8rem; display:flex; align-items:center; gap:5px; flex:1;"><input type="checkbox" name="save_source" value="yes" style="margin:0;"> Add URL to AI Prompt Sources</label>
+                    <button type="submit" class="manage-btn" style="flex: 1;">Add Sale</button>
+                </div>
             </form>
             <div style="max-height: 200px; overflow-y: auto; margin-bottom: 15px; padding-right: 5px;">
                 {% for sale in garage_sales %}
@@ -554,6 +565,13 @@
                         {% if sale.details and sale.details.who %}
                         <div style="margin-top: 5px; font-size: 0.75rem; color: #ffaa00; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px; border: 1px dashed rgba(255,170,0,0.3);">
                             <strong>5Ws:</strong> {{ sale.details.who }} | {{ sale.details.what }} | {{ sale.details.where }} | {{ sale.details.when }} | {{ sale.details.why }}
+                            {% if sale.details.source_saved %}
+                                <br><span style="color: #00ff00;">✅ Source <strong>{{ sale.details.sources[0].url }}</strong> saved to AI Vetted Sources.</span>
+                            {% elif sale.details.sources %}
+                                <br><span>Source: <a href="{{ sale.details.sources[0].url }}" target="_blank" style="color: #0ff;">{{ sale.details.sources[0].url }}</a></span>
+                            {% else %}
+                                <br><span style="color: #ff5555;">Source not found / No URL provided.</span>
+                            {% endif %}
                         </div>
                         {% endif %}
                         <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -588,10 +606,14 @@
             </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_sault_tribe">
-                <input type="text" name="text" placeholder="Tribe News Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <button type="submit" class="manage-btn">Add News</button>
+                <input type="text" name="text" placeholder="Tribe News Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:200px;">
+                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:150px;">
+                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:150px;">
+                <div style="flex-basis: 100%; display: flex; gap: 10px; align-items: center;">
+                    <input type="text" name="source_url" placeholder="Source URL (Optional)" style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                    <label style="color:#00ffff; font-size:0.8rem; display:flex; align-items:center; gap:5px; flex:1;"><input type="checkbox" name="save_source" value="yes" style="margin:0;"> Add URL to AI Prompt Sources</label>
+                    <button type="submit" class="manage-btn" style="flex: 1;">Add News</button>
+                </div>
             </form>
             <div style="max-height: 200px; overflow-y: auto; padding-right: 5px;">
                 {% for tribe in sault_tribe %}
@@ -602,6 +624,13 @@
                         {% if tribe.details and tribe.details.who %}
                         <div style="margin-top: 5px; font-size: 0.75rem; color: #ffaa00; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px; border: 1px dashed rgba(255,170,0,0.3);">
                             <strong>5Ws:</strong> {{ tribe.details.who }} | {{ tribe.details.what }} | {{ tribe.details.where }} | {{ tribe.details.when }} | {{ tribe.details.why }}
+                            {% if tribe.details.source_saved %}
+                                <br><span style="color: #00ff00;">✅ Source <strong>{{ tribe.details.sources[0].url }}</strong> saved to AI Vetted Sources.</span>
+                            {% elif tribe.details.sources %}
+                                <br><span>Source: <a href="{{ tribe.details.sources[0].url }}" target="_blank" style="color: #0ff;">{{ tribe.details.sources[0].url }}</a></span>
+                            {% else %}
+                                <br><span style="color: #ff5555;">Source not found / No URL provided.</span>
+                            {% endif %}
                         </div>
                         {% endif %}
                         <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -636,10 +665,14 @@
             </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_sault_school_event">
-                <input type="text" name="text" placeholder="School Event Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <button type="submit" class="manage-btn">Add Event</button>
+                <input type="text" name="text" placeholder="School Event Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:200px;">
+                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:150px;">
+                <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:150px;">
+                <div style="flex-basis: 100%; display: flex; gap: 10px; align-items: center;">
+                    <input type="text" name="source_url" placeholder="Source URL (Optional)" style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                    <label style="color:#00ffff; font-size:0.8rem; display:flex; align-items:center; gap:5px; flex:1;"><input type="checkbox" name="save_source" value="yes" style="margin:0;"> Add URL to AI Prompt Sources</label>
+                    <button type="submit" class="manage-btn" style="flex: 1;">Add Event</button>
+                </div>
             </form>
             <div style="max-height: 200px; overflow-y: auto; padding-right: 5px;">
                 {% for ev in sault_schools %}
@@ -650,6 +683,13 @@
                         {% if ev.details and ev.details.who %}
                         <div style="margin-top: 5px; font-size: 0.75rem; color: #ffaa00; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px; border: 1px dashed rgba(255,170,0,0.3);">
                             <strong>5Ws:</strong> {{ ev.details.who }} | {{ ev.details.what }} | {{ ev.details.where }} | {{ ev.details.when }} | {{ ev.details.why }}
+                            {% if ev.details.source_saved %}
+                                <br><span style="color: #00ff00;">✅ Source <strong>{{ ev.details.sources[0].url }}</strong> saved to AI Vetted Sources.</span>
+                            {% elif ev.details.sources %}
+                                <br><span>Source: <a href="{{ ev.details.sources[0].url }}" target="_blank" style="color: #0ff;">{{ ev.details.sources[0].url }}</a></span>
+                            {% else %}
+                                <br><span style="color: #ff5555;">Source not found / No URL provided.</span>
+                            {% endif %}
                         </div>
                         {% endif %}
                         <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -667,6 +707,45 @@
                 {% endfor %}
                 {% if not sault_schools %}<p style="font-size: 0.8rem; color: #666; font-style: italic;">No school events found.</p>{% endif %}
             </div>
+        </div>
+
+        <!-- Vetted Data Sources -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>📚 AI Vetted Data Sources</h2>
+            <p style="font-size: 0.9rem; color: #888;">These sources are injected into the AI's search prompt so it knows exactly where to look for verified events.</p>
+            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
+                <input type="hidden" name="action" value="add_vetted_source">
+                <select name="topic" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                    <option value="pulses">Main Pulse</option>
+                    <option value="garage_sales">Garage Sales</option>
+                    <option value="sault_tribe">Sault Tribe</option>
+                    <option value="sault_schools">Sault Schools</option>
+                </select>
+                <input type="text" name="name" placeholder="Source Name (e.g. Athletics Calendar)" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="text" name="url" placeholder="URL (e.g. saultschools.org/athletics)" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <button type="submit" class="manage-btn">Add Source</button>
+            </form>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background: rgba(0,255,255,0.1); border-bottom: 2px solid #00ffff;">
+                    <th style="padding: 10px; text-align: left; color: #00ffff;">Category</th>
+                    <th style="padding: 10px; text-align: left; color: #00ffff;">Source Name</th>
+                    <th style="padding: 10px; text-align: left; color: #00ffff;">URL</th>
+                    <th style="padding: 10px; text-align: right; color: #00ffff;">Action</th>
+                </tr>
+                {% for src in vetted_sources %}
+                <tr style="border-bottom: 1px solid rgba(0,255,255,0.2);">
+                    <td style="padding: 10px; color: #aaa;">{{ src.topic | replace('_', ' ') | title }}</td>
+                    <td style="padding: 10px;">{{ src.name }}</td>
+                    <td style="padding: 10px;"><a href="{{ src.url }}" target="_blank" style="color:#0ff;">{{ src.url }}</a></td>
+                    <td style="padding: 10px; text-align: right;">
+                        <form method="POST" style="margin:0;"><input type="hidden" name="action" value="delete_vetted_source"><input type="hidden" name="source_id" value="{{ src.id }}"><button type="submit" class="danger-btn" style="padding: 4px 8px;">Remove</button></form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not vetted_sources %}
+                <tr><td colspan="4" style="padding: 10px; text-align: center; color: #666; font-style: italic;">No vetted sources found.</td></tr>
+                {% endif %}
+            </table>
         </div>
 
         <!-- Prompt & Response Tower Management -->

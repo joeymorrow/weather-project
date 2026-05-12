@@ -39,6 +39,7 @@ def send_alert_email(subject, body, to_email="joseph@morrowedge.com"):
         print(f"[ERROR] Failed to send email: {e}", flush=True)
 
 client_alerts = {"last_sent": 0}
+api_alerts = {"last_sent": 0}
 
 http_session = requests.Session()
 
@@ -184,6 +185,15 @@ def init_db():
                                 type TEXT DEFAULT 'User',
                                 override_group BOOLEAN DEFAULT 0
                              )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS vetted_sources (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                topic TEXT,
+                                source_name TEXT,
+                                source_url TEXT
+                             )''')
+            # Seed default sources
+            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (1, 'sault_schools', 'Athletics Calendar', 'soobluedevils.com')")
+            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (2, 'sault_schools', 'Academic Calendar', 'saultschools.org')")
             try:
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN type TEXT DEFAULT 'User'")
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN override_group BOOLEAN DEFAULT 0")
@@ -248,6 +258,15 @@ def get_beacon_pages():
                 return [{"id": r[0], "slug": r[1], "title": r[2], "zipcode": r[3], "expires_at": None} for r in c.fetchall()]
     except Exception as e:
         print(f"[ERROR] get_beacon_pages: {e}", flush=True)
+        return []
+
+def get_vetted_sources():
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, topic, source_name, source_url FROM vetted_sources ORDER BY topic, source_name")
+            return [{"id": r[0], "topic": r[1], "name": r[2], "url": r[3]} for r in c.fetchall()]
+    except:
         return []
 
 def get_eap_subscriptions():
@@ -355,10 +374,39 @@ def log_audit_event(user, action, details=""):
     except Exception as e:
         print(f"[ERROR] Failed to write to audit log: {e}", flush=True)
 
-def verify_events_batch(events_to_verify):
+def verify_events_batch(events_to_verify, is_manual=False):
     if not events_to_verify: return {}, ""
     verified_details = {}
-    check_prompt = f"""
+    
+    if is_manual:
+        check_prompt = f"""
+You are an AI assistant processing MANUALLY VERIFIED local events for Sault Ste. Marie, Michigan.
+DO NOT use Google Search. Trust that the user has already verified these events exist.
+For EACH event, extract the 5 Ws (Who, What, Where, When, Why) based purely on the text provided.
+Always set "hallucinated": false.
+
+Input Events:
+{json.dumps(events_to_verify)}
+
+Return ONLY a valid JSON array of objects matching this exact structure:
+[
+  {{
+    "id": "item_id_here",
+    "hallucinated": false,
+    "details": {{
+       "who": "Person/Group involved",
+       "what": "Brief description of the event",
+       "where": "Specific location or address",
+       "when": "Date and Time",
+       "why": "Context or purpose",
+       "sources": []
+    }}
+  }}
+]
+"""
+        tools = None
+    else:
+        check_prompt = f"""
 You are a strict fact-checker and investigative journalist for Sault Ste. Marie, Michigan.
 I will provide a JSON list of events. For EACH event, use Google Search to verify if it actually happened or is scheduled.
 If it is real/verified: Extract the 5 Ws (Who, What, Where, When, Why) and any source URLs.
@@ -383,11 +431,14 @@ Return ONLY a valid JSON array of objects matching this exact structure:
   }}
 ]
 """
+        tools = [{"google_search": {}}]
+
     global gemini_client
     if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
     for m_check in get_best_models():
         try:
-            check_resp = gemini_client.models.generate_content(model=m_check, contents=check_prompt, config=types.GenerateContentConfig(tools=[{"google_search": {}}]))
+            config = types.GenerateContentConfig(tools=tools) if tools else types.GenerateContentConfig()
+            check_resp = gemini_client.models.generate_content(model=m_check, contents=check_prompt, config=config)
             check_text = check_resp.text
             c_start = check_text.find('[')
             c_end = check_text.rfind(']')
@@ -660,12 +711,21 @@ def sync_for_location(slug, loc_name, query):
             f"ANTI-HALLUCINATION PROTOCOL (SAC): 1. SEARCH for recent local news, community successes, acts of kindness, or verifiable events happening TODAY in {loc_name}. 2. If no specific news or event is found, DO NOT invent names or fake heroics; instead, offer a grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i>). 3. CONTENT: Provide a 2-sentence update. Give a brief shoutout/kudos to a local achievement OR share the real event, weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. 4. TRUTH BOUNDARY: Only include specific details if verified. 5. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid overly saccharine words. Set 'is_news' to true ONLY if specific verified news/events are shared; otherwise, set to false."
         )
 
+        vetted_srcs = get_vetted_sources()
+        gs_src = [s['url'] for s in vetted_srcs if s['topic'] == 'garage_sales']
+        tribe_src = [s['url'] for s in vetted_srcs if s['topic'] == 'sault_tribe']
+        school_src = [s['url'] for s in vetted_srcs if s['topic'] == 'sault_schools']
+
+        gs_extra = f" Prioritize these vetted sources: {', '.join(gs_src)}." if gs_src else ""
+        st_extra = f" Prioritize these vetted sources: {', '.join(tribe_src)}." if tribe_src else ""
+        ss_extra = f" Prioritize these vetted sources: {', '.join(school_src)}." if school_src else ""
+
         extra_tasks = ""
         json_format = '{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
         if slug == "main" and not is_late_night:
-            extra_tasks = "Task 6 (Garage Sales): SEARCH for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market. The 'location' must contain a valid street/road name.\n        "
-            extra_tasks += "Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS.\n        "
-            extra_tasks += "Task 8 (Sault Schools): SEARCH for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary) in the NEXT 7 DAYS. Check athletics (soobluedevils.com, A.J. VanCitters Field), board meetings, and public events. If an athletic event is found, append pricing: '$2 public, $1 seniors, Free for students/faculty' unless specified otherwise.\n        "
+            extra_tasks = f"Task 6 (Garage Sales): SEARCH for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market. The 'location' must contain a valid street/road name.{gs_extra}\n        "
+            extra_tasks += f"Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS.{st_extra}\n        "
+            extra_tasks += f"Task 8 (Sault Schools): SEARCH for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary) in the NEXT 7 DAYS. Check athletics and board meetings.{ss_extra} If an athletic event is found, append pricing: '$2 public, $1 seniors, Free for students/faculty' unless specified otherwise.\n        "
             json_format += ', "garage_sales": [{"text": "sale info", "location": "address"}], "sault_tribe": [{"text": "news/event", "location": "location"}], "sault_schools": [{"text": "event details", "location": "location"}]'
         json_format += ' }'
 
@@ -2061,6 +2121,25 @@ def cooladmin():
             except: pass
             return redirect('/cooladmin')
 
+        elif action == 'add_vetted_source':
+            topic = request.form.get('topic')
+            name = request.form.get('name')
+            url = request.form.get('url')
+            if topic and url:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn: conn.execute("INSERT INTO vetted_sources (topic, source_name, source_url) VALUES (?, ?, ?)", (topic, name, url))
+                except: pass
+            return redirect('/cooladmin')
+            
+        elif action == 'delete_vetted_source':
+            source_id = request.form.get('source_id')
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn: conn.execute("DELETE FROM vetted_sources WHERE id=?", (source_id,))
+            except: pass
+            return redirect('/cooladmin')
+
         elif action == 'edit_details':
             item_id = request.form.get('item_id')
             table = request.form.get('table')
@@ -2126,25 +2205,39 @@ def cooladmin():
             text = request.form.get('text', '').strip()
             date_input = request.form.get('date', '').strip()
             loc = request.form.get('location', '').strip()
+            source_url = request.form.get('source_url', '').strip()
+            save_source = request.form.get('save_source') == 'yes'
             
             if text:
                 now = datetime.now(TZ)
                 if date_input:
                     try:
                         dt = datetime.strptime(date_input, '%Y-%m-%dT%H:%M')
-                    except:
-                        dt = now
+                        if dt.year < 2000 or dt.year > 2100: raise ValueError("Year out of bounds")
+                        dt = TZ.localize(dt)
+                    except Exception as e:
+                        if request.headers.get('Accept') == 'application/json': return jsonify(success=False, error="Invalid date/time provided.")
+                        return f"Invalid date/time provided: {str(e)}", 400
                 else:
                     dt = now
                 date_str = dt.strftime('%B %d, %I:%M %p') + " [manual]"
                 
+                if save_source and source_url:
+                    try:
+                        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                            with conn: conn.execute("INSERT INTO vetted_sources (topic, source_name, source_url) VALUES (?, ?, ?)", (table, 'Manual Custom Source', source_url))
+                    except: pass
+
                 details = {}
                 try:
-                    v_res, _ = verify_events_batch([{"id": "manual", "text": text}])
+                    v_res, _ = verify_events_batch([{"id": "manual", "text": text}], is_manual=True)
                     if "manual" in v_res:
                         details = v_res["manual"].get("details", {})
                         details["model"] = "manual"
                         details["timestamp"] = now.strftime('%Y-%m-%d %I:%M %p')
+                        if source_url:
+                            details["sources"] = [{"url": source_url, "title": "Manual Submission Source"}]
+                            details["source_saved"] = save_source
                 except Exception as e:
                     print(f"Manual 5W extraction failed: {e}", flush=True)
 
@@ -2166,6 +2259,9 @@ def cooladmin():
                     try:
                         with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                     except: pass
+                    
+                if request.headers.get('Accept') == 'application/json':
+                    return jsonify(success=True)
 
             return redirect('/cooladmin')
 
@@ -2297,6 +2393,7 @@ def cooladmin():
         disabled_pages = state.get('disabled_pages') or []
         eap_pin = state.get('eap_pin', '123456')
         agenda_votes = state.get('agenda_votes', {})
+    vetted_sources = get_vetted_sources()
 
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -2333,6 +2430,19 @@ def cooladmin():
     except:
         hallucinations = []
         
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, prompt_type, prompt_text, is_default FROM prompts ORDER BY id DESC")
+            active_prompts = []
+            seen_types = set()
+            for r in c.fetchall():
+                if r[1] not in seen_types:
+                    active_prompts.append({"id": r[0], "prompt_type": r[1], "prompt_text": r[2], "is_default": bool(r[3])})
+                    seen_types.add(r[1])
+    except:
+        active_prompts = []
+
     garage_sales = load_garage_sales() or []
     sault_tribe = load_sault_tribe() or []
     sault_schools = load_sault_schools() or []
@@ -2404,7 +2514,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources)
 
 @app.route('/portfolio')
 def portfolio():
