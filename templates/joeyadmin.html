@@ -10,7 +10,13 @@
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'G-R9N02W2P9M');
+        
+        const isReload = window.location.search.includes('reloaded=true');
+        gtag('config', 'G-R9N02W2P9M', { 'send_page_view': !isReload });
+        
+        if (isReload) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     </script>
     <title>CoolAdmin Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -325,16 +331,88 @@
             </table>
         </div>
 
+        <!-- Community Submissions -->
+        {% if pending_submissions %}
+        <div class="card" style="grid-column: 1 / -1; border-color: #ffaa00; box-shadow: 0 0 15px rgba(255,170,0,0.2);">
+            <h2 style="color: #ffaa00; border-bottom-color: #ffaa00;">📥 Pending Community Submissions</h2>
+            {% for sub in pending_submissions %}
+            <div class="site-link" style="align-items: flex-start; margin-bottom: 10px; background: rgba(255,170,0,0.1); border-color: rgba(255,170,0,0.3);">
+                <div style="font-size: 0.85rem; max-width: 70%; line-height: 1.4;">
+                    <strong style="color: #ffaa00; font-size: 0.9rem;">{{ sub.event_type | replace('_', ' ') | title }}</strong><br>
+                    <strong style="color: #ccc;">Date/Time:</strong> {{ sub.event_date }}<br>
+                    <strong style="color: #ccc;">Location:</strong> {{ sub.location }}<br>
+                    <strong style="color: #ccc;">Details:</strong> {{ sub.text }}<br>
+                    <strong style="color: #ccc;">Source:</strong> <a href="{{ sub.source_url }}" target="_blank" style="color: #0ff;">{{ sub.source_url }}</a><br>
+                    <strong style="color: #ccc;">Submitter:</strong> {{ sub.submitter_email }}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px; min-width: 200px;">
+                    <form method="POST" style="margin:0; display:flex; flex-direction:column; gap:5px;">
+                        <input type="hidden" name="action" value="approve_submission">
+                        <input type="hidden" name="sub_id" value="{{ sub.id }}">
+                        <label style="font-size:0.7rem; color:#aaa;"><input type="checkbox" name="notify_user" value="yes" checked> Email Submitter on Accept</label>
+                        <button type="submit" class="manage-btn" style="background:#00ff00; color:#000;">Approve & Add</button>
+                    </form>
+                    <form method="POST" style="margin:0; display:flex; flex-direction:column; gap:5px;">
+                        <input type="hidden" name="action" value="reject_submission">
+                        <input type="hidden" name="sub_id" value="{{ sub.id }}">
+                        <label style="font-size:0.7rem; color:#aaa;"><input type="checkbox" name="notify_user" value="yes" checked> Email Submitter on Reject</label>
+                        <button type="submit" class="danger-btn">Reject</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Banned IPs -->
+        {% if banned_ips %}
+        <div class="card" style="grid-column: 1 / -1; border-color: #ff4444; box-shadow: 0 0 15px rgba(255,68,68,0.2);">
+            <h2 style="color: #ff4444; border-bottom-color: #ff4444;">🚫 Banned IPs (Bot Protection)</h2>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr style="background: rgba(255,68,68,0.1); border-bottom: 2px solid #ff4444;">
+                    <th style="padding: 10px; text-align: left; color: #ff4444;">IP Address</th>
+                    <th style="padding: 10px; text-align: left; color: #ff4444;">Reason</th>
+                    <th style="padding: 10px; text-align: center; color: #ff4444;">Reinstatement Requested</th>
+                    <th style="padding: 10px; text-align: right; color: #ff4444;">Actions</th>
+                </tr>
+                {% for b in banned_ips %}
+                <tr style="border-bottom: 1px solid rgba(255,68,68,0.2);">
+                    <td style="padding: 10px; color: #fff;">{{ b.ip }}</td>
+                    <td style="padding: 10px; color: #aaa;">{{ b.reason }}</td>
+                    <td style="padding: 10px; text-align: center;">
+                        {% if b.requested %}
+                        <span style="background: #ffaa00; color: #000; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem;">Yes</span>
+                        {% else %}
+                        <span style="color: #666;">No</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 10px; text-align: right;">
+                        <form method="POST" style="margin:0;">
+                            <input type="hidden" name="action" value="unban_ip">
+                            <input type="hidden" name="ip" value="{{ b.ip }}">
+                            <button type="submit" class="manage-btn" style="padding: 4px 8px; background: #00ff00; color: #000;">Unban</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        {% endif %}
+
         <!-- Pulse Management -->
         <div class="card">
             <h2 style="display: flex; justify-content: space-between; align-items: center;">
                 <span>📡 Pulse Archives & Management</span>
                 <span style="font-size: 0.9rem; color: #00ffff; background: rgba(0, 255, 255, 0.1); padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(0, 255, 255, 0.3);">Agenda Items: {{ agenda_item_count }}</span>
             </h2>
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="pulses"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('main_pulse')">🤖 Analyze Checked & Suggest Prompt</button>
+            </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_pulse">
                 <input type="text" name="text" placeholder="Pulse/Event Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="text" name="date" placeholder="Date (Optional)" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
                 <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
                 <button type="submit" class="manage-btn">Add Pulse</button>
             </form>
@@ -345,6 +423,7 @@
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                         {{ current_pulse | safe }}
                         <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+                            <label style="font-size:0.7rem; display:flex; align-items:center; gap:3px;"><input type="checkbox" class="bad-item-cb" data-topic="main_pulse" data-text="{{ current_pulse | escape }}"> Bad Prompt?</label>
                             <a href="https://www.google.com/search?q={{ current_pulse | striptags | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">🔍 Search</a>
                         </div>
                     </div>
@@ -368,8 +447,20 @@
                         <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                             <strong style="color: #00aaaa; font-size: 0.75rem;">{{ p.date }}</strong><br>
                             {{ p.text | safe }}
-                            <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+                            {% if p.details and p.details.who %}
+                            <div style="margin-top: 5px; font-size: 0.75rem; color: #ffaa00; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px; border: 1px dashed rgba(255,170,0,0.3);">
+                                <strong>5Ws:</strong> {{ p.details.who }} | {{ p.details.what }} | {{ p.details.where }} | {{ p.details.when }} | {{ p.details.why }}
+                                {% if p.details.sources %}
+                                <br><strong>Sources:</strong> 
+                                {% for src in p.details.sources %}<a href="{{ src.url }}" target="_blank" style="color: #0ff;">{{ src.title | default('Link') }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                                 <a href="https://www.google.com/search?q={{ p.text | striptags | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">🔍 Search</a>
+                                <button type="button" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px; background: #00aaaa;" onclick="openEditDetailsModal('{{ p.id }}', 'pulses', `{{ p.details | tojson | escape }}`)">✏️ Edit 5Ws</button>
+                                <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_details"><input type="hidden" name="item_id" value="{{ p.id }}"><input type="hidden" name="table" value="pulses"><input type="hidden" name="text" value="{{ p.text | escape }}"><button type="submit" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px; background: #aa00aa;">🔄 AI Refresh</button></form>
+                                <label style="font-size:0.7rem; display:flex; align-items:center; gap:3px;"><input type="checkbox" class="bad-item-cb" data-topic="main_pulse" data-text="{{ p.text | escape }}"> Bad Prompt?</label>
                                 <span style="font-size: 0.8rem; color: #00ff00;">👍 {{ agenda_votes.get(p.text, {}).get('up', 0) }}</span>
                                 <span style="font-size: 0.8rem; color: #ff4444;">👎 {{ agenda_votes.get(p.text, {}).get('down', 0) }}</span>
                             </div>
@@ -443,10 +534,14 @@
         <!-- Local Feeds Management -->
         <div class="card">
             <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏷️ Garage Sales</span></h2>
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="garage_sales"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('garage_sales')">🤖 Analyze Checked & Suggest Prompt</button>
+            </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_garage_sale">
                 <input type="text" name="text" placeholder="Garage Sale Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="text" name="date" placeholder="Date (Optional)" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
                 <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
                 <button type="submit" class="manage-btn">Add Sale</button>
             </form>
@@ -456,11 +551,19 @@
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                         <strong style="color: #00aaaa; font-size: 0.75rem;">{{ sale.date }}</strong><br>
                         {{ sale.text | safe }}
-                        <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+                        {% if sale.details and sale.details.who %}
+                        <div style="margin-top: 5px; font-size: 0.75rem; color: #ffaa00; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px; border: 1px dashed rgba(255,170,0,0.3);">
+                            <strong>5Ws:</strong> {{ sale.details.who }} | {{ sale.details.what }} | {{ sale.details.where }} | {{ sale.details.when }} | {{ sale.details.why }}
+                        </div>
+                        {% endif %}
+                        <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <a href="https://www.google.com/search?q={{ sale.text | striptags | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">🔍 Search</a>
                             {% if sale.location %}
                             <a href="https://www.google.com/maps/search/?api=1&query={{ sale.location | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">📍 Map</a>
                             {% endif %}
+                            <button type="button" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px; background: #00aaaa;" onclick="openEditDetailsModal('{{ sale.id }}', 'garage_sales', `{{ sale.details | tojson | escape }}`)">✏️ Edit 5Ws</button>
+                            <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_details"><input type="hidden" name="item_id" value="{{ sale.id }}"><input type="hidden" name="table" value="garage_sales"><input type="hidden" name="text" value="{{ sale.text | escape }}"><button type="submit" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px; background: #aa00aa;">🔄 AI Refresh</button></form>
+                            <label style="font-size:0.7rem; display:flex; align-items:center; gap:3px;"><input type="checkbox" class="bad-item-cb" data-topic="garage_sales" data-text="{{ sale.text | escape }}"> Bad Prompt?</label>
                             <span style="font-size: 0.8rem; color: #00ff00;">👍 {{ agenda_votes.get(sale.id, {}).get('up', 0) }}</span>
                             <span style="font-size: 0.8rem; color: #ff4444;">👎 {{ agenda_votes.get(sale.id, {}).get('down', 0) }}</span>
                         </div>
@@ -479,10 +582,14 @@
         <!-- Sault Tribe News -->
         <div class="card">
             <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🪶 Sault Tribe News</span></h2>
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="sault_tribe"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('sault_tribe')">🤖 Analyze Checked & Suggest Prompt</button>
+            </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_sault_tribe">
                 <input type="text" name="text" placeholder="Tribe News Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="text" name="date" placeholder="Date (Optional)" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
                 <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
                 <button type="submit" class="manage-btn">Add News</button>
             </form>
@@ -492,11 +599,19 @@
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                         <strong style="color: #00aaaa; font-size: 0.75rem;">{{ tribe.date }}</strong><br>
                         {{ tribe.text | safe }}
-                        <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center;">
+                        {% if tribe.details and tribe.details.who %}
+                        <div style="margin-top: 5px; font-size: 0.75rem; color: #ffaa00; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px; border: 1px dashed rgba(255,170,0,0.3);">
+                            <strong>5Ws:</strong> {{ tribe.details.who }} | {{ tribe.details.what }} | {{ tribe.details.where }} | {{ tribe.details.when }} | {{ tribe.details.why }}
+                        </div>
+                        {% endif %}
+                        <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <a href="https://www.google.com/search?q={{ tribe.text | striptags | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">🔍 Search</a>
                             {% if tribe.location %}
                             <a href="https://www.google.com/maps/search/?api=1&query={{ tribe.location | urlencode }}" target="_blank" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px;">📍 Map</a>
                             {% endif %}
+                            <button type="button" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px; background: #00aaaa;" onclick="openEditDetailsModal('{{ tribe.id }}', 'sault_tribe', `{{ tribe.details | tojson | escape }}`)">✏️ Edit 5Ws</button>
+                            <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_details"><input type="hidden" name="item_id" value="{{ tribe.id }}"><input type="hidden" name="table" value="sault_tribe"><input type="hidden" name="text" value="{{ tribe.text | escape }}"><button type="submit" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px; background: #aa00aa;">🔄 AI Refresh</button></form>
+                            <label style="font-size:0.7rem; display:flex; align-items:center; gap:3px;"><input type="checkbox" class="bad-item-cb" data-topic="sault_tribe" data-text="{{ tribe.text | escape }}"> Bad Prompt?</label>
                             <span style="font-size: 0.8rem; color: #00ff00;">👍 {{ agenda_votes.get(tribe.id, {}).get('up', 0) }}</span>
                             <span style="font-size: 0.8rem; color: #ff4444;">👎 {{ agenda_votes.get(tribe.id, {}).get('down', 0) }}</span>
                         </div>
@@ -515,10 +630,14 @@
         <!-- Sault Schools Events -->
         <div class="card">
             <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏫 Sault Schools Activity</span></h2>
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="sault_schools"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('sault_schools')">🤖 Analyze Checked & Suggest Prompt</button>
+            </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_sault_school_event">
                 <input type="text" name="text" placeholder="School Event Details" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="text" name="date" placeholder="Date (Optional)" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <input type="datetime-local" name="date" title="Leave blank for today" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
                 <input type="text" name="location" placeholder="Location" style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
                 <button type="submit" class="manage-btn">Add Event</button>
             </form>
@@ -528,6 +647,16 @@
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
                         <strong style="color: #00aaaa; font-size: 0.75rem;">{{ ev.date }}</strong><br>
                         {{ ev.text | safe }}
+                        {% if ev.details and ev.details.who %}
+                        <div style="margin-top: 5px; font-size: 0.75rem; color: #ffaa00; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px; border: 1px dashed rgba(255,170,0,0.3);">
+                            <strong>5Ws:</strong> {{ ev.details.who }} | {{ ev.details.what }} | {{ ev.details.where }} | {{ ev.details.when }} | {{ ev.details.why }}
+                        </div>
+                        {% endif %}
+                        <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <button type="button" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px; background: #00aaaa;" onclick="openEditDetailsModal('{{ ev.id }}', 'sault_schools', `{{ ev.details | tojson | escape }}`)">✏️ Edit 5Ws</button>
+                            <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_details"><input type="hidden" name="item_id" value="{{ ev.id }}"><input type="hidden" name="table" value="sault_schools"><input type="hidden" name="text" value="{{ ev.text | escape }}"><button type="submit" class="manage-btn" style="font-size: 0.7rem; padding: 2px 5px; background: #aa00aa;">🔄 AI Refresh</button></form>
+                            <label style="font-size:0.7rem; display:flex; align-items:center; gap:3px;"><input type="checkbox" class="bad-item-cb" data-topic="sault_schools" data-text="{{ ev.text | escape }}"> Bad Prompt?</label>
+                        </div>
                     </div>
                     <form method="POST" style="margin:0;">
                         <input type="hidden" name="action" value="delete_sault_school_event">
@@ -628,12 +757,103 @@
         <a href="/docs/cooladmin" target="_blank" class="nav-home" style="color: #ffaa00; margin-top: 0;">📚 Documentation</a>
         <a href="/" class="nav-home" style="margin-top: 0;">← Return to Base</a>
     </div>
+    
+    <!-- Details Modal & AI Suggestions -->
+    <div id="edit-details-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; align-items: center; justify-content: center;">
+        <form method="POST" style="background: #002222; padding: 20px; border: 1px solid #00ffff; border-radius: 8px; width: 90%; max-width: 500px;">
+            <h3 style="margin-top:0; color:#00ffff;">Edit 5Ws Details</h3>
+            <input type="hidden" name="action" value="edit_details">
+            <input type="hidden" name="item_id" id="edit-item-id">
+            <input type="hidden" name="table" id="edit-table">
+            
+            <label>Who:</label><input type="text" name="who" id="edit-who" style="margin-bottom:10px;">
+            <label>What:</label><input type="text" name="what" id="edit-what" style="margin-bottom:10px;">
+            <label>Where:</label><input type="text" name="where" id="edit-where" style="margin-bottom:10px;">
+            <label>When:</label><input type="text" name="when" id="edit-when" style="margin-bottom:10px;">
+            <label>Why:</label><input type="text" name="why" id="edit-why" style="margin-bottom:10px;">
+            <label>Sources (JSON Array):</label><textarea name="sources" id="edit-sources" style="width:100%; height:60px; background:#000; color:#0ff; border:1px solid #0ff; margin-bottom:10px;"></textarea>
+            
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="danger-btn" onclick="document.getElementById('edit-details-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="manage-btn">Save Details</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="prompt-suggest-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; align-items: center; justify-content: center;">
+        <div style="background: #002222; padding: 20px; border: 1px solid #00ffff; border-radius: 8px; width: 90%; max-width: 600px;">
+            <h3 style="margin-top:0; color:#00ffff;">AI Prompt Suggestion</h3>
+            <p style="font-size: 0.9rem; color:#aaa;">Based on the bad items selected, the AI suggests the following improved prompt:</p>
+            <form method="POST" id="accept-prompt-form">
+                <input type="hidden" name="action" value="add_prompt">
+                <input type="hidden" name="prompt_type" id="suggest-topic">
+                <textarea name="prompt_text" id="suggest-text" style="width:100%; height:150px; background:#000; color:#0ff; border:1px solid #0ff; padding:10px; margin-bottom:15px; box-sizing:border-box; font-family:monospace;"></textarea>
+                <p id="suggest-timer" style="color: #ffaa00; font-size: 0.8rem; font-weight:bold;">Auto-rejecting in 30s...</p>
+                <div style="display:flex; justify-content:space-between;"><button type="button" class="danger-btn" onclick="rejectSuggestedPrompt()">Reject (Keep Old)</button><button type="submit" class="manage-btn" style="background:#00ff00; color:#000;">Accept New Prompt</button></div>
+            </form>
+        </div>
+    </div>
 
     <script id="metrics-data" type="application/json">
         {{ metrics | tojson | safe }}
     </script>
     <script>
         const allMetrics = JSON.parse(document.getElementById('metrics-data').textContent || '[]');
+        
+        function openEditDetailsModal(id, table, detailsStr) {
+            let details = {};
+            try { details = JSON.parse(detailsStr); } catch(e) {}
+            document.getElementById('edit-item-id').value = id;
+            document.getElementById('edit-table').value = table;
+            document.getElementById('edit-who').value = details.who || '';
+            document.getElementById('edit-what').value = details.what || '';
+            document.getElementById('edit-where').value = details.where || '';
+            document.getElementById('edit-when').value = details.when || '';
+            document.getElementById('edit-why').value = details.why || '';
+            document.getElementById('edit-sources').value = JSON.stringify(details.sources || []);
+            document.getElementById('edit-details-modal').style.display = 'flex';
+        }
+
+        let suggestTimeout = null;
+        async function suggestPromptImprovement(topic) {
+            const checkboxes = document.querySelectorAll(`.bad-item-cb[data-topic="${topic}"]:checked`);
+            const badItems = Array.from(checkboxes).map(cb => cb.getAttribute('data-text'));
+            if(badItems.length === 0) { alert("Please check the 'Bad Prompt?' box on at least one item first."); return; }
+            
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = "🤖 Analyzing..."; btn.disabled = true;
+            
+            try {
+                const res = await fetch('/api/internal/suggest_prompt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic, bad_items: badItems })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    document.getElementById('suggest-topic').value = topic;
+                    document.getElementById('suggest-text').value = data.suggested_prompt;
+                    document.getElementById('prompt-suggest-modal').style.display = 'flex';
+                    let timeLeft = 30;
+                    document.getElementById('suggest-timer').innerText = `Auto-rejecting in ${timeLeft}s...`;
+                    clearInterval(suggestTimeout);
+                    suggestTimeout = setInterval(() => {
+                        timeLeft--;
+                        document.getElementById('suggest-timer').innerText = `Auto-rejecting in ${timeLeft}s...`;
+                        if(timeLeft <= 0) rejectSuggestedPrompt();
+                    }, 1000);
+                } else { alert("Failed to generate suggestion: " + data.error); }
+            } catch(e) { alert("Error: " + e.message); }
+            btn.innerText = originalText; btn.disabled = false;
+        }
+
+        function rejectSuggestedPrompt() {
+            clearInterval(suggestTimeout);
+            document.getElementById('prompt-suggest-modal').style.display = 'none';
+            document.getElementById('suggest-text').value = '';
+        }
+
         let memChart, loadChart;
 
         Chart.defaults.color = '#00ffff';

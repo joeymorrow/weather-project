@@ -12,7 +12,13 @@
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'G-R9N02W2P9M');
+        
+        const isReload = window.location.search.includes('reloaded=true');
+        gtag('config', 'G-R9N02W2P9M', { 'send_page_view': !isReload });
+        
+        if (isReload) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     </script>
     <title>{{ page_title }} Weather</title>
     <style>
@@ -484,7 +490,7 @@
 
         // Auto-refresh the weather safely when the dashboard is visible
         setInterval(() => {
-            if (slideIndex === 0) location.reload(); // Only hard reload while showing the weather dashboard
+            if (slideIndex === 0) window.location.href = window.location.pathname + '?reloaded=true'; // Only hard reload while showing the weather dashboard
         }, 300000); // 5 minutes
 
         // Idle timer to fade out the documentation tooltip

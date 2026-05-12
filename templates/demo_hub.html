@@ -14,7 +14,13 @@
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'G-R9N02W2P9M');
+        
+        const isReload = window.location.search.includes('reloaded=true');
+        gtag('config', 'G-R9N02W2P9M', { 'send_page_view': !isReload });
+        
+        if (isReload) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     </script>
     <title>BEACON | Interactive Demo Hub</title>
     <style>
@@ -46,9 +52,14 @@
     
     <div class="form-box">
         <form method="POST">
+            <input type="text" name="website_url" style="display:none;" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <input type="hidden" name="rendered_at" id="demo_rendered_at">
             <input type="text" name="zipcode" placeholder="Enter Zip Code" required pattern="\d{5}" title="5-digit Zip Code">
             <button type="submit" onclick="this.innerText='INITIALIZING...';">Spin Up Instance</button>
         </form>
+        <script>
+            document.getElementById('demo_rendered_at').value = Date.now() / 1000;
+        </script>
         <div style="margin-top: 20px; color: #00ffff; font-family: monospace; background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px dashed rgba(0,255,255,0.3); text-align: center;">
             <strong style="text-transform: uppercase;">Demo Admin Credentials</strong><br><br>
             Username: <code>admin</code><br>

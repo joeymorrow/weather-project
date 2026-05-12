@@ -8,6 +8,7 @@ import copy
 from contextlib import closing
 from flask import Flask, render_template, jsonify, request, redirect, send_from_directory, session, url_for
 from datetime import datetime, timedelta
+import html
 import smtplib
 from email.mime.text import MIMEText
 import google.genai as genai
@@ -19,12 +20,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import markdown
 import msal
 
-def send_alert_email(subject, body):
+def send_alert_email(subject, body, to_email="joseph@morrowedge.com"):
     try:
         msg = MIMEText(body)
         msg['Subject'] = subject
         msg['From'] = os.environ.get("SMTP_USER", "buddy-alerts@morrowedge.com")
-        msg['To'] = "joseph@morrowedge.com"
+        msg['To'] = to_email
         
         smtp_server = os.environ.get("SMTP_SERVER", "localhost")
         smtp_port = int(os.environ.get("SMTP_PORT", 587))
@@ -103,11 +104,22 @@ def init_db():
                 pulse_conn.execute("ALTER TABLE pulses ADD COLUMN location TEXT DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
+            for table in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
+                try:
+                    pulse_conn.execute(f"ALTER TABLE {table} ADD COLUMN details TEXT DEFAULT '{{}}'")
+                except sqlite3.OperationalError:
+                    pass
             pulse_conn.execute('''CREATE TABLE IF NOT EXISTS garage_sales (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 date TEXT,
                                 text TEXT UNIQUE,
                                 location TEXT
+                             )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS prompts (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                prompt_type TEXT,
+                                prompt_text TEXT,
+                                is_default BOOLEAN DEFAULT 0
                              )''')
             pulse_conn.execute('''CREATE TABLE IF NOT EXISTS sault_tribe (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,6 +145,34 @@ def init_db():
                                 client_id TEXT,
                                 client_secret TEXT,
                                 extra_info TEXT
+                             )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS ai_training_log (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                topic TEXT,
+                                original_text TEXT,
+                                original_details TEXT,
+                                new_text TEXT,
+                                new_details TEXT,
+                                action_type TEXT,
+                                gather_prompt TEXT
+                             )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS user_submissions (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                event_type TEXT,
+                                text TEXT,
+                                location TEXT,
+                                event_date TEXT,
+                                source_url TEXT,
+                                submitter_email TEXT,
+                                status TEXT DEFAULT 'pending'
+                             )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS banned_ips (
+                                ip TEXT PRIMARY KEY,
+                                reason TEXT,
+                                reinstatement_requested BOOLEAN DEFAULT 0,
+                                banned_at DATETIME DEFAULT CURRENT_TIMESTAMP
                              )''')
             pulse_conn.execute('''CREATE TABLE IF NOT EXISTS rbac_users (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -223,16 +263,23 @@ def load_history(today_str=None, yesterday_str=None):
             c = conn.cursor()
             if today_str and yesterday_str:
                 c.execute("""
-                        SELECT id, date, text, location FROM pulses 
+                        SELECT id, date, text, location, details FROM pulses 
                         WHERE date = ? OR date = ? OR id IN (
                             SELECT id FROM pulses ORDER BY id DESC LIMIT 21
                         )
                         ORDER BY id DESC
                 """, (today_str, yesterday_str))
-                return [{"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
             else:
-                c.execute("SELECT id, date, text, location FROM pulses ORDER BY id DESC LIMIT 21")
-                return [{"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
+                c.execute("SELECT id, date, text, location, details FROM pulses ORDER BY id DESC LIMIT 21")
+            
+            res = []
+            for r in c.fetchall():
+                details = {}
+                try:
+                    if len(r) > 4 and r[4]: details = json.loads(r[4])
+                except: pass
+                res.append({"id": f"pulse_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else "", "details": details})
+            return res
     except Exception as e:
         print(f"[ERROR] load_history: {e}", flush=True)
         return []
@@ -241,8 +288,15 @@ def load_garage_sales():
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
-            c.execute("SELECT id, date, text, location FROM garage_sales ORDER BY id DESC LIMIT 20")
-            return [{"id": f"sale_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
+            c.execute("SELECT id, date, text, location, details FROM garage_sales ORDER BY id DESC LIMIT 20")
+            res = []
+            for r in c.fetchall():
+                details = {}
+                try:
+                    if len(r) > 4 and r[4]: details = json.loads(r[4])
+                except: pass
+                res.append({"id": f"sale_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else "", "details": details})
+            return res
     except Exception as e:
         print(f"[ERROR] load_garage_sales: {e}", flush=True)
         return []
@@ -251,8 +305,15 @@ def load_sault_tribe():
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
-            c.execute("SELECT id, date, text, location FROM sault_tribe ORDER BY id DESC LIMIT 20")
-            return [{"id": f"tribe_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
+            c.execute("SELECT id, date, text, location, details FROM sault_tribe ORDER BY id DESC LIMIT 20")
+            res = []
+            for r in c.fetchall():
+                details = {}
+                try:
+                    if len(r) > 4 and r[4]: details = json.loads(r[4])
+                except: pass
+                res.append({"id": f"tribe_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else "", "details": details})
+            return res
     except Exception as e:
         print(f"[ERROR] load_sault_tribe: {e}", flush=True)
         return []
@@ -261,8 +322,15 @@ def load_sault_schools():
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
-            c.execute("SELECT id, date, text, location FROM sault_schools ORDER BY id DESC LIMIT 20")
-            return [{"id": f"school_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else ""} for r in c.fetchall()]
+            c.execute("SELECT id, date, text, location, details FROM sault_schools ORDER BY id DESC LIMIT 20")
+            res = []
+            for r in c.fetchall():
+                details = {}
+                try:
+                    if len(r) > 4 and r[4]: details = json.loads(r[4])
+                except: pass
+                res.append({"id": f"school_{r[0]}", "date": r[1], "text": r[2], "location": r[3] if len(r)>3 and r[3] else "", "details": details})
+            return res
     except Exception as e:
         print(f"[ERROR] load_sault_schools: {e}", flush=True)
         return []
@@ -284,6 +352,51 @@ def log_audit_event(user, action, details=""):
                              (user, action, json.dumps(details) if isinstance(details, dict) else str(details)))
     except Exception as e:
         print(f"[ERROR] Failed to write to audit log: {e}", flush=True)
+
+def verify_events_batch(events_to_verify):
+    if not events_to_verify: return {}, ""
+    verified_details = {}
+    check_prompt = f"""
+You are a strict fact-checker and investigative journalist for Sault Ste. Marie, Michigan.
+I will provide a JSON list of events. For EACH event, use Google Search to verify if it actually happened or is scheduled.
+If it is real/verified: Extract the 5 Ws (Who, What, Where, When, Why) and any source URLs.
+If it is fake, hallucinated, or you cannot find proof: set "hallucinated": true.
+
+Input Events:
+{json.dumps(events_to_verify)}
+
+Return ONLY a valid JSON array of objects matching this exact structure:
+[
+  {{
+    "id": "item_id_here",
+    "hallucinated": false,
+    "details": {{
+       "who": "Person/Group involved",
+       "what": "Brief description of the event",
+       "where": "Specific location or address",
+       "when": "Date and Time",
+       "why": "Context or purpose",
+       "sources": [{{"title": "Source Name", "url": "https://..."}}]
+    }}
+  }}
+]
+"""
+    global gemini_client
+    if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+    for m_check in get_best_models():
+        try:
+            check_resp = gemini_client.models.generate_content(model=m_check, contents=check_prompt, config=types.GenerateContentConfig(tools=[{"google_search": {}}]))
+            check_text = check_resp.text
+            c_start = check_text.find('[')
+            c_end = check_text.rfind(']')
+            if c_start == -1 or c_end == -1: raise ValueError("No JSON array in check")
+            check_data = json.loads(check_text[c_start:c_end+1])
+            for item in check_data: verified_details[item["id"]] = item
+            break
+        except Exception as e:
+            print(f"Check failed with {m_check}: {e}", flush=True)
+            continue
+    return verified_details, check_prompt
 
 state = {
     "temp": 0, "suggestion": "Initializing...", "station": "office", 
@@ -547,8 +660,10 @@ def sync_for_location(slug, loc_name, query):
         extra_tasks = ""
         json_format = '{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
         if slug == "main" and not is_late_night:
-            extra_tasks = "Task 6 (Garage Sales): SEARCH for real Garage/Yard Sales in Sault Ste. Marie, Michigan TODAY or TOMORROW. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market or an equivalent major event. The 'location' must contain a valid street/road name (e.g., '123 Main St'). If the address is only digits with no street name, do NOT include it.\n        Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news/events.\n        "
-            json_format += ', "garage_sales": [{"text": "sale info", "location": "address"}], "sault_tribe": [{"text": "news/event", "location": "location"}]'
+            extra_tasks = "Task 6 (Garage Sales): SEARCH for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market. The 'location' must contain a valid street/road name.\n        "
+            extra_tasks += "Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS.\n        "
+            extra_tasks += "Task 8 (Sault Schools): SEARCH for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary) in the NEXT 7 DAYS. Check athletics (soobluedevils.com, A.J. VanCitters Field), board meetings, and public events. If an athletic event is found, append pricing: '$2 public, $1 seniors, Free for students/faculty' unless specified otherwise.\n        "
+            json_format += ', "garage_sales": [{"text": "sale info", "location": "address"}], "sault_tribe": [{"text": "news/event", "location": "location"}], "sault_schools": [{"text": "event details", "location": "location"}]'
         json_format += ' }'
 
         prompt = f"""
@@ -590,41 +705,69 @@ def sync_for_location(slug, loc_name, query):
                 ai_sault_tribe = ai.get("sault_tribe", [])
                 ai_sault_schools = ai.get("sault_schools", [])
                 
+                events_to_verify = []
                 if is_news and new_pulse and "Anchoring" not in new_pulse:
-                    try:
-                        check_prompt = f"""
-You are a strict fact-checker evaluating a newly generated "Pulse" event for {loc_name}. Use Google Search to verify if the event actually happened or is scheduled around the time it was reported before making a judgment.
-Determine if this text is a hallucinated/invented specific event (like fake workshops or generic community gatherings with fake times), or if it is legitimate.
-Text: "{new_pulse}"
-Return ONLY valid JSON: {{"hallucinated": true/false}}
-"""
-                        for m_check in get_best_models():
-                            try:
-                                check_resp = gemini_client.models.generate_content(
-                                    model=m_check, 
-                                    contents=check_prompt,
-                                    config=types.GenerateContentConfig(tools=[{"google_search": {}}])
-                                )
-                                check_text = check_resp.text
-                                c_start = check_text.find('{')
-                                c_end = check_text.rfind('}')
-                                if c_start == -1 or c_end == -1: raise ValueError("No JSON in check")
-                                check_data = json.loads(check_text[c_start:c_end+1])
-                                
-                                if check_data.get("hallucinated"):
-                                    print(f"[API] Hallucination caught in-flight for {slug}! Replacing with fallback.", flush=True)
-                                    import random
-                                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                                        c = conn.cursor()
-                                        c.execute("SELECT text FROM pulses ORDER BY id DESC LIMIT 18")
-                                        recent = [r[0] for r in c.fetchall()]
-                                        new_pulse = random.choice(recent) if recent and slug == "main" else f"{loc_name} continues its steady rhythm."
-                                    is_news = False
-                                break
-                            except Exception:
-                                continue
-                    except Exception as e:
-                        pass
+                    events_to_verify.append({"id": "pulse", "type": "pulse", "text": new_pulse})
+                
+                if isinstance(ai_garage_sales, list):
+                    for idx, g in enumerate(ai_garage_sales): 
+                        if g.get("text"): events_to_verify.append({"id": f"garage_{idx}", "type": "garage_sale", "text": g.get("text")})
+                
+                if isinstance(ai_sault_tribe, list):
+                    for idx, t in enumerate(ai_sault_tribe): 
+                        if t.get("text"): events_to_verify.append({"id": f"tribe_{idx}", "type": "sault_tribe", "text": t.get("text")})
+
+                if isinstance(ai_sault_schools, list):
+                    for idx, s in enumerate(ai_sault_schools): 
+                        if s.get("text"): events_to_verify.append({"id": f"school_{idx}", "type": "sault_schools", "text": s.get("text")})
+
+                verified_details = {}
+                
+                if events_to_verify:
+                    v_res, _ = verify_events_batch(events_to_verify)
+                    verified_details = v_res
+
+                pulse_details = {}
+                if is_news and new_pulse and "Anchoring" not in new_pulse:
+                    v_res = verified_details.get("pulse", {})
+                    if v_res.get("hallucinated"):
+                        print(f"[API] Hallucination caught in-flight for pulse! Replacing with fallback.", flush=True)
+                        import random
+                        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                            c = conn.cursor()
+                            c.execute("SELECT text FROM pulses ORDER BY id DESC LIMIT 18")
+                            recent = [r[0] for r in c.fetchall()]
+                            new_pulse = random.choice(recent) if recent and slug == "main" else f"{loc_name} continues its steady rhythm."
+                        is_news = False
+                    else:
+                        pulse_details = v_res.get("details", {})
+                        
+                valid_garage_sales = []
+                if isinstance(ai_garage_sales, list):
+                    for idx, sale in enumerate(ai_garage_sales):
+                        s_id = f"garage_{idx}"
+                        v_res = verified_details.get(s_id, {})
+                        if not v_res.get("hallucinated"):
+                            sale['details'] = v_res.get("details", {})
+                            valid_garage_sales.append(sale)
+                            
+                valid_sault_tribe = []
+                if isinstance(ai_sault_tribe, list):
+                    for idx, event in enumerate(ai_sault_tribe):
+                        s_id = f"tribe_{idx}"
+                        v_res = verified_details.get(s_id, {})
+                        if not v_res.get("hallucinated"):
+                            event['details'] = v_res.get("details", {})
+                            valid_sault_tribe.append(event)
+                            
+                valid_sault_schools = []
+                if isinstance(ai_sault_schools, list):
+                    for idx, event in enumerate(ai_sault_schools):
+                        s_id = f"school_{idx}"
+                        v_res = verified_details.get(s_id, {})
+                        if not v_res.get("hallucinated"):
+                            event['details'] = v_res.get("details", {})
+                            valid_sault_schools.append(event)
 
                 if contains_denied_words(new_pulse) or contains_denied_words(ai.get("bubble", "")):
                     new_pulse = "Safe Mode: Standard rhythm today."
@@ -646,45 +789,55 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                         try:
                             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                 with conn:
-                                    conn.execute("INSERT INTO pulses (date, text, location) VALUES (?, ?, ?)", (date_str, new_pulse, new_pulse_loc))
+                                    conn.execute("INSERT INTO pulses (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, new_pulse, new_pulse_loc, json.dumps(pulse_details)))
                         except sqlite3.IntegrityError:
                             pass
                             
-                if slug == "main" and isinstance(ai_garage_sales, list):
-                    for sale in ai_garage_sales:
-                        s_text = sale.get("text", "")
-                        s_loc = sale.get("location", "")
-                        if s_text:
-                            try:
-                                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                                    with conn:
-                                        conn.execute("INSERT INTO garage_sales (date, text, location) VALUES (?, ?, ?)", (date_str, s_text, s_loc))
-                            except sqlite3.IntegrityError:
-                                pass
+                if slug == "main":
+                    def merge_or_insert(table, date_str, item_text, item_loc, item_details):
+                        try:
+                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                c = conn.cursor()
+                                c.execute(f"SELECT id, text, details FROM {table} ORDER BY id DESC LIMIT 20")
+                                rows = c.fetchall()
+                                for r in rows:
+                                    r_id, r_text, r_details = r
+                                    r_det = {}
+                                    try: r_det = json.loads(r_details) if r_details else {}
+                                    except: pass
+                                    
+                                    is_dup = False
+                                    if item_details.get('when') and r_det.get('when') == item_details.get('when'):
+                                        if item_details.get('where') and r_det.get('where') == item_details.get('where'):
+                                            is_dup = True
+                                            
+                                    if not is_dup:
+                                        w1 = set(item_text.lower().split())
+                                        w2 = set(r_text.lower().split())
+                                        if w1 and w2 and len(w1.intersection(w2)) > max(3, len(w1)//2):
+                                            is_dup = True
+                                            
+                                    if is_dup:
+                                        src_map = {s.get('url'): s for s in r_det.get('sources', [])}
+                                        for s in item_details.get('sources', []):
+                                            if s.get('url'): src_map[s['url']] = s
+                                        item_details['sources'] = list(src_map.values())
+                                        c.execute(f"UPDATE {table} SET text=?, location=?, details=? WHERE id=?", (item_text, item_loc, json.dumps(item_details), r_id))
+                                        conn.commit()
+                                        return
+                                c.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, item_text, item_loc, json.dumps(item_details)))
+                                conn.commit()
+                        except sqlite3.IntegrityError: pass
+                        except Exception as e: print(f"[ERROR] merge_or_insert {table}: {e}", flush=True)
+
+                    for sale in valid_garage_sales:
+                        if sale.get("text"): merge_or_insert("garage_sales", date_str, sale.get("text"), sale.get("location", ""), sale.get("details", {}))
                                 
-                if slug == "main" and isinstance(ai_sault_tribe, list):
-                    for event in ai_sault_tribe:
-                        s_text = event.get("text", "")
-                        s_loc = event.get("location", "")
-                        if s_text:
-                            try:
-                                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                                    with conn:
-                                        conn.execute("INSERT INTO sault_tribe (date, text, location) VALUES (?, ?, ?)", (date_str, s_text, s_loc))
-                            except sqlite3.IntegrityError:
-                                pass
+                    for event in valid_sault_tribe:
+                        if event.get("text"): merge_or_insert("sault_tribe", date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
                                 
-                if slug == "main" and isinstance(ai_sault_schools, list):
-                    for event in ai_sault_schools:
-                        s_text = event.get("text", "")
-                        s_loc = event.get("location", "")
-                        if s_text:
-                            try:
-                                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                                    with conn:
-                                        conn.execute("INSERT INTO sault_schools (date, text, location) VALUES (?, ?, ?)", (date_str, s_text, s_loc))
-                            except sqlite3.IntegrityError:
-                                pass
+                    for event in valid_sault_schools:
+                        if event.get("text"): merge_or_insert("sault_schools", date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
                 
                 print(f"[API] Success via {m_id} for {slug}", flush=True)
                 success = True; break
@@ -1136,6 +1289,135 @@ def internal_action():
 
     return jsonify(success=False, error="Unknown action"), 400
 
+@app.route('/api/submit_event', methods=['POST'])
+def api_submit_event():
+    data = request.json
+    if not data: return jsonify(success=False, error="No data"), 400
+    
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+    
+    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+        c = conn.cursor()
+        c.execute("SELECT reinstatement_requested FROM banned_ips WHERE ip=?", (client_ip,))
+        row = c.fetchone()
+        if row:
+            return jsonify(success=False, error="Your IP has been blocked due to suspicious activity.", banned=True, requested=bool(row[0])), 403
+
+    # 1. Honeypot & Time-of-Flight Validation
+    is_bot = False
+    if data.get('website_url'): is_bot = True
+        
+    try:
+        if time.time() - float(data.get('rendered_at', time.time())) < 3.0:
+            is_bot = True
+    except: pass
+
+    if is_bot:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            with conn: conn.execute("INSERT OR IGNORE INTO banned_ips (ip, reason) VALUES (?, ?)", (client_ip, "Honeypot or ToF triggered"))
+        return jsonify(success=False, error="Invalid submission detected. IP Blocked.", banned=True, requested=False), 403
+
+    # 2. In-Memory IP Rate Limiting (Max 5 submissions per hour)
+    now_ts = time.time()
+    with state_lock:
+        if 'submit_rate_limits' not in state: state['submit_rate_limits'] = {}
+        limit_data = state['submit_rate_limits'].get(client_ip, {"attempts": [], "blocked_until": 0})
+        
+        if now_ts < limit_data["blocked_until"]:
+            return jsonify(success=False, error="Rate limited. Try again later."), 429
+            
+        attempts = [ts for ts in limit_data["attempts"] if now_ts - ts < 3600]
+        if len(attempts) >= 5:
+            limit_data["blocked_until"] = now_ts + 3600
+            state['submit_rate_limits'][client_ip] = limit_data
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("INSERT OR IGNORE INTO banned_ips (ip, reason) VALUES (?, ?)", (client_ip, "Rate limit exceeded (Trial and Error)"))
+            return jsonify(success=False, error="Too many submissions. IP Blocked.", banned=True, requested=False), 403
+            
+        attempts.append(now_ts)
+        limit_data["attempts"] = attempts
+        state['submit_rate_limits'][client_ip] = limit_data
+
+    # 3. Input Sanitization (Preventing XSS/Escape attacks)
+    event_type = html.escape(data.get('event_type', ''))
+    text = html.escape(data.get('text', ''))
+    location = html.escape(data.get('location', ''))
+    event_date = html.escape(data.get('event_date', ''))
+    source_url = data.get('source_url', '').replace('<', '').replace('>', '') # Basic URL safety
+    submitter_email = html.escape(data.get('submitter_email', ''))
+    
+    if not all([event_type, text, location, event_date, source_url, submitter_email]):
+        return jsonify(success=False, error="Missing required fields"), 400
+        
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            with conn:
+                conn.execute("""
+                    INSERT INTO user_submissions (event_type, text, location, event_date, source_url, submitter_email)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (event_type, text, location, event_date, source_url, submitter_email))
+                
+        send_alert_email("New BEACON Event Submission", f"A new {event_type} event was submitted by {submitter_email}.\n\nText: {text}\nDate: {event_date}\nLocation: {location}\nSource: {source_url}\n\nReview it in CoolAdmin.")
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
+
+@app.route('/api/request_reinstatement', methods=['POST'])
+def api_request_reinstatement():
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            with conn:
+                conn.execute("UPDATE banned_ips SET reinstatement_requested = 1 WHERE ip=?", (client_ip,))
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(success=False, error=str(e))
+
+@app.route('/api/internal/suggest_prompt', methods=['POST'])
+def api_suggest_prompt():
+    if not session.get("admin_auth") and session.get("role") != "Admin":
+        return jsonify(success=False, error="Unauthorized"), 403
+    
+    data = request.json
+    topic = data.get('topic')
+    bad_items = data.get('bad_items', [])
+    
+    if not topic or not bad_items:
+        return jsonify(success=False, error="Missing data"), 400
+        
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT prompt_text FROM prompts WHERE prompt_type = ? ORDER BY id DESC LIMIT 1", (topic,))
+            row = c.fetchone()
+            current_prompt = row[0] if row else "Default instruction for " + topic
+    except:
+        current_prompt = "Unknown"
+        
+    prompt = f"""
+You are an expert prompt engineer. We use the following instructions to gather local data for Sault Ste. Marie, MI for the category "{topic}".
+Current Prompt: "{current_prompt}"
+
+However, it recently produced these bad or hallucinated items:
+{json.dumps(bad_items)}
+
+Please suggest a brief, improved version of the prompt that prevents these issues (e.g., by adding stricter constraints or specific exclusion rules).
+Return ONLY the new prompt text. No markdown formatting, no explanations.
+"""
+    try:
+        global gemini_client
+        if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+        for m_id in get_best_models():
+            try:
+                resp = gemini_client.models.generate_content(model=m_id, contents=prompt)
+                suggested = resp.text.strip()
+                if suggested: return jsonify(success=True, suggested_prompt=suggested)
+            except: continue
+        return jsonify(success=False, error="AI generation failed")
+    except Exception as e:
+        return jsonify(success=False, error=str(e))
+
 @app.before_request
 def check_disabled_pages():
     if request.path.startswith('/cooladmin') or request.path.startswith('/joeyadmin') or request.path.startswith('/admin') or request.path.startswith('/static') or request.path.startswith('/api/') or request.path.startswith('/docs') or request.path.startswith('/demo'):
@@ -1156,6 +1438,14 @@ def serve_docs(filename='index'):
         safe_path = os.path.join(BASE_DIR, 'docs', safe_name)
         if os.path.exists(safe_path):
             return send_from_directory(os.path.join(BASE_DIR, 'docs'), safe_name)
+            
+            honeypot = request.form.get('website_url', '')
+            rendered_at = request.form.get('rendered_at', 0)
+            if honeypot: return "<script>alert('Invalid request.'); window.location.href='/demo';</script>"
+            try:
+                if time.time() - float(rendered_at) < 2.0:
+                    return "<script>alert('Submission too fast.'); window.location.href='/demo';</script>"
+            except: pass
             
     safe_name = secure_filename(filename.replace('/', '_'))
     safe_path = os.path.join(BASE_DIR, 'docs', f"{safe_name}.md")
@@ -1189,6 +1479,29 @@ def demo_hub():
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
         now_ts = time.time()
         
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT reinstatement_requested FROM banned_ips WHERE ip=?", (client_ip,))
+            row = c.fetchone()
+            if row:
+                if row[0]: return "<script>alert('You have already requested reinstatement. Please wait.'); window.location.href='/demo';</script>"
+                else: return "<script>if(confirm('Your IP is banned. Request reinstatement?')) { fetch('/api/request_reinstatement', {method:'POST'}).then(()=>alert('Requested.')); } window.location.href='/demo';</script>"
+
+        zipcode = request.form.get('zipcode', '').strip()
+        honeypot = request.form.get('website_url', '')
+        rendered_at = request.form.get('rendered_at', 0)
+        
+        is_bot = False
+        if honeypot: is_bot = True
+        try:
+            if time.time() - float(rendered_at) < 2.0: is_bot = True
+        except: pass
+        
+        if is_bot:
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                with conn: conn.execute("INSERT OR IGNORE INTO banned_ips (ip, reason) VALUES (?, ?)", (client_ip, "Demo Honeypot/ToF"))
+            return "<script>if(confirm('Invalid request. IP Banned. Request reinstatement?')) { fetch('/api/request_reinstatement', {method:'POST'}).then(()=>alert('Requested.')); } window.location.href='/demo';</script>"
+        
         with state_lock:
             if 'demo_rate_limits' not in state:
                 state['demo_rate_limits'] = {}
@@ -1202,7 +1515,9 @@ def demo_hub():
             if len(attempts) >= 3:
                 limit_data["blocked_until"] = now_ts + 30
                 state['demo_rate_limits'][client_ip] = limit_data
-                return "<script>alert('Too many attempts. Please wait 30 seconds before trying again.'); window.location.href='/demo';</script>"
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn: conn.execute("INSERT OR IGNORE INTO banned_ips (ip, reason) VALUES (?, ?)", (client_ip, "Demo Rate Limit Exceeded"))
+                return "<script>if(confirm('Too many attempts. IP Banned. Request reinstatement?')) { fetch('/api/request_reinstatement', {method:'POST'}).then(()=>alert('Requested.')); } window.location.href='/demo';</script>"
                 
             attempts.append(now_ts)
             limit_data["attempts"] = attempts
@@ -1639,6 +1954,14 @@ def cooladmin():
             except: pass
             return redirect('/cooladmin')
 
+        elif action == 'unban_ip':
+            ip = request.form.get('ip')
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn: conn.execute("DELETE FROM banned_ips WHERE ip=?", (ip,))
+            except: pass
+            return redirect('/cooladmin')
+
         elif action == 'add_eap_sub':
             ip = request.form.get('multicast_ip', '').strip()
             port = request.form.get('port', type=int)
@@ -1728,9 +2051,72 @@ def cooladmin():
             except: pass
             return redirect('/cooladmin')
 
+        elif action == 'edit_details':
+            item_id = request.form.get('item_id')
+            table = request.form.get('table')
+            real_id = re.sub(r'^[a-z]+_', '', str(item_id)) if item_id else None
+            details = { "who": request.form.get('who', ''), "what": request.form.get('what', ''), "where": request.form.get('where', ''), "when": request.form.get('when', ''), "why": request.form.get('why', ''), "sources": [] }
+            try:
+                if request.form.get('sources'): details['sources'] = json.loads(request.form.get('sources'))
+            except: pass
+            if table in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn:
+                            conn.execute("INSERT INTO ai_training_log (topic, action_type, new_details) VALUES (?, ?, ?)", (table, "manual_edit", json.dumps(details)))
+                            conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(details), real_id))
+                except Exception as e: print(e, flush=True)
+            return redirect('/cooladmin')
+
+        elif action == 'refresh_details':
+            item_id = request.form.get('item_id')
+            table = request.form.get('table')
+            text = request.form.get('text')
+            real_id = re.sub(r'^[a-z]+_', '', str(item_id)) if item_id else None
+            if table in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
+                v_res, p_used = verify_events_batch([{"id": real_id, "text": text}])
+                if real_id in v_res:
+                    res = v_res[real_id]
+                    new_details = res.get("details", {})
+                    if not res.get("hallucinated"):
+                        try:
+                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                with conn:
+                                    conn.execute("INSERT INTO ai_training_log (topic, original_text, new_details, action_type, gather_prompt) VALUES (?, ?, ?, ?, ?)", (table, text, json.dumps(new_details), "refresh_single", p_used))
+                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), real_id))
+                        except Exception as e: print(e, flush=True)
+            return redirect('/cooladmin')
+
+        elif action == 'refresh_tower':
+            table = request.form.get('table')
+            if table in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        c = conn.cursor()
+                        c.execute(f"SELECT id, text FROM {table} ORDER BY id DESC LIMIT 20")
+                        rows = c.fetchall()
+                    events_to_verify = [{"id": str(r[0]), "text": r[1]} for r in rows]
+                    v_res, p_used = verify_events_batch(events_to_verify)
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn:
+                            for row in rows:
+                                i_id = str(row[0])
+                                if i_id in v_res and not v_res[i_id].get("hallucinated"):
+                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(v_res[i_id].get("details", {})), i_id))
+                            conn.execute("INSERT INTO ai_training_log (topic, action_type, gather_prompt) VALUES (?, ?, ?)", (table, "refresh_tower", p_used))
+                except Exception as e: print(e, flush=True)
+            return redirect('/cooladmin')
+
         elif action == 'add_pulse':
             text = request.form.get('text', '').strip()
-            date_str = request.form.get('date', '').strip() or datetime.now(TZ).strftime('%B %d')
+            date_str = request.form.get('date', '').strip()
+            if date_str:
+                try:
+                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
+                    date_str = dt.strftime('%B %d')
+                except: pass
+            else:
+                date_str = datetime.now(TZ).strftime('%B %d')
             loc = request.form.get('location', '').strip()
             if text:
                 try:
@@ -1740,7 +2126,14 @@ def cooladmin():
             return redirect('/cooladmin')
         elif action == 'add_garage_sale':
             text = request.form.get('text', '').strip()
-            date_str = request.form.get('date', '').strip() or datetime.now(TZ).strftime('%B %d')
+            date_str = request.form.get('date', '').strip()
+            if date_str:
+                try:
+                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
+                    date_str = dt.strftime('%B %d')
+                except: pass
+            else:
+                date_str = datetime.now(TZ).strftime('%B %d')
             loc = request.form.get('location', '').strip()
             if text:
                 try:
@@ -1750,7 +2143,14 @@ def cooladmin():
             return redirect('/cooladmin')
         elif action == 'add_sault_tribe':
             text = request.form.get('text', '').strip()
-            date_str = request.form.get('date', '').strip() or datetime.now(TZ).strftime('%B %d')
+            date_str = request.form.get('date', '').strip()
+            if date_str:
+                try:
+                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
+                    date_str = dt.strftime('%B %d')
+                except: pass
+            else:
+                date_str = datetime.now(TZ).strftime('%B %d')
             loc = request.form.get('location', '').strip()
             if text:
                 try:
@@ -1761,13 +2161,65 @@ def cooladmin():
 
         elif action == 'add_sault_school_event':
             text = request.form.get('text', '').strip()
-            date_str = request.form.get('date', '').strip() or datetime.now(TZ).strftime('%B %d')
+            date_str = request.form.get('date', '').strip()
+            if date_str:
+                try:
+                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
+                    date_str = dt.strftime('%B %d')
+                except: pass
+            else:
+                date_str = datetime.now(TZ).strftime('%B %d')
             loc = request.form.get('location', '').strip()
             if text:
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn: conn.execute("INSERT INTO sault_schools (date, text, location) VALUES (?, ?, ?)", (date_str, text, loc))
                 except: pass
+            return redirect('/cooladmin')
+
+        elif action == 'approve_submission':
+            sub_id = request.form.get('sub_id')
+            notify = request.form.get('notify_user') == 'yes'
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT event_type, text, location, event_date, source_url, submitter_email FROM user_submissions WHERE id=?", (sub_id,))
+                    row = c.fetchone()
+                    if row:
+                        event_type, text, location, event_date, source_url, submitter_email = row
+                        try:
+                            dt = datetime.strptime(event_date, '%Y-%m-%dT%H:%M')
+                            date_str = dt.strftime('%B %d')
+                        except:
+                            date_str = event_date
+                        details = {
+                            "sources": [{"url": source_url, "title": "User Submitted Source"}],
+                            "submitter_email": submitter_email
+                        }
+                        if event_type in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
+                            with conn:
+                                conn.execute(f"INSERT INTO {event_type} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, location, json.dumps(details)))
+                                conn.execute("UPDATE user_submissions SET status='approved' WHERE id=?", (sub_id,))
+                        if notify and submitter_email:
+                            send_alert_email("BEACON Event Approved", f"Hi!\n\nYour {event_type} submission ('{text}') has been approved and added to the dashboard.", submitter_email)
+            except Exception as e: print(e, flush=True)
+            return redirect('/cooladmin')
+            
+        elif action == 'reject_submission':
+            sub_id = request.form.get('sub_id')
+            notify = request.form.get('notify_user') == 'yes'
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT event_type, text, submitter_email FROM user_submissions WHERE id=?", (sub_id,))
+                    row = c.fetchone()
+                    if row:
+                        event_type, text, submitter_email = row
+                        with conn:
+                            conn.execute("UPDATE user_submissions SET status='rejected' WHERE id=?", (sub_id,))
+                        if notify and submitter_email:
+                            send_alert_email("BEACON Event Update", f"Hi!\n\nUnfortunately, your {event_type} submission ('{text}') could not be verified or was rejected by our moderation team.", submitter_email)
+            except: pass
             return redirect('/cooladmin')
 
         elif action == 'delete_sault_school_event':
@@ -1857,6 +2309,14 @@ def cooladmin():
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
+            c.execute("SELECT id, submitted_at, event_type, text, location, event_date, source_url, submitter_email FROM user_submissions WHERE status='pending' ORDER BY id ASC")
+            pending_submissions = [{"id": r[0], "submitted_at": r[1], "event_type": r[2], "text": r[3], "location": r[4], "event_date": r[5], "source_url": r[6], "submitter_email": r[7]} for r in c.fetchall()]
+    except:
+        pending_submissions = []
+
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
             c.execute("SELECT provider, enabled, client_id, client_secret, extra_info FROM sso_configs")
             sso_configs = [{"provider": r[0], "enabled": bool(r[1]), "client_id": r[2], "client_secret": r[3], "extra_info": r[4]} for r in c.fetchall()]
             c.execute("SELECT id, username, role, provider, type, override_group FROM rbac_users")
@@ -1864,6 +2324,14 @@ def cooladmin():
     except:
         sso_configs = []
         rbac_users = []
+
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT ip, reason, reinstatement_requested, banned_at FROM banned_ips ORDER BY banned_at DESC")
+            banned_ips = [{"ip": r[0], "reason": r[1], "requested": bool(r[2]), "banned_at": r[3]} for r in c.fetchall()]
+    except:
+        banned_ips = []
 
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -1944,7 +2412,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips)
 
 @app.route('/portfolio')
 def portfolio():

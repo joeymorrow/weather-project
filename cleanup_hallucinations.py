@@ -121,6 +121,12 @@ def setup_db():
                             text TEXT UNIQUE,
                             location TEXT
                          )''')
+        conn.execute('''CREATE TABLE IF NOT EXISTS sault_schools (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            date TEXT,
+                            text TEXT UNIQUE,
+                            location TEXT
+                         )''')
 
 def check_hallucination(text, date_str, item_type="pulse"):
     if item_type == "garage_sale":
@@ -129,6 +135,9 @@ def check_hallucination(text, date_str, item_type="pulse"):
     elif item_type == "sault_tribe":
         rules = "- Buddy acts as a local scout for Sault Ste. Marie Tribe of Chippewa Indians news and events. He searches for VERIFIABLE tribal news, cultural events, or announcements. Fake events or workshops are HALLUCINATIONS."
         instructions = "1. Search Google to see if this specific Sault Tribe event/news was published or advertised for this location and date.\n2. If you cannot find any proof, it is a hallucination."
+    elif item_type == "sault_schools":
+        rules = "- Buddy acts as a scout for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary, athletics). He searches for VERIFIABLE school news, board meetings, and sports schedules. Fake events are HALLUCINATIONS."
+        instructions = "1. Search Google/School Calendars to see if this specific Sault Schools event was published for this location and date.\n2. If you cannot find any proof, it is a hallucination."
     else:
         rules = """- During the daytime (6 AM - 9:30 PM), Buddy acts as a local speechwriter. He searches for VERIFIABLE recent local news, events, or acts of kindness.
 - During late night (9:30 PM - 6 AM), Buddy acts as a poetic night-owl.
@@ -241,6 +250,9 @@ def main():
 
         cursor.execute("SELECT id, date, text FROM sault_tribe")
         sault_tribe = cursor.fetchall()
+        
+        cursor.execute("SELECT id, date, text FROM sault_schools")
+        sault_schools = cursor.fetchall()
 
         items_to_check = []
         now = datetime.now(pytz.timezone('America/Detroit'))
@@ -300,6 +312,22 @@ def main():
 
             items_to_check.append(("sault_tribe", tribe_id, date_str, text))
 
+        # Age out Sault Schools (> 72 hours)
+        for school_id, date_str, text in sault_schools:
+            try:
+                dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
+                dt = pytz.timezone('America/Detroit').localize(dt_naive)
+                if dt > now: dt = dt.replace(year=now.year - 1)
+
+                age = now - dt
+                if age > timedelta(hours=72):
+                    cursor.execute("DELETE FROM sault_schools WHERE id = ?", (school_id,))
+                    conn.commit()
+                    archived_count += 1
+                    continue
+            except ValueError: pass
+            items_to_check.append(("sault_schools", school_id, date_str, text))
+
         print(f"Found {len(items_to_check)} items to check for hallucinations (Archived/Deleted {archived_count} old items).\n")
 
         round_results = []
@@ -315,6 +343,8 @@ def main():
                     cursor.execute("DELETE FROM pulses WHERE id = ?", (item_id,))
                 elif item_type == "garage_sale":
                     cursor.execute("DELETE FROM garage_sales WHERE id = ?", (item_id,))
+                elif item_type == "sault_schools":
+                    cursor.execute("DELETE FROM sault_schools WHERE id = ?", (item_id,))
                 else:
                     cursor.execute("DELETE FROM sault_tribe WHERE id = ?", (item_id,))
                 conn.commit()
