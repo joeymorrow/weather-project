@@ -571,6 +571,7 @@ def sync_for_location(slug, loc_name, query):
                 is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
                 ai_garage_sales = ai.get("garage_sales", [])
                 ai_sault_tribe = ai.get("sault_tribe", [])
+                ai_sault_schools = ai.get("sault_schools", [])
                 
                 if is_news and new_pulse and "Anchoring" not in new_pulse:
                     try:
@@ -653,6 +654,18 @@ Return ONLY valid JSON: {{"hallucinated": true/false}}
                                 with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                     with conn:
                                         conn.execute("INSERT INTO sault_tribe (date, text, location) VALUES (?, ?, ?)", (date_str, s_text, s_loc))
+                            except sqlite3.IntegrityError:
+                                pass
+                                
+                if slug == "main" and isinstance(ai_sault_schools, list):
+                    for event in ai_sault_schools:
+                        s_text = event.get("text", "")
+                        s_loc = event.get("location", "")
+                        if s_text:
+                            try:
+                                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                    with conn:
+                                        conn.execute("INSERT INTO sault_schools (date, text, location) VALUES (?, ?, ?)", (date_str, s_text, s_loc))
                             except sqlite3.IntegrityError:
                                 pass
                 
