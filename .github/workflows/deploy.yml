@@ -24,28 +24,26 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: YAML Linter (yamllint)
+      - name: Install QA Dependencies
         run: |
-          pip install yamllint
-          yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable, trailing-spaces: disable, empty-lines: disable}}" .
+          python -m pip install --upgrade pip
+          pip install yamllint flake8 bandit pip-audit Jinja2
+          pip install -r requirements.txt || pip install flask requests google-genai pytz python-dotenv msal markdown filelock psutil
+
+      - name: YAML Linter (yamllint)
+        run: yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable, trailing-spaces: disable, empty-lines: disable}}" .
 
       - name: Python Linter (Flake8)
-        run: |
-          pip install flake8
-          # F821 catches undefined variables in Python!
-          flake8 . --select=E9,F63,F7,F82 --show-source --statistics
+        # F821 catches undefined variables in Python!
+        run: flake8 . --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Cybersecurity Analysis (SAST - Bandit)
-        run: |
-          pip install bandit
-          # Run Bandit to scan for SQLi, XSS, Path Traversal, and Hardcoded Secrets
-          bandit -r . -ll --exclude venv,data || echo "Bandit found potential security issues. Review logs."
+        # Run Bandit to scan for SQLi, XSS, Path Traversal, and Hardcoded Secrets
+        run: bandit -r . -ll --exclude venv,data || echo "Bandit found potential security issues. Review logs."
 
       - name: Dependency Vulnerability Analysis (SCA)
-        run: |
-          pip install pip-audit
-          # Scans the environment against the PyPI advisory database for known CVEs
-          pip-audit || echo "pip-audit found vulnerable packages. Review logs."
+        # Scans the environment against the PyPI advisory database for known CVEs
+        run: pip-audit || echo "pip-audit found vulnerable packages. Review logs."
 
       - name: Secret Leak Detection (TruffleHog)
         uses: trufflesecurity/trufflehog@main
@@ -58,7 +56,6 @@ jobs:
 
       - name: Jinja2 Template Validation
         run: |
-          pip install Jinja2
           python -c "
           from jinja2 import Environment, FileSystemLoader
           env = Environment(loader=FileSystemLoader('templates'))
@@ -80,6 +77,12 @@ jobs:
             echo "Secret OPENWEATHERMAP_API_KEY is not configured." >&2
             exit 1
           fi
+          
+      - name: Cache Puppeteer Chrome
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: ${{ runner.os }}-puppeteer
 
       - name: Headless Browser JS Check (Puppeteer)
         env:
@@ -89,7 +92,6 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           # Start the Flask app in the background
-          pip install -r requirements.txt || pip install flask requests google-genai pytz python-dotenv
           python app.py &
           APP_PID=$!
           
