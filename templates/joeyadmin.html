@@ -784,6 +784,14 @@
             </div>
         </div>
 
+        <!-- API Health Status -->
+        <div class="card" style="grid-column: 1 / -1; border-color: #aa00ff; box-shadow: 0 0 15px rgba(170,0,255,0.2);">
+            <h2 style="color: #aa00ff; border-bottom-color: #aa00ff;">🌐 External API Health & Deprecation Checks</h2>
+            <div id="api-health-container">
+                <p style="color: #aaa;">Pinging OpenWeatherMap and Google Gemini APIs...</p>
+            </div>
+        </div>
+
         <!-- Nuclear Option -->
         <div class="card" style="border-color: #ff0000; box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);">
             <h2 style="color: #ff0000; border-bottom-color: #ff0000;">☢️ Nuclear Option</h2>
@@ -975,6 +983,38 @@
 
         initCharts();
         applyTelemetryFilter();
+
+        async function fetchApiHealth() {
+            try {
+                const res = await fetch('/api/internal/api_health');
+                const data = await res.json();
+                
+                let html = `<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <tr style="background: rgba(170,0,255,0.1); border-bottom: 2px solid #aa00ff;">
+                        <th style="padding: 10px; text-align: left; color: #aa00ff;">Service</th>
+                        <th style="padding: 10px; text-align: left; color: #aa00ff;">Status</th>
+                        <th style="padding: 10px; text-align: left; color: #aa00ff;">Latency</th>
+                        <th style="padding: 10px; text-align: left; color: #aa00ff;">Warnings/Errors</th>
+                    </tr>`;
+                    
+                for (const [service, info] of Object.entries(data)) {
+                    let statusColor = info.status === 'OK' ? '#00ff00' : '#ff4444';
+                    let warningsHtml = info.warnings.length > 0 ? info.warnings.join('<br>') : '<span style="color:#666;">None</span>';
+                    html += `<tr style="border-bottom: 1px solid rgba(170,0,255,0.2);">
+                        <td style="padding: 10px; color: #fff; text-transform: capitalize;">${service}</td>
+                        <td style="padding: 10px; font-weight: bold; color: ${statusColor};">${info.status}</td>
+                        <td style="padding: 10px; color: #ccc;">${info.latency}</td>
+                        <td style="padding: 10px; color: #ffaa00;">${warningsHtml}</td>
+                    </tr>`;
+                }
+                html += `</table>`;
+                document.getElementById('api-health-container').innerHTML = html;
+            } catch (e) {
+                document.getElementById('api-health-container').innerHTML = `<p style="color:#ff4444;">Failed to load API health.</p>`;
+            }
+        }
+        
+        fetchApiHealth();
     </script>
 </body>
 </html>

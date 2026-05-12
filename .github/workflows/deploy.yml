@@ -331,6 +331,20 @@ jobs:
             await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
             
+            console.log('Checking API Health and Deprecation status...');
+            const healthRes = await page.evaluate(async () => {
+                const res = await fetch('/api/internal/api_health');
+                return await res.json();
+            });
+            for (const [service, info] of Object.entries(healthRes)) {
+                if (info.status !== 'OK') {
+                    console.error(`[QA API ERROR] ${service} is reporting status ${info.status}: ${info.warnings.join(', ')}`);
+                    errors++;
+                } else if (info.warnings && info.warnings.length > 0) {
+                    console.warn(`[QA API WARNING] ${service} returned warnings: ${info.warnings.join(', ')}`);
+                }
+            }
+            
             console.log('Admin Persona: Adding an EAP Multicast Listener...');
             await page.type('input[name=\"multicast_ip\"]', '239.1.1.1');
             await page.type('input[name=\"port\"]', '5001');

@@ -504,7 +504,10 @@ def get_best_models():
             if score > 0: ranked.append((n_clean, score))
         ranked.sort(key=lambda x: x[1], reverse=True)
         return [r[0] for r in ranked] if ranked else ["gemini-2.5-flash", "gemini-1.5-flash"]
-    except: return ["gemini-2.5-flash", "gemini-1.5-flash"]
+    except Exception as e:
+        print(f"[ERROR] get_best_models: {e}", flush=True)
+        log_system_event("API_ERROR", "Failed to list Gemini models", str(e))
+        return ["gemini-2.5-flash", "gemini-1.5-flash"]
 
 def contains_denied_words(text):
     if not text: return False
@@ -904,7 +907,10 @@ def sync_for_location(slug, loc_name, query):
                 
                 print(f"[API] Success via {m_id} for {slug}", flush=True)
                 success = True; break
-            except: continue
+            except Exception as e:
+                print(f"[API] Generation failed with {m_id}: {e}", flush=True)
+                log_system_event("AI_GENERATION_ERROR", f"Failed with {m_id} on {slug}", str(e))
+                continue
         
         if not success: ai["bubble"] = "Optimizing antenna..."
         
@@ -1489,6 +1495,56 @@ Return ONLY the new prompt text. No markdown formatting, no explanations.
         return jsonify(success=False, error="AI generation failed")
     except Exception as e:
         return jsonify(success=False, error=str(e))
+
+@app.route('/api/internal/api_health')
+def api_health_endpoint():
+    if not session.get("admin_auth") and session.get("role") != "Admin":
+        return jsonify(success=False, error="Unauthorized"), 403
+        
+    health = {
+        "openweathermap": {"status": "Unknown", "latency": "--", "warnings": []},
+        "gemini": {"status": "Unknown", "latency": "--", "warnings": []}
+    }
+    
+    # OpenWeatherMap
+    try:
+        start = time.time()
+        res = http_session.get(f"https://api.openweathermap.org/data/2.5/weather?q=London&appid={OWM_KEY}", timeout=5)
+        elapsed = round((time.time() - start) * 1000)
+        health["openweathermap"]["latency"] = f"{elapsed}ms"
+        if res.status_code == 200:
+            health["openweathermap"]["status"] = "OK"
+            if 'Warning' in res.headers: health["openweathermap"]["warnings"].append(res.headers['Warning'])
+            if 'Deprecation' in res.headers: health["openweathermap"]["warnings"].append("Deprecation: " + res.headers['Deprecation'])
+            if 'Sunset' in res.headers: health["openweathermap"]["warnings"].append("Sunset: " + res.headers['Sunset'])
+        else:
+            health["openweathermap"]["status"] = f"Error {res.status_code}"
+            health["openweathermap"]["warnings"].append(res.text[:100])
+    except Exception as e:
+        health["openweathermap"]["status"] = "Offline"
+        health["openweathermap"]["warnings"].append(str(e))
+        
+    # Gemini API
+    try:
+        start = time.time()
+        global gemini_client
+        if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+        
+        m_list = list(gemini_client.models.list())
+        elapsed = round((time.time() - start) * 1000)
+        health["gemini"]["latency"] = f"{elapsed}ms"
+        
+        if m_list:
+            health["gemini"]["status"] = "OK"
+        else:
+            health["gemini"]["status"] = "Error"
+            health["gemini"]["warnings"].append("No models returned")
+            
+    except Exception as e:
+        health["gemini"]["status"] = "Offline"
+        health["gemini"]["warnings"].append(str(e))
+        
+    return jsonify(health)
 
 @app.before_request
 def check_disabled_pages():
