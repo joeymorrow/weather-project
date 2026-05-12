@@ -31,7 +31,8 @@ jobs:
           pip install -r requirements.txt || pip install flask requests google-genai pytz python-dotenv msal markdown filelock psutil
 
       - name: YAML Linter (yamllint)
-        run: yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable, trailing-spaces: disable, empty-lines: disable}}" .
+        run: |
+          yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable, trailing-spaces: disable, empty-lines: disable}}" .
 
       - name: Python Linter (Flake8)
         # F821 catches undefined variables in Python!
