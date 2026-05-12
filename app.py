@@ -192,8 +192,8 @@ def init_db():
                                 source_url TEXT
                              )''')
             # Seed default sources
-            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (1, 'sault_schools', 'Athletics Calendar', 'soobluedevils.com')")
-            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (2, 'sault_schools', 'Academic Calendar', 'saultschools.org')")
+            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (1, 'sault_schools', 'Athletics Calendar', 'https://soobluedevils.com')")
+            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (2, 'sault_schools', 'Academic Calendar', 'https://saultschools.org')")
             try:
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN type TEXT DEFAULT 'User'")
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN override_group BOOLEAN DEFAULT 0")
