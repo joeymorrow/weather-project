@@ -792,6 +792,16 @@
             </div>
         </div>
 
+        <!-- System Event Logs -->
+        <div class="card" style="grid-column: 1 / -1; border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.2);">
+            <h2 style="color: #00ffff; border-bottom-color: #00ffff;">📝 System Event Logs</h2>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <div id="system-logs-container">
+                    <p style="color: #aaa;">Fetching system logs...</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Nuclear Option -->
         <div class="card" style="border-color: #ff0000; box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);">
             <h2 style="color: #ff0000; border-bottom-color: #ff0000;">☢️ Nuclear Option</h2>
@@ -1014,7 +1024,42 @@
             }
         }
         
+        async function fetchSystemLogs() {
+            try {
+                const res = await fetch('/api/system/logs');
+                const logs = await res.json();
+                
+                if (logs.error) {
+                    document.getElementById('system-logs-container').innerHTML = `<p style="color:#ff4444;">Error: ${logs.error}</p>`;
+                    return;
+                }
+                
+                let html = `<table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem;">
+                    <tr style="background: rgba(0,255,255,0.1); border-bottom: 2px solid #00ffff; position: sticky; top: 0;">
+                        <th style="padding: 8px; text-align: left; color: #00ffff;">Timestamp</th>
+                        <th style="padding: 8px; text-align: left; color: #00ffff;">Type</th>
+                        <th style="padding: 8px; text-align: left; color: #00ffff;">Message</th>
+                        <th style="padding: 8px; text-align: left; color: #00ffff;">Details</th>
+                    </tr>`;
+                    
+                for (const log of logs) {
+                    let typeColor = log.type.includes('ERROR') ? '#ff4444' : '#00ff00';
+                    html += `<tr style="border-bottom: 1px solid rgba(0,255,255,0.2);">
+                        <td style="padding: 8px; color: #aaa; white-space: nowrap;">${log.timestamp}</td>
+                        <td style="padding: 8px; font-weight: bold; color: ${typeColor};">${log.type}</td>
+                        <td style="padding: 8px; color: #fff;">${log.message}</td>
+                        <td style="padding: 8px; color: #aaa; word-break: break-word;">${log.details || ''}</td>
+                    </tr>`;
+                }
+                html += `</table>`;
+                document.getElementById('system-logs-container').innerHTML = html;
+            } catch (e) {
+                document.getElementById('system-logs-container').innerHTML = `<p style="color:#ff4444;">Failed to load system logs.</p>`;
+            }
+        }
+
         fetchApiHealth();
+        fetchSystemLogs();
     </script>
 </body>
 </html>

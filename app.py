@@ -495,19 +495,20 @@ def get_best_models():
             n = m.name.lower()
             n_clean = m.name.replace("models/", "")
             score = 0
-            if "3.1-flash-lite" in n: score = 2000
-            elif "2.5-flash-lite" in n: score = 1500
-            elif "3-flash" in n: score = 1000
-            elif "2.5-flash" in n: score = 800
+            if "3.1-flash" in n: score = 2000
+            elif "3.0-flash" in n: score = 1800
+            elif "2.5-flash" in n: score = 1500
+            elif "2.0-flash-lite" in n: score = 1200
+            elif "2.0-flash" in n: score = 1000
             elif "1.5-flash" in n: score = 500
             if "pro" in n or "ultra" in n: score -= 5000
             if score > 0: ranked.append((n_clean, score))
         ranked.sort(key=lambda x: x[1], reverse=True)
-        return [r[0] for r in ranked] if ranked else ["gemini-2.5-flash", "gemini-1.5-flash"]
+        return [r[0] for r in ranked] if ranked else ["gemini-2.0-flash", "gemini-1.5-flash"]
     except Exception as e:
         print(f"[ERROR] get_best_models: {e}", flush=True)
         log_system_event("API_ERROR", "Failed to list Gemini models", str(e))
-        return ["gemini-2.5-flash", "gemini-1.5-flash"]
+        return ["gemini-2.0-flash", "gemini-1.5-flash"]
 
 def contains_denied_words(text):
     if not text: return False
