@@ -716,7 +716,6 @@ def sync_for_location(slug, loc_name, query):
             else:
                 last_pulse_topic = state.get("tenants", {}).get(slug, {}).get("pulse", "")
         
-        global last_deep_search
         now_ts_sec = time.time()
         
         # DEEP SEARCH RATE LIMITER: 
