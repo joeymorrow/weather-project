@@ -83,7 +83,7 @@
         #pos-bed { position: absolute; left: 50%; bottom: 2vh; transform: translateX(-50%); width: clamp(120px, 15vmin, 300px); height: clamp(60px, 8vmin, 180px); border-radius: 20px; border: 2px solid var(--pod-border); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 7rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
         #pos-bed:hover { filter: grayscale(0%) opacity(1); transform: translateX(-50%) scale(1.05); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100; }
         #pos-bed.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); pointer-events: none; z-index: 6; }
-        #center-info { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 60vw; max-width: 1400px; pointer-events: none; z-index: 10; }
+        #center-info { position: absolute; top: calc(20% + 6vh); left: 50%; transform: translateX(-50%); text-align: center; width: 60vw; max-width: 1400px; pointer-events: none; z-index: 10; }
         .date-line { font-size: clamp(0.9rem, 1.2vw, 2.5rem); color: var(--accent); opacity: 0.45; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
         .clock { font-size: clamp(2rem, 4vw, 6rem); color: var(--accent); margin-bottom: -5px; opacity: 0.85; text-shadow: 0 4px 20px var(--shadow-color), 0 0 40px var(--shadow-color); } .temp { font-size: clamp(4rem, 8vw, 14rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; opacity: 0.85; text-shadow: 0 6px 30px var(--shadow-color), 0 0 60px var(--shadow-color); }
         .suggestion { font-size: clamp(0.9rem, 1.4vw, 2rem); color: var(--accent); font-weight: bold; margin: 2px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 4px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); text-wrap: pretty; }
@@ -144,7 +144,7 @@
         .arm { width: 12px; height: 32px; background: var(--buddy-blue); border-radius: 20px; position: absolute; top: 42px; box-shadow: inset 4px 6px 8px rgba(255,255,255,0.6), inset -4px -6px 8px rgba(0,0,0,0.3), 0 0 10px var(--accent); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .arm.left { left: 10px; transform: rotate(10deg); } .arm.right { right: 10px; transform: rotate(-10deg); display: flex; justify-content: center; align-items: flex-end; }
         .zzz-socket { position: absolute; top: -35px; left: 30px; font-size: 2.5rem; opacity: 0; pointer-events: none; }
-        .bubble { position: absolute; background: rgba(0,0,0,0.95); border: 2px solid var(--accent); padding: 8px 12px; border-radius: 12px; color: var(--accent); font-size: 0.85rem; bottom: 130%; left: 50%; transform: translateX(-50%); white-space: normal; width: max-content; max-width: 220px; text-align: center; font-weight: bold; z-index: 10; text-wrap: pretty; }
+        .bubble { position: absolute; background: rgba(0,0,0,0.75); border: 1px solid var(--accent); padding: clamp(8px, 1vh, 12px) clamp(12px, 1vw, 20px); border-radius: 12px; color: var(--accent); font-size: clamp(0.85rem, 1vw, 1.2rem); bottom: 130%; left: 50%; transform: translateX(-50%); white-space: normal; width: max-content; max-width: clamp(220px, 20vw, 400px); text-align: center; font-weight: bold; z-index: 10; text-wrap: pretty; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); transition: max-width 0.3s ease, padding 0.3s ease, font-size 0.3s ease; }
         .sleeping .eye { opacity: 0 !important; }
         .sleeping .mouth { display: block !important; animation: yawn 5s infinite !important; }
         .sleeping .bubble { display: none !important; }
@@ -439,7 +439,7 @@
         <div class="forecast-line" id="ui-forecast" aria-live="polite">{{ forecast }}</div>
         <div class="suggestion" id="ui-sugg" aria-live="polite">{% if 'Initializing' in suggestion %}{{ suggestion }}{% else %}🧥 Suggested Attire: {{ suggestion }}{% endif %}</div>
         
-        <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1.8rem); color: var(--accent); opacity: 0.65; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: 6px 20px; border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">{{ tomorrow_label | default('Tomorrow') }}: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
+        <div id="ui-desc-tomorrow" aria-live="polite" style="font-size: clamp(0.85rem, 1.2vw, 1.8rem); color: var(--accent); opacity: 0.65; display: {% if is_late_night %}block{% else %}none{% endif %}; margin: 2px auto; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); padding: clamp(6px, 1vh, 12px) clamp(15px, 2vw, 30px); border-radius: 12px; width: fit-content; text-align: center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color);">{{ tomorrow_label | default('Tomorrow') }}: {{ t_desc }} | H: {{ t_high }}° L: {{ t_low }}° | 💧 {{ t_pop }}%</div>
         <div class="pulse-line" id="ui-pulse" role="button" aria-live="polite" tabindex="0" onclick="openPulseHistory()" onkeydown="if(event.key==='Enter')openPulseHistory()" title="Click to view Pulse Archives">{{ pulse | safe }}</div>
     </div>
     <div id="school-closings-container" style="display: none; position: absolute; bottom: 8vh; left: 0; width: 100vw; background: var(--bg); z-index: 1001; pointer-events: none; opacity: 1;">
@@ -700,12 +700,14 @@
             let tX = 'translateX(-50%)';
             let tOrigin = 'bottom center';
             
+            const edgeThreshold = Math.max(150, bbl.offsetWidth / 2 + 20);
+            
             // 1. Horizontal check: shift the text box to the opposite side if near edges
-            if (bX < 150) {
+            if (bX < edgeThreshold) {
                 bbl.style.setProperty('left', '20px', 'important');
                 bbl.style.setProperty('right', 'auto', 'important');
                 tX = 'translateX(0)'; tOrigin = 'bottom left';
-            } else if (bX > window.innerWidth - 150) {
+            } else if (bX > window.innerWidth - edgeThreshold) {
                 bbl.style.setProperty('left', 'auto', 'important');
                 bbl.style.setProperty('right', '20px', 'important');
                 tX = 'translateX(0)'; tOrigin = 'bottom right';
@@ -717,9 +719,11 @@
             // 2. Vertical check: Drop it closer, or below Buddy if dangerously near top of viewport
             bbl.style.setProperty('bottom', isMobile ? '105%' : '130%', 'important');
             bbl.style.setProperty('top', 'auto', 'important');
-            if (bY < 120) {
+            
+            const bblHeight = bbl.offsetHeight;
+            if (bY < bblHeight + 30) {
                 bbl.style.setProperty('bottom', '100%', 'important');
-                if (bY < 60) {
+                if (bY < bblHeight) {
                     bbl.style.setProperty('bottom', 'auto', 'important');
                     bbl.style.setProperty('top', '110%', 'important');
                     tOrigin = tOrigin.replace('bottom', 'top');
@@ -2007,9 +2011,10 @@
                     destTop = cy - (b.offsetHeight/2) - 55;
                 } else {
                     const r = t.getBoundingClientRect();
+                const dynamicOffset = Math.max(55, r.width * 0.6); // Scale offset relative to the pod's actual screen size!
                     let xOffset = 0;
                     if (currentStation !== 'bed') {
-                        xOffset = b.dataset.orbitSide === 'left' ? -55 : 55;
+                    xOffset = b.dataset.orbitSide === 'left' ? -dynamicOffset : dynamicOffset;
                     }
                     destLeft = r.left + (r.width/2) - (b.offsetWidth/2) + xOffset;
                     
