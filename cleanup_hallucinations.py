@@ -124,8 +124,8 @@ def setup_db():
 
 def check_hallucination(text, date_str, item_type="pulse"):
     if item_type == "garage_sale":
-        rules = "- Buddy acts as a local scout for garage sales. He searches for VERIFIABLE garage, yard, or estate sales happening today or tomorrow. If the text mentions specific addresses, times, or sales that did not occur or are not scheduled, IT IS A HALLUCINATION."
-        instructions = "1. Search Google to see if this specific garage/yard sale was advertised for this location and date.\n2. If you cannot find any proof of a sale at this address/time, it is a hallucination."
+        rules = "- Buddy acts as a local scout for garage sales. He searches for VERIFIABLE garage, yard, or estate sales happening today or tomorrow in Sault Ste. Marie, Michigan. If the text mentions specific addresses, times, or sales that did not occur or are not scheduled, IT IS A HALLUCINATION. He must EXCLUDE Canadian garage sales (in Sault Ste. Marie, Ontario) UNLESS it is a large flea market or an equivalent major event."
+        instructions = "1. Search Google to see if this specific garage/yard sale was advertised for this location and date.\n2. If you cannot find any proof of a sale at this address/time, it is a hallucination.\n3. If the sale is located in Canada (Ontario) and is NOT a large flea market or equivalent major event, flag it as a hallucination.\n4. If the location/address provided is just a number without a street or road name, it is invalid and MUST be flagged as a hallucination."
     elif item_type == "sault_tribe":
         rules = "- Buddy acts as a local scout for Sault Ste. Marie Tribe of Chippewa Indians news and events. He searches for VERIFIABLE tribal news, cultural events, or announcements. Fake events or workshops are HALLUCINATIONS."
         instructions = "1. Search Google to see if this specific Sault Tribe event/news was published or advertised for this location and date.\n2. If you cannot find any proof, it is a hallucination."

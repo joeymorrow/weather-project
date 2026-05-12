@@ -547,7 +547,7 @@ def sync_for_location(slug, loc_name, query):
         extra_tasks = ""
         json_format = '{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
         if slug == "main" and not is_late_night:
-            extra_tasks = "Task 6 (Garage Sales): SEARCH for real Garage/Yard Sales in Sault Ste. Marie TODAY or TOMORROW.\n        Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news/events.\n        "
+            extra_tasks = "Task 6 (Garage Sales): SEARCH for real Garage/Yard Sales in Sault Ste. Marie, Michigan TODAY or TOMORROW. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market or an equivalent major event. The 'location' must contain a valid street/road name (e.g., '123 Main St'). If the address is only digits with no street name, do NOT include it.\n        Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news/events.\n        "
             json_format += ', "garage_sales": [{"text": "sale info", "location": "address"}], "sault_tribe": [{"text": "news/event", "location": "location"}]'
         json_format += ' }'
 

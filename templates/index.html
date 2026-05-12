@@ -270,7 +270,21 @@
         @media (max-width: 480px) {
             body { padding-bottom: max(20px, env(safe-area-inset-bottom)) !important; }
             #header-container { padding-top: max(40px, calc(env(safe-area-inset-top) + 30px)); gap: 6px; }
-            #lore-trigger { top: max(20px, env(safe-area-inset-top)); left: max(20px, env(safe-area-inset-left)); }
+            #lore-trigger, #weekly-trigger, #agenda-trigger, #docs-trigger, #graph-trigger, #garage-trigger, #tribe-trigger, #school-trigger, #route-trigger, #mobile-nav-btn, #fs-toggle-main {
+                top: max(20px, env(safe-area-inset-top, 0px)) !important;
+            }
+            #lore-trigger { left: max(20px, env(safe-area-inset-left, 0px)) !important; }
+            #weekly-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 26px) !important; }
+            #agenda-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 52px) !important; }
+            #docs-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 78px) !important; }
+            #graph-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 104px) !important; }
+            #garage-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 130px) !important; }
+            #tribe-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 156px) !important; }
+            #school-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 182px) !important; }
+            #route-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 208px) !important; }
+            #lore-trigger, #weekly-trigger, #agenda-trigger, #docs-trigger, #graph-trigger, #garage-trigger, #tribe-trigger, #school-trigger, #route-trigger {
+                width: 22px !important; height: 22px !important; font-size: 0.85rem !important;
+            }
             #center-info { align-items: center !important; }
             .temp-row { width: 100% !important; justify-content: center !important; align-items: center !important; }
             .suggestion { padding: 10px 20px !important; margin: 15px auto !important; line-height: 1.4 !important; word-wrap: break-word; }
@@ -281,7 +295,9 @@
             #mobile-nav-btn { display: flex !important; }
             #hourly-container { opacity: 0 !important; background: var(--bg) !important; z-index: 3000 !important; pointer-events: auto !important; transition: opacity 0.3s ease !important; }
             #hourly-container.active { opacity: 1 !important; }
-            #fs-toggle-main { right: 60px !important; }
+            .lore-box { top: max(60px, calc(env(safe-area-inset-top, 0px) + 40px)) !important; }
+            #fs-toggle-main { right: 55px !important; }
+            #mobile-nav-btn { right: max(20px, env(safe-area-inset-right, 0px)) !important; }
         }
         
         /* High Contrast Theme Override */
@@ -503,7 +519,7 @@
             </div>
         </div>
     </div>
-    <div id="buddy-container" tabindex="0" onclick="leaveForMorrowEdge()" oncontextmenu="if(window.updateSecretMenuUI) window.updateSecretMenuUI(); document.getElementById('egg-modal').style.display='flex'; return false;" onkeydown="if(event.key==='Enter') leaveForMorrowEdge();" class="{% if is_sleeping %}sleeping{% endif %}">
+    <div id="buddy-container" tabindex="0" onclick="petBuddy()" oncontextmenu="if(window.updateSecretMenuUI) window.updateSecretMenuUI(); document.getElementById('egg-modal').style.display='flex'; return false;" onkeydown="if(event.key==='Enter') petBuddy();" class="{% if is_sleeping %}sleeping{% endif %}">
         <div id="buddy-swing" style="width: 100%; height: 100%;">
             <div id="buddy-float">
                 <div class="buddy-aura"></div>
@@ -568,7 +584,7 @@
                 if (window.onDate || window.isKaiju || window.isRaving) return;
                 if (e.type === 'mousedown' && e.button !== 0) return; 
                 checkObfuscation();
-                if (!isObfuscating && !isManuallyMoved) return; // 🛑 RESTRICT DRAGGABILITY!
+        // Removed draggability restriction so users can freely drag Buddy!
                 isDragging = true;
                 dragMoved = false;
                 isManuallyMoved = true;
@@ -903,13 +919,13 @@
             ambientWakeTimer = setTimeout(() => document.body.classList.remove('ambient-awake'), 4000);
         }));
 
-        function leaveForMorrowEdge() {
+    window.petBuddy = function() {
             if (dragMoved) return;
             if (window.onDate || window.isRaving || window.isKaiju) return; // Don't leave if he's busy!
-            document.documentElement.style.background = '#010103';
-            document.body.style.transition = 'opacity 1s ease';
-            document.body.style.opacity = '0';
-            setTimeout(() => { location.href = 'https://morrowedge.com'; }, 1000);
+        const b = document.getElementById('buddy-container');
+        b.classList.add('waking-up');
+        setBubbleText("😊");
+        setTimeout(() => { b.classList.remove('waking-up'); syncBuddy(); }, 1200);
         }
 
         const alienChars = 'ⴷⴹⴺⴻⴽⴾⵀⵁⵂⵃⵄⵉⵊⵋⵌⵍⵎⵏⵐⵑⵓⵔⵕⵙⵚⵛⵠⵡⵢ';
