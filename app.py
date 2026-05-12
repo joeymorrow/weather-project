@@ -895,6 +895,15 @@ def sync_for_location(slug, loc_name, query):
 
     except Exception as e: 
         print(f"[ERROR] sync_for_location {slug}: {e}", flush=True)
+        current_time = time.time()
+        if current_time - api_alerts.get("last_sent", 0) > 3600:
+            send_alert_email(
+                "[HIGH PRIORITY - BEACON BUDDY] API Integration Failure", 
+                f"An unexpected error occurred during the data sync for {slug}.\n\nError Details: {str(e)}\n\nThis usually means an external API (like OpenWeatherMap) changed its response format, omitting an expected parameter.\n\nThe dashboard has auto-healed to a safe fallback state, but please review app.py to iterate on the new API schema.",
+                os.environ.get("SMTP_USER", "joseph@morrowedge.com")
+            )
+            api_alerts["last_sent"] = current_time
+
         with state_lock: 
             err_dict = {
                 "bubble": "I'm having trouble seeing the sky right now, but stay safe!",
@@ -2108,74 +2117,56 @@ def cooladmin():
                 except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
 
-        elif action == 'add_pulse':
+        elif action in ['add_pulse', 'add_garage_sale', 'add_sault_tribe', 'add_sault_school_event']:
+            table_map = {
+                'add_pulse': 'pulses', 'add_garage_sale': 'garage_sales',
+                'add_sault_tribe': 'sault_tribe', 'add_sault_school_event': 'sault_schools'
+            }
+            table = table_map[action]
             text = request.form.get('text', '').strip()
-            date_str = request.form.get('date', '').strip()
-            if date_str:
-                try:
-                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
-                    date_str = dt.strftime('%B %d')
-                except: pass
-            else:
-                date_str = datetime.now(TZ).strftime('%B %d')
+            date_input = request.form.get('date', '').strip()
             loc = request.form.get('location', '').strip()
+            
             if text:
+                now = datetime.now(TZ)
+                if date_input:
+                    try:
+                        dt = datetime.strptime(date_input, '%Y-%m-%dT%H:%M')
+                    except:
+                        dt = now
+                else:
+                    dt = now
+                date_str = dt.strftime('%B %d, %I:%M %p') + " [manual]"
+                
+                details = {}
                 try:
-                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                        with conn: conn.execute("INSERT INTO pulses (date, text, location) VALUES (?, ?, ?)", (date_str, text, loc))
-                except: pass
-            return redirect('/cooladmin')
-        elif action == 'add_garage_sale':
-            text = request.form.get('text', '').strip()
-            date_str = request.form.get('date', '').strip()
-            if date_str:
-                try:
-                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
-                    date_str = dt.strftime('%B %d')
-                except: pass
-            else:
-                date_str = datetime.now(TZ).strftime('%B %d')
-            loc = request.form.get('location', '').strip()
-            if text:
-                try:
-                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                        with conn: conn.execute("INSERT INTO garage_sales (date, text, location) VALUES (?, ?, ?)", (date_str, text, loc))
-                except: pass
-            return redirect('/cooladmin')
-        elif action == 'add_sault_tribe':
-            text = request.form.get('text', '').strip()
-            date_str = request.form.get('date', '').strip()
-            if date_str:
-                try:
-                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
-                    date_str = dt.strftime('%B %d')
-                except: pass
-            else:
-                date_str = datetime.now(TZ).strftime('%B %d')
-            loc = request.form.get('location', '').strip()
-            if text:
-                try:
-                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                        with conn: conn.execute("INSERT INTO sault_tribe (date, text, location) VALUES (?, ?, ?)", (date_str, text, loc))
-                except: pass
-            return redirect('/cooladmin')
+                    v_res, _ = verify_events_batch([{"id": "manual", "text": text}])
+                    if "manual" in v_res:
+                        details = v_res["manual"].get("details", {})
+                        details["model"] = "manual"
+                        details["timestamp"] = now.strftime('%Y-%m-%d %I:%M %p')
+                except Exception as e:
+                    print(f"Manual 5W extraction failed: {e}", flush=True)
 
-        elif action == 'add_sault_school_event':
-            text = request.form.get('text', '').strip()
-            date_str = request.form.get('date', '').strip()
-            if date_str:
-                try:
-                    dt = datetime.strptime(date_str, '%Y-%m-%dT%H:%M')
-                    date_str = dt.strftime('%B %d')
-                except: pass
-            else:
-                date_str = datetime.now(TZ).strftime('%B %d')
-            loc = request.form.get('location', '').strip()
-            if text:
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                        with conn: conn.execute("INSERT INTO sault_schools (date, text, location) VALUES (?, ?, ?)", (date_str, text, loc))
+                        with conn: 
+                            conn.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, loc, json.dumps(details))) # nosec B608
                 except: pass
+
+                with state_lock:
+                    if table == 'pulses':
+                        state['pulse_history'] = load_history()
+                    elif table == 'garage_sales':
+                        state['garage_sales'] = load_garage_sales()
+                    elif table == 'sault_tribe':
+                        state['sault_tribe'] = load_sault_tribe()
+                    elif table == 'sault_schools':
+                        state['sault_schools'] = load_sault_schools()
+                    try:
+                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                    except: pass
+
             return redirect('/cooladmin')
 
         elif action == 'approve_submission':

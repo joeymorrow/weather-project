@@ -261,8 +261,9 @@ def main():
         # Age out Pulses (> 36 hours)
         for pulse_id, date_str, text in pulses:
             try:
-                # Reconstruct datetime from pulse text ('May 09') assuming current year
-                dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
+                date_clean = date_str.split('[')[0].strip()
+                try: dt_naive = datetime.strptime(f"{now.year} {date_clean}", "%Y %B %d, %I:%M %p")
+                except ValueError: dt_naive = datetime.strptime(f"{now.year} {date_clean}", "%Y %B %d")
                 dt = pytz.timezone('America/Detroit').localize(dt_naive)
                 if dt > now: dt = dt.replace(year=now.year - 1)
 
@@ -281,7 +282,9 @@ def main():
         # Age out Garage Sales (> 48 hours to preserve today and tomorrow only)
         for sale_id, date_str, text in garage_sales:
             try:
-                dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
+                date_clean = date_str.split('[')[0].strip()
+                try: dt_naive = datetime.strptime(f"{now.year} {date_clean}", "%Y %B %d, %I:%M %p")
+                except ValueError: dt_naive = datetime.strptime(f"{now.year} {date_clean}", "%Y %B %d")
                 dt = pytz.timezone('America/Detroit').localize(dt_naive)
                 if dt > now: dt = dt.replace(year=now.year - 1)
 
@@ -298,7 +301,9 @@ def main():
         # Age out Sault Tribe (> 72 hours)
         for tribe_id, date_str, text in sault_tribe:
             try:
-                dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
+                date_clean = date_str.split('[')[0].strip()
+                try: dt_naive = datetime.strptime(f"{now.year} {date_clean}", "%Y %B %d, %I:%M %p")
+                except ValueError: dt_naive = datetime.strptime(f"{now.year} {date_clean}", "%Y %B %d")
                 dt = pytz.timezone('America/Detroit').localize(dt_naive)
                 if dt > now: dt = dt.replace(year=now.year - 1)
 
@@ -315,7 +320,9 @@ def main():
         # Age out Sault Schools (> 72 hours)
         for school_id, date_str, text in sault_schools:
             try:
-                dt_naive = datetime.strptime(f"{now.year} {date_str}", "%Y %B %d")
+                date_clean = date_str.split('[')[0].strip()
+                try: dt_naive = datetime.strptime(f"{now.year} {date_clean}", "%Y %B %d, %I:%M %p")
+                except ValueError: dt_naive = datetime.strptime(f"{now.year} {date_clean}", "%Y %B %d")
                 dt = pytz.timezone('America/Detroit').localize(dt_naive)
                 if dt > now: dt = dt.replace(year=now.year - 1)
 
