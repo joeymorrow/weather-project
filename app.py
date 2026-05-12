@@ -442,6 +442,7 @@ def get_best_models():
         ranked = []
         for m in all_m:
             n = m.name.lower()
+            n_clean = m.name.replace("models/", "")
             score = 0
             if "3.1-flash-lite" in n: score = 2000
             elif "2.5-flash-lite" in n: score = 1500
@@ -449,10 +450,10 @@ def get_best_models():
             elif "2.5-flash" in n: score = 800
             elif "1.5-flash" in n: score = 500
             if "pro" in n or "ultra" in n: score -= 5000
-            if score > 0: ranked.append((m.name, score))
+            if score > 0: ranked.append((n_clean, score))
         ranked.sort(key=lambda x: x[1], reverse=True)
-        return [r[0] for r in ranked] if ranked else ["models/gemini-2.1-flash-lite", "models/gemini-1.5-flash"]
-    except: return ["models/gemini-2.1-flash-lite", "models/gemini-1.5-flash"]
+        return [r[0] for r in ranked] if ranked else ["gemini-2.5-flash", "gemini-1.5-flash"]
+    except: return ["gemini-2.5-flash", "gemini-1.5-flash"]
 
 def contains_denied_words(text):
     if not text: return False
