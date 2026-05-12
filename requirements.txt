@@ -1,7 +1,7 @@
 beautifulsoup4
 filelock
 Flask
-google-generativeai
+google-genai
 gunicorn
 Jinja2
 markdown
