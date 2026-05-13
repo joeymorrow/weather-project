@@ -540,7 +540,7 @@
         
         <!-- Local Feeds Management -->
         <div class="card">
-            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏷️ Garage Sales</span></h2>
+            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏷️ Garage Sales ({{ garage_sales|length }})</span></h2>
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="garage_sales"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
                 <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('garage_sales')">🤖 Analyze Checked & Suggest Prompt</button>
@@ -599,7 +599,7 @@
 
         <!-- Sault Tribe News -->
         <div class="card">
-            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🪶 Sault Tribe News</span></h2>
+            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🪶 Sault Tribe News ({{ sault_tribe|length }})</span></h2>
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="sault_tribe"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
                 <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('sault_tribe')">🤖 Analyze Checked & Suggest Prompt</button>
@@ -658,7 +658,7 @@
 
         <!-- Sault Schools Events -->
         <div class="card">
-            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏫 Sault Schools Activity</span></h2>
+            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏫 Sault Schools Activity ({{ sault_schools|length }})</span></h2>
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="sault_schools"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
                 <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('sault_schools')">🤖 Analyze Checked & Suggest Prompt</button>
@@ -738,7 +738,14 @@
                     <td style="padding: 10px;">{{ src.name }}</td>
                     <td style="padding: 10px;"><a href="{{ src.url }}" target="_blank" style="color:#0ff;">{{ src.url }}</a></td>
                     <td style="padding: 10px; text-align: right;">
-                        <form method="POST" style="margin:0;"><input type="hidden" name="action" value="delete_vetted_source"><input type="hidden" name="source_id" value="{{ src.id }}"><button type="submit" class="danger-btn" style="padding: 4px 8px;">Remove</button></form>
+                        <form method="POST" style="margin:0; display:flex; align-items:center; justify-content:flex-end; gap:10px;" onsubmit="return confirm('Remove this source? Note: You must manually check the archive deletion box if you want linked events purged too.')">
+                            <input type="hidden" name="action" value="delete_vetted_source">
+                            <input type="hidden" name="source_id" value="{{ src.id }}">
+                            <label style="font-size: 0.7rem; color: #ffaa00; cursor: pointer;" title="If checked, any event currently on the dashboard that ONLY uses this source will be deleted.">
+                                <input type="checkbox" name="delete_archives" value="yes" style="vertical-align: middle; margin: 0;"> Delete Sole Archives?
+                            </label>
+                            <button type="submit" class="danger-btn" style="padding: 4px 8px;">Remove</button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}
@@ -853,6 +860,9 @@
     <div style="text-align: center; margin-top: 30px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
         <a href="/docs/cooladmin" target="_blank" class="nav-home" style="color: #ffaa00; margin-top: 0;">📚 Documentation</a>
         <a href="/" class="nav-home" style="margin-top: 0;">← Return to Base</a>
+        <form method="POST" action="/profile/delete_account" style="margin:0;" onsubmit="return confirm('Are you sure you want to permanently delete your native account?');">
+            <button type="submit" class="danger-btn" style="margin-top:0; border-color:#ff4444; color:#ff4444;">❌ Delete My Account</button>
+        </form>
     </div>
     
     <!-- Details Modal & AI Suggestions -->

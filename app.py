@@ -201,6 +201,9 @@ def init_db():
             # Seed default sources
             pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (1, 'sault_schools', 'Athletics Calendar', 'https://soobluedevils.com')")
             pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (2, 'sault_schools', 'Academic Calendar', 'https://saultschools.org')")
+            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (3, 'pulses', 'Sault News', 'https://www.sooeveningnews.com')")
+            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (4, 'sault_tribe', 'Sault Tribe News', 'https://saulttribe.com/news')")
+            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (5, 'pulses', '9&10 News Sault', 'https://www.9and10news.com')")
             try:
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN type TEXT DEFAULT 'User'")
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN override_group BOOLEAN DEFAULT 0")
@@ -208,6 +211,10 @@ def init_db():
                 pass
             try:
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN password TEXT")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN last_login DATETIME")
             except sqlite3.OperationalError:
                 pass
             
@@ -573,7 +580,7 @@ def sync_for_location(slug, loc_name, query):
         now = datetime.now(TZ)
         h = now.hour
         is_sleep = (h >= 22 or h < 6)
-        st_id = "bed" if is_sleep else next((v for k,v in {21:"kitchen", 20:"garage", 19:"library", 17:"store", 16:"gym", 8:"office", 6:"coffee"}.items() if h >= k), "coffee")
+        st_id = "bed" if is_sleep else next((v for k,v in {20:"kitchen", 19:"library", 17:"store", 16:"gym", 8:"office", 6:"coffee"}.items() if h >= k), "coffee")
         
         # Calculate dynamic daylight state and precipitation
         raw_sunrise = w['sys']['sunrise']
@@ -957,7 +964,7 @@ def sync_for_location(slug, loc_name, query):
                 "low": today_low,
                 "desc": w['weather'][0]['description'].title(), "icon": w['weather'][0]['icon'],
                 "date": now.strftime(f"%A, %B {day}{suffix}, %Y"), "time": now.strftime('%I:%M %p'), 
-                "station": st_id, "is_sleeping": is_sleep, "show_bed": (st_id == "bed"), 
+                "station": st_id, "is_sleeping": is_sleep, "show_bed": (h >= 20 or h < 6), 
                 "t_high": t_high, "t_low": t_low, "t_desc": t_desc, "t_pop": t_pop,
                 "tomorrow_label": tomorrow_ui_label,
                 "is_late_night": is_late_night,
@@ -974,6 +981,7 @@ def sync_for_location(slug, loc_name, query):
                 "pulse_history": hist,
                 "garage_sales": load_garage_sales(),
                 "sault_tribe": load_sault_tribe(),
+                "sault_schools": load_sault_schools(),
                 "school_closings": {"sault_closed": sault_closed, "other_closings": other_closings}
         }
 
@@ -1159,6 +1167,15 @@ def monitor_loop():
                     except: continue
             except Exception as e:
                 print(f"[ERROR] AI Leak eval/email failed: {e}", flush=True)
+
+        # 4. Cleanup expired demos
+        try:
+            now_str = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("DELETE FROM beacon_pages WHERE slug LIKE 'demo-%' AND expires_at < ?", (now_str,))
+        except Exception as e:
+            pass
 
 def hallucination_cleanup_loop():
     # Prevent multiple workers from running redundant loops
@@ -1893,13 +1910,28 @@ def login_page():
         try:
             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                 c = conn.cursor()
-                c.execute("SELECT role, password FROM rbac_users WHERE username=? AND provider='Local'", (username,))
+                c.execute("SELECT role, password, last_login FROM rbac_users WHERE username=? AND provider='Local'", (username,))
                 row = c.fetchone()
                 if row and row[1] and check_password_hash(row[1], password):
                     session['user'] = username
                     session['role'] = row[0]
                     if row[0] == 'Admin':
                         session['admin_auth'] = True
+                        
+                    last_login = row[2]
+                    now_str = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
+                    try:
+                        with conn:
+                            conn.execute("UPDATE rbac_users SET last_login=? WHERE username=? AND provider='Local'", (now_str, username))
+                    except: pass
+                    
+                    if not last_login:
+                        send_alert_email("First Time Login", f"User {username} logged in for the first time.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+                    else:
+                        ll_dt = datetime.strptime(last_login, '%Y-%m-%d %H:%M:%S')
+                        if (datetime.now(TZ).replace(tzinfo=None) - ll_dt).days > 30:
+                            send_alert_email("Re-engagement Login", f"User {username} logged in after more than 30 days.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+                            
                     return redirect(next_url)
         except Exception as e:
             print(f"Login error: {e}", flush=True)
@@ -1922,9 +1954,32 @@ def login_page():
         <input type="text" name="username" placeholder="Username" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #00ffff; background:#000; color:#0ff; border-radius:4px; box-sizing:border-box;">
         <input type="password" name="password" placeholder="Password" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #00ffff; background:#000; color:#0ff; border-radius:4px; box-sizing:border-box;">
         <button type="submit" style="width:100%; padding:10px; background:transparent; border:1px solid #00ffff; color:#00ffff; border-radius:4px; font-weight:bold; cursor:pointer;">Native Login</button>
+        <div style="text-align:right; margin-top:5px;"><a href="/forgot_password" style="color:#aaa; font-size:0.8rem; text-decoration:none;">Forgot Password?</a></div>
     </form>
     """
     return f"<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><div style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px; box-shadow:0 0 15px rgba(0,255,255,0.1); width:300px;'><h2 style='text-align:center; margin-top:0;'>BEACON LOGIN</h2>{error_msg}{buttons}{native_form}</div></body>"
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        if email:
+            send_alert_email("Password Reset Requested", f"User {email} has requested a password reset. Please contact them.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+        return "<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><h3>If the email exists, a reset instruction has been sent to the administrator.</h3></body>"
+    return "<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><form method='POST' style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px;'><h3 style='margin-top:0;'>Reset Password</h3><input type='email' name='email' placeholder='Enter your Account Email' required style='padding:10px; width:100%; box-sizing:border-box; margin-bottom:10px; background:#000; color:#0ff; border:1px solid #0ff;'/><button type='submit' style='padding:10px; width:100%; background:#00ffff; color:#000; font-weight:bold; border:none; cursor:pointer;'>Request Reset</button></form></body>"
+
+@app.route('/profile/delete_account', methods=['POST'])
+def delete_account():
+    user = session.get('user')
+    if user and session.get('provider') == 'Local':
+        try:
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("DELETE FROM rbac_users WHERE username=?", (user,))
+            send_alert_email("Account Deleted", f"User {user} has deleted their native account.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+        except: pass
+        session.clear()
+    return redirect('/')
 
 @app.route('/logout')
 def logout():
@@ -2163,6 +2218,9 @@ def cooladmin():
             role = request.form.get('role', 'Viewer')
             password = request.form.get('password', '')
             
+            if provider == 'Local' and '@' not in username:
+                username = f"{username}@local.invalid" # Enforce email-like struct natively
+            
             hashed_pw = generate_password_hash(password) if password else None
             
             if username:
@@ -2219,8 +2277,23 @@ def cooladmin():
             
         elif action == 'delete_vetted_source':
             source_id = request.form.get('source_id')
+            delete_archives = request.form.get('delete_archives') == 'yes'
             try:
                 with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT topic, source_url FROM vetted_sources WHERE id=?", (source_id,))
+                    row = c.fetchone()
+                    if row:
+                        topic, url = row
+                        if delete_archives and topic in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
+                            c.execute(f"SELECT id, details FROM {topic}")
+                            for r in c.fetchall():
+                                try:
+                                    det = json.loads(r[1]) if r[1] else {}
+                                    srcs = det.get('sources', [])
+                                    if len(srcs) == 1 and srcs[0].get('url') == url:
+                                        conn.execute(f"DELETE FROM {topic} WHERE id=?", (r[0],))
+                                except: pass
                     with conn: conn.execute("DELETE FROM vetted_sources WHERE id=?", (source_id,))
             except: pass
             return redirect('/cooladmin')
@@ -2436,7 +2509,7 @@ def cooladmin():
         elif action == 'shutdown':
             confirm_user = request.form.get('username')
             confirm_pass = request.form.get('password')
-            if auth and confirm_user == admin_username and confirm_pass == admin_password:
+            if confirm_user == admin_username and confirm_pass == admin_password:
                 import signal
                 log_system_event("SHUTDOWN", "Nuclear option invoked by cooladmin.")
                 def kill_server():
@@ -2458,6 +2531,45 @@ def cooladmin():
                 cleanup_summary = res.stdout
             except Exception as e:
                 cleanup_summary = f"Error running cleanup: {e}"
+                
+        elif action == 'refresh_missing_details':
+            def run_backfill():
+                tables = ['pulses', 'old_pulses', 'garage_sales', 'sault_tribe', 'sault_schools']
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    for table in tables:
+                        try:
+                            c = conn.cursor()
+                            c.execute(f"SELECT id, text FROM {table} WHERE details = '{{}}' OR details IS NULL OR details = ''")
+                            rows = c.fetchall()
+                            batch = []
+                            for r in rows:
+                                batch.append({"id": str(r[0]), "text": r[1]})
+                                if len(batch) >= 10:
+                                    v_res, _ = verify_events_batch(batch, is_manual=True)
+                                    for item in batch:
+                                        i_id = item["id"]
+                                        if i_id in v_res:
+                                            new_details = v_res[i_id].get("details", {})
+                                            c.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), int(i_id)))
+                                    conn.commit()
+                                    batch = []
+                                    print(f"[BACKFILL] Processed batch for {table}...", flush=True)
+                                    time.sleep(5)  # 5-second sleep to safely respect API quotas
+                            if batch:
+                                v_res, _ = verify_events_batch(batch, is_manual=True)
+                                for item in batch:
+                                    i_id = item["id"]
+                                    if i_id in v_res:
+                                        new_details = v_res[i_id].get("details", {})
+                                        c.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), int(i_id)))
+                                conn.commit()
+                                print(f"[BACKFILL] Finished {table}.", flush=True)
+                        except Exception as e:
+                            print(f"[BACKFILL ERROR] {table}: {e}", flush=True)
+                print("[BACKFILL] All tables completed.", flush=True)
+            
+            threading.Thread(target=run_backfill, daemon=True).start()
+            return redirect('/cooladmin')
         
     with state_lock:
         service_status = state.get('host_services', [])
