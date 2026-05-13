@@ -877,141 +877,141 @@ def sync_for_location(slug, loc_name, query):
                     ai_sault_schools = ai.get("sault_schools", [])
                     
                     events_to_verify = []
-                if is_news and new_pulse and "Anchoring" not in new_pulse:
-                    events_to_verify.append({"id": "pulse", "type": "pulse", "text": new_pulse})
-                
-                if isinstance(ai_garage_sales, list):
-                    for idx, g in enumerate(ai_garage_sales): 
-                        if g.get("text"): events_to_verify.append({"id": f"garage_{idx}", "type": "garage_sale", "text": g.get("text")})
-                
-                if isinstance(ai_sault_tribe, list):
-                    for idx, t in enumerate(ai_sault_tribe): 
-                        if t.get("text"): events_to_verify.append({"id": f"tribe_{idx}", "type": "sault_tribe", "text": t.get("text")})
+                    if is_news and new_pulse and "Anchoring" not in new_pulse:
+                        events_to_verify.append({"id": "pulse", "type": "pulse", "text": new_pulse})
+                    
+                    if isinstance(ai_garage_sales, list):
+                        for idx, g in enumerate(ai_garage_sales): 
+                            if g.get("text"): events_to_verify.append({"id": f"garage_{idx}", "type": "garage_sale", "text": g.get("text")})
+                    
+                    if isinstance(ai_sault_tribe, list):
+                        for idx, t in enumerate(ai_sault_tribe): 
+                            if t.get("text"): events_to_verify.append({"id": f"tribe_{idx}", "type": "sault_tribe", "text": t.get("text")})
 
-                if isinstance(ai_sault_schools, list):
-                    for idx, s in enumerate(ai_sault_schools): 
-                        if s.get("text"): events_to_verify.append({"id": f"school_{idx}", "type": "sault_schools", "text": s.get("text")})
+                    if isinstance(ai_sault_schools, list):
+                        for idx, s in enumerate(ai_sault_schools): 
+                            if s.get("text"): events_to_verify.append({"id": f"school_{idx}", "type": "sault_schools", "text": s.get("text")})
 
-                verified_details = {}
-                
-                if events_to_verify:
-                    v_res, _ = verify_events_batch(events_to_verify)
-                    verified_details = v_res
+                    verified_details = {}
+                    
+                    if events_to_verify:
+                        v_res, _ = verify_events_batch(events_to_verify)
+                        verified_details = v_res
 
-                pulse_details = {}
-                if is_news and new_pulse and "Anchoring" not in new_pulse:
-                    v_res = verified_details.get("pulse", {})
-                    if v_res.get("hallucinated"):
-                        print(f"[API] Hallucination caught in-flight for pulse! Replacing with fallback.", flush=True)
-                        import random
-                        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                            c = conn.cursor()
-                            c.execute("SELECT text FROM pulses ORDER BY id DESC LIMIT 18")
-                            recent = [r[0] for r in c.fetchall()]
-                            new_pulse = random.choice(recent) if recent and slug == "main" else f"{loc_name} continues its steady rhythm."
-                        is_news = False
-                    else:
-                        pulse_details = v_res.get("details", {})
-                        
-                valid_garage_sales = []
-                if isinstance(ai_garage_sales, list):
-                    for idx, sale in enumerate(ai_garage_sales):
-                        s_id = f"garage_{idx}"
-                        v_res = verified_details.get(s_id, {})
-                        if not v_res.get("hallucinated"):
-                            sale['details'] = v_res.get("details", {})
-                            valid_garage_sales.append(sale)
-                            
-                valid_sault_tribe = []
-                if isinstance(ai_sault_tribe, list):
-                    for idx, event in enumerate(ai_sault_tribe):
-                        s_id = f"tribe_{idx}"
-                        v_res = verified_details.get(s_id, {})
-                        if not v_res.get("hallucinated"):
-                            event['details'] = v_res.get("details", {})
-                            valid_sault_tribe.append(event)
-                            
-                valid_sault_schools = []
-                if isinstance(ai_sault_schools, list):
-                    for idx, event in enumerate(ai_sault_schools):
-                        s_id = f"school_{idx}"
-                        v_res = verified_details.get(s_id, {})
-                        if not v_res.get("hallucinated"):
-                            event['details'] = v_res.get("details", {})
-                            valid_sault_schools.append(event)
-
-                if contains_denied_words(new_pulse) or contains_denied_words(ai.get("bubble", "")):
-                    new_pulse = "Safe Mode: Standard rhythm today."
-                    ai["bubble"] = "Operating in safe mode."
-                    ai["suggestion"] = "Stay safe."
-                
-                yesterday_str = (now - timedelta(days=1)).strftime('%B %d')
-                if is_news and slug == "main": # Only log main pulses to global history for deduplication
-                    hist = load_history(date_str, yesterday_str)
-                    new_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', new_pulse, re.IGNORECASE))
-                    is_duplicate_data = False
-                    if new_tags:
-                        for past in hist[:5]:
-                            past_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', past["text"], re.IGNORECASE))
-                            if past_tags and len(new_tags.intersection(past_tags)) >= max(1, len(new_tags) // 2):
-                                is_duplicate_data = True
-                                break
-                    if not is_duplicate_data:
-                        try:
-                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                                with conn:
-                                    conn.execute("INSERT INTO pulses (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, new_pulse, new_pulse_loc, json.dumps(pulse_details)))
-                        except sqlite3.IntegrityError:
-                            pass
-                            
-                if slug == "main":
-                    def merge_or_insert(table, date_str, item_text, item_loc, item_details):
-                        try:
+                    pulse_details = {}
+                    if is_news and new_pulse and "Anchoring" not in new_pulse:
+                        v_res = verified_details.get("pulse", {})
+                        if v_res.get("hallucinated"):
+                            print(f"[API] Hallucination caught in-flight for pulse! Replacing with fallback.", flush=True)
+                            import random
                             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                 c = conn.cursor()
-                                c.execute(f"SELECT id, text, details FROM {table} ORDER BY id DESC LIMIT 20")  # nosec B608
-                                rows = c.fetchall()
-                                for r in rows:
-                                    r_id, r_text, r_details = r
-                                    r_det = {}
-                                    try: r_det = json.loads(r_details) if r_details else {}
-                                    except: pass
-                                    
-                                    is_dup = False
-                                    if item_details.get('when') and r_det.get('when') == item_details.get('when'):
-                                        if item_details.get('where') and r_det.get('where') == item_details.get('where'):
-                                            is_dup = True
-                                            
-                                    if not is_dup:
-                                        w1 = set(item_text.lower().split())
-                                        w2 = set(r_text.lower().split())
-                                        if w1 and w2 and len(w1.intersection(w2)) > max(3, len(w1)//2):
-                                            is_dup = True
-                                            
-                                    if is_dup:
-                                        src_map = {s.get('url'): s for s in r_det.get('sources', [])}
-                                        for s in item_details.get('sources', []):
-                                            if s.get('url'): src_map[s['url']] = s
-                                        item_details['sources'] = list(src_map.values())
-                                        c.execute(f"UPDATE {table} SET text=?, location=?, details=? WHERE id=?", (item_text, item_loc, json.dumps(item_details), r_id))  # nosec B608
-                                        conn.commit()
-                                        return
-                                c.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, item_text, item_loc, json.dumps(item_details)))  # nosec B608
-                                conn.commit()
-                        except sqlite3.IntegrityError: pass
-                        except Exception as e: print(f"[ERROR] merge_or_insert {table}: {e}", flush=True)
+                                c.execute("SELECT text FROM pulses ORDER BY id DESC LIMIT 18")
+                                recent = [r[0] for r in c.fetchall()]
+                                new_pulse = random.choice(recent) if recent and slug == "main" else f"{loc_name} continues its steady rhythm."
+                            is_news = False
+                        else:
+                            pulse_details = v_res.get("details", {})
+                            
+                    valid_garage_sales = []
+                    if isinstance(ai_garage_sales, list):
+                        for idx, sale in enumerate(ai_garage_sales):
+                            s_id = f"garage_{idx}"
+                            v_res = verified_details.get(s_id, {})
+                            if not v_res.get("hallucinated"):
+                                sale['details'] = v_res.get("details", {})
+                                valid_garage_sales.append(sale)
+                                
+                    valid_sault_tribe = []
+                    if isinstance(ai_sault_tribe, list):
+                        for idx, event in enumerate(ai_sault_tribe):
+                            s_id = f"tribe_{idx}"
+                            v_res = verified_details.get(s_id, {})
+                            if not v_res.get("hallucinated"):
+                                event['details'] = v_res.get("details", {})
+                                valid_sault_tribe.append(event)
+                                
+                    valid_sault_schools = []
+                    if isinstance(ai_sault_schools, list):
+                        for idx, event in enumerate(ai_sault_schools):
+                            s_id = f"school_{idx}"
+                            v_res = verified_details.get(s_id, {})
+                            if not v_res.get("hallucinated"):
+                                event['details'] = v_res.get("details", {})
+                                valid_sault_schools.append(event)
 
-                    for sale in valid_garage_sales:
-                        if sale.get("text"): merge_or_insert("garage_sales", date_str, sale.get("text"), sale.get("location", ""), sale.get("details", {}))
+                    if contains_denied_words(new_pulse) or contains_denied_words(ai.get("bubble", "")):
+                        new_pulse = "Safe Mode: Standard rhythm today."
+                        ai["bubble"] = "Operating in safe mode."
+                        ai["suggestion"] = "Stay safe."
+                    
+                    yesterday_str = (now - timedelta(days=1)).strftime('%B %d')
+                    if is_news and slug == "main": # Only log main pulses to global history for deduplication
+                        hist = load_history(date_str, yesterday_str)
+                        new_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', new_pulse, re.IGNORECASE))
+                        is_duplicate_data = False
+                        if new_tags:
+                            for past in hist[:5]:
+                                past_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', past["text"], re.IGNORECASE))
+                                if past_tags and len(new_tags.intersection(past_tags)) >= max(1, len(new_tags) // 2):
+                                    is_duplicate_data = True
+                                    break
+                        if not is_duplicate_data:
+                            try:
+                                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                    with conn:
+                                        conn.execute("INSERT INTO pulses (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, new_pulse, new_pulse_loc, json.dumps(pulse_details)))
+                            except sqlite3.IntegrityError:
+                                pass
                                 
-                    for event in valid_sault_tribe:
-                        if event.get("text"): merge_or_insert("sault_tribe", date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
-                                
-                    for event in valid_sault_schools:
-                        if event.get("text"): merge_or_insert("sault_schools", date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
-                
-                print(f"[API] Success via {m_id} for {slug}", flush=True)
-                success = True; break
+                    if slug == "main":
+                        def merge_or_insert(table, date_str, item_text, item_loc, item_details):
+                            try:
+                                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                    c = conn.cursor()
+                                    c.execute(f"SELECT id, text, details FROM {table} ORDER BY id DESC LIMIT 20")  # nosec B608
+                                    rows = c.fetchall()
+                                    for r in rows:
+                                        r_id, r_text, r_details = r
+                                        r_det = {}
+                                        try: r_det = json.loads(r_details) if r_details else {}
+                                        except: pass
+                                        
+                                        is_dup = False
+                                        if item_details.get('when') and r_det.get('when') == item_details.get('when'):
+                                            if item_details.get('where') and r_det.get('where') == item_details.get('where'):
+                                                is_dup = True
+                                                
+                                        if not is_dup:
+                                            w1 = set(item_text.lower().split())
+                                            w2 = set(r_text.lower().split())
+                                            if w1 and w2 and len(w1.intersection(w2)) > max(3, len(w1)//2):
+                                                is_dup = True
+                                                
+                                        if is_dup:
+                                            src_map = {s.get('url'): s for s in r_det.get('sources', [])}
+                                            for s in item_details.get('sources', []):
+                                                if s.get('url'): src_map[s['url']] = s
+                                            item_details['sources'] = list(src_map.values())
+                                            c.execute(f"UPDATE {table} SET text=?, location=?, details=? WHERE id=?", (item_text, item_loc, json.dumps(item_details), r_id))  # nosec B608
+                                            conn.commit()
+                                            return
+                                    c.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, item_text, item_loc, json.dumps(item_details)))  # nosec B608
+                                    conn.commit()
+                            except sqlite3.IntegrityError: pass
+                            except Exception as e: print(f"[ERROR] merge_or_insert {table}: {e}", flush=True)
+
+                        for sale in valid_garage_sales:
+                            if sale.get("text"): merge_or_insert("garage_sales", date_str, sale.get("text"), sale.get("location", ""), sale.get("details", {}))
+                                    
+                        for event in valid_sault_tribe:
+                            if event.get("text"): merge_or_insert("sault_tribe", date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
+                                    
+                        for event in valid_sault_schools:
+                            if event.get("text"): merge_or_insert("sault_schools", date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
+                    
+                    print(f"[API] Success via {m_id} for {slug}", flush=True)
+                    success = True; break
             except Exception as e:
                 if handle_gemini_error(e):
                     gemini_disabled = True
