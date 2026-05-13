@@ -94,10 +94,10 @@
         .pod.active::after { inset: 0; border: 2px solid var(--accent); animation: ripple-elemental 3s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; opacity: 0.6; }
         #pos-coffee { left: 4vw; top: 15vh; } #pos-office { left: 4vw; top: 40vh; } #pos-gym { left: 4vw; top: 65vh; } #pos-store { left: 5vw; top: 85vh; }
         #pos-library { right: 4vw; top: 15vh; } #pos-garage { right: 4vw; top: 40vh; } #pos-park { right: 4vw; top: 65vh; } #pos-kitchen { right: 5vw; top: 85vh; }
-        #pos-bed { position: absolute; left: 50%; bottom: calc(2vh + 30px); transform: translateX(-50%); width: clamp(120px, 15vmin, 300px); height: clamp(60px, 8vmin, 180px); border-radius: 20px; border: 2px solid var(--pod-border); display: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 7rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
+        #pos-bed { position: absolute; left: 50%; bottom: calc(2vh + 30px); transform: translateX(-50%); width: clamp(120px, 15vmin, 300px); height: clamp(60px, 8vmin, 180px); border-radius: 20px; border: 2px solid var(--pod-border); display: flex; visibility: hidden; pointer-events: none; align-items: center; justify-content: center; font-size: clamp(2.5rem, 5vmin, 7rem); background: var(--pod-bg); filter: grayscale(80%) opacity(0.5); z-index: 5; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); box-shadow: 0 4px 15px var(--shadow-color); }
         #pos-bed:hover { filter: grayscale(0%) opacity(1); transform: translateX(-50%) scale(1.05); border-color: var(--accent); box-shadow: 0 8px 25px var(--shadow-color), 0 0 20px var(--pod-hover-glow); z-index: 100; }
         #pos-bed.active { filter: grayscale(0%) opacity(1); border-color: var(--accent); box-shadow: 0 0 40px var(--pod-hover-glow), inset 0 0 20px var(--pod-hover-glow); background: var(--pod-active-bg); pointer-events: none; z-index: 6; }
-        #center-info { position: absolute; top: calc(20% + 6vh - 40px); left: 50%; transform: translateX(-50%); text-align: center; width: 60vw; max-width: 1400px; pointer-events: none; z-index: 10; }
+        #center-info { position: absolute; top: max(130px, calc(20% + 6vh - 40px)); left: 50%; transform: translateX(-50%); text-align: center; width: 60vw; max-width: 1400px; pointer-events: none; z-index: 10; }
         .date-line { font-size: clamp(0.9rem, 1.2vw, 2.5rem); color: var(--accent); opacity: 0.45; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
         .clock { font-size: clamp(2rem, 4vw, 6rem); color: var(--accent); margin-bottom: -5px; opacity: 0.85; text-shadow: 0 4px 20px var(--shadow-color), 0 0 40px var(--shadow-color); } .temp { font-size: clamp(4rem, 8vw, 14rem); font-weight: 100; color: var(--text-main); line-height: 0.85; letter-spacing: -5px; opacity: 0.85; text-shadow: 0 6px 30px var(--shadow-color), 0 0 60px var(--shadow-color); }
         .suggestion { font-size: clamp(0.9rem, 1.4vw, 2rem); color: var(--accent); font-weight: bold; margin: 2px auto; line-height: 1.3; background: rgba(0, 255, 255, 0.05); padding: 4px 20px; border-radius: 20px; display: inline-block; border: 1px solid rgba(0, 255, 255, 0.2); transition: background 120s ease, border-color 120s ease; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); text-wrap: pretty; }
@@ -135,14 +135,13 @@
         }
         .cgi-walking {
             animation: cgi-strut 0.4s infinite ease-in-out !important;
-            filter: drop-shadow(0 15px 25px rgba(0,255,255,0.4)) brightness(1.3) contrast(1.1) !important;
-            z-index: 4000 !important;
+            filter: drop-shadow(0 15px 25px rgba(0,255,255,0.4)) brightness(1.3) contrast(1.1);
         }
     #egg-modal, #pulse-modal, #weekly-modal, #agenda-modal, #cast-modal, #garage-modal, #tribe-modal, #school-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 2vh, 15px); pointer-events: auto; overflow-y: auto; padding: 5vh 5vw; box-sizing: border-box; }
         .egg-btn { background: rgba(0,255,255,0.1); border: 2px solid var(--accent); color: var(--accent); padding: clamp(10px, 1.5vh, 15px) clamp(15px, 3vw, 30px); font-size: clamp(0.9rem, 2vh, 1.2rem); border-radius: 10px; cursor: pointer; text-transform: uppercase; font-weight: bold; width: clamp(150px, 25vw, 200px); text-align: center; flex-shrink: 0; }
         .egg-btn:hover, .egg-btn:focus { background: var(--accent); color: #000; outline: none; }
-        #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, opacity 0.5s ease, z-index 0s 0.75s; z-index: 1000; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-        #buddy-container:hover { z-index: 2500 !important; transform: scale(1) !important; filter: brightness(1) !important; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 0.3s ease, filter 0.3s ease, opacity 0.5s ease, z-index 0s !important; }
+        #buddy-container { position: absolute; width: 100px; height: 120px; transform-style: preserve-3d; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 1.5s ease-in-out, filter 1.5s ease-in-out, opacity 0.5s ease, z-index 0s 0.75s; z-index: 3400; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        #buddy-container:hover { z-index: 3500 !important; transform: scale(1) !important; filter: brightness(1) !important; transition: left 1.5s ease-in-out, top 1.5s ease-in-out, transform 0.3s ease, filter 0.3s ease, opacity 0.5s ease, z-index 0s !important; }
         #buddy-container.reading-mode { transform: scale(0.6) !important; }
         #buddy-container.reading-mode .bubble { opacity: 0 !important; pointer-events: none !important; transition: opacity 0.2s !important; }
         .mimicking .eye { animation: read-scan 4s infinite !important; height: 5px; }
@@ -478,7 +477,7 @@
                         <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">Where:</span> {{ item.details.where }}</div>
                         <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">When:</span> {{ item.details.when }}</div>
                         <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">Why:</span> {{ item.details.why }}</div>
-                        {% if item.details.sources and item.details.sources[0].url %}
+                        {% if item.details.sources and item.details.sources|length > 0 and item.details.sources[0].url %}
                         <div style="margin-top: 10px;">
                             <a href="{{ item.details.sources[0].url }}" target="_blank" class="search-link-btn search-link-sm">🔗 Source Article</a>
                         </div>
@@ -517,7 +516,7 @@
                         <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">Where:</span> {{ item.details.where }}</div>
                         <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">When:</span> {{ item.details.when }}</div>
                         <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">Why:</span> {{ item.details.why }}</div>
-                        {% if item.details.sources and item.details.sources[0].url %}
+                        {% if item.details.sources and item.details.sources|length > 0 and item.details.sources[0].url %}
                         <div style="margin-top: 10px;">
                             <a href="{{ item.details.sources[0].url }}" target="_blank" class="search-link-btn search-link-sm">🔗 Source Article</a>
                         </div>
@@ -556,7 +555,7 @@
                         <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">Where:</span> {{ item.details.where }}</div>
                         <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">When:</span> {{ item.details.when }}</div>
                         <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">Why:</span> {{ item.details.why }}</div>
-                        {% if item.details.sources and item.details.sources[0].url %}
+                        {% if item.details.sources and item.details.sources|length > 0 and item.details.sources[0].url %}
                         <div style="margin-top: 10px;">
                             <a href="{{ item.details.sources[0].url }}" target="_blank" class="search-link-btn search-link-sm">🔗 Source Article</a>
                         </div>
@@ -1959,7 +1958,11 @@
             }
             const wasSleeping = currentStation === 'bed';
             currentStation = station;
-            if (station === 'bed' || window.innerWidth > 600) document.getElementById('pos-bed').style.display = 'flex';
+            const bedPod = document.getElementById('pos-bed');
+            if (bedPod && station === 'bed') {
+                bedPod.style.visibility = 'visible';
+                bedPod.style.pointerEvents = 'auto';
+            }
             document.querySelectorAll('.pod').forEach(p => p.classList.remove('active'));
             const t = document.getElementById(`pos-${station}`); if(t) t.classList.add('active');
             
@@ -1979,8 +1982,11 @@
                 syncBuddy();
             }
             
-            b.classList.add('cgi-walking');
-            setTimeout(() => b.classList.remove('cgi-walking'), 1500);
+            const bSwing = document.getElementById('buddy-swing');
+            if (bSwing) {
+                bSwing.classList.add('cgi-walking');
+                setTimeout(() => bSwing.classList.remove('cgi-walking'), 1500);
+            }
             
             await fetch('/api/move/' + station);
             setTimeout(() => fetchState(true), 1500); // Force update to show reroute response
@@ -2263,7 +2269,17 @@
                 });
                 const t = document.getElementById(targetPodId); 
                 if(t && !t.classList.contains('active')) t.classList.add('active');
-                document.getElementById('pos-bed').style.display = (window.innerWidth > 600 || s.show_bed) ? 'flex' : 'none';
+                
+                const bedPod = document.getElementById('pos-bed');
+                if (bedPod) {
+                    if (s.show_bed) {
+                        bedPod.style.visibility = 'visible';
+                        bedPod.style.pointerEvents = 'auto';
+                    } else {
+                        bedPod.style.visibility = 'hidden';
+                        bedPod.style.pointerEvents = 'none';
+                    }
+                }
                 
                 const hands = {'mug':'☕','wrench':'🛠️','obd2':'🔌','laptop':'💻','book':'📖','zzz':'😴'};
                 if (container.classList.contains('mimicking')) {
@@ -2374,7 +2390,16 @@
         // Apply initial visual setup natively before JS loop
         const initHands = {'mug':'☕','wrench':'🛠️','obd2':'🔌','laptop':'💻','book':'📖','zzz':'😴'};
         document.getElementById('ui-hand').innerText = initHands['{{ acc_css }}'] || '';
-        document.getElementById('pos-bed').style.display = ('{{ show_bed }}' === 'True' || window.innerWidth > 600) ? 'flex' : 'none';
+        const initBed = document.getElementById('pos-bed');
+        if (initBed) {
+            if ('{{ show_bed }}' === 'True') {
+                initBed.style.visibility = 'visible';
+                initBed.style.pointerEvents = 'auto';
+            } else {
+                initBed.style.visibility = 'hidden';
+                initBed.style.pointerEvents = 'none';
+            }
+        }
         const initPod = document.getElementById(`pos-${currentStation}`);
         if (initPod) initPod.classList.add('active');
         if ('{{ is_sleeping }}' === 'True') document.getElementById('ui-zzz').style.animation = 'drift-zzz 4s infinite';

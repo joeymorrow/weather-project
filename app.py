@@ -317,11 +317,11 @@ def load_history(today_str=None, yesterday_str=None):
             if today_str and yesterday_str:
                 c.execute("""
                         SELECT id, date, text, location, details FROM pulses 
-                        WHERE date = ? OR date = ? OR id IN (
+                        WHERE date LIKE ? OR date LIKE ? OR id IN (
                             SELECT id FROM pulses ORDER BY id DESC LIMIT 21
                         )
                         ORDER BY id DESC
-                """, (today_str, yesterday_str))
+                """, (today_str + '%', yesterday_str + '%'))
             else:
                 c.execute("SELECT id, date, text, location, details FROM pulses ORDER BY id DESC LIMIT 21")
             
@@ -1058,6 +1058,7 @@ def sync_for_location(slug, loc_name, query):
                         ai["suggestion"] = "Stay safe."
                     
                     yesterday_str = (now - timedelta(days=1)).strftime('%B %d')
+                    full_date_str = now.strftime('%B %d, %I:%M %p')
                     if is_news and slug == "main": # Only log main pulses to global history for deduplication
                         hist = load_history(date_str, yesterday_str)
                         new_tags = set(t.lower() for t in re.findall(r'<i>(.*?)</i>', new_pulse, re.IGNORECASE))
@@ -1072,12 +1073,12 @@ def sync_for_location(slug, loc_name, query):
                             try:
                                 with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                     with conn:
-                                        conn.execute("INSERT INTO pulses (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, new_pulse, new_pulse_loc, json.dumps(pulse_details)))
+                                        conn.execute("INSERT INTO pulses (date, text, location, details) VALUES (?, ?, ?, ?)", (full_date_str, new_pulse, new_pulse_loc, json.dumps(pulse_details)))
                             except sqlite3.IntegrityError:
                                 pass
                                 
                     if slug == "main":
-                        def merge_or_insert(table, date_str, item_text, item_loc, item_details):
+                        def merge_or_insert(table, insert_date_str, item_text, item_loc, item_details):
                             try:
                                 with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                     c = conn.cursor()
@@ -1108,19 +1109,19 @@ def sync_for_location(slug, loc_name, query):
                                             c.execute(f"UPDATE {table} SET text=?, location=?, details=? WHERE id=?", (item_text, item_loc, json.dumps(item_details), r_id))  # nosec B608
                                             conn.commit()
                                             return
-                                    c.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, item_text, item_loc, json.dumps(item_details)))  # nosec B608
+                                    c.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (insert_date_str, item_text, item_loc, json.dumps(item_details)))  # nosec B608
                                     conn.commit()
                             except sqlite3.IntegrityError: pass
                             except Exception as e: print(f"[ERROR] merge_or_insert {table}: {e}", flush=True)
 
                         for sale in valid_garage_sales:
-                            if sale.get("text"): merge_or_insert("garage_sales", date_str, sale.get("text"), sale.get("location", ""), sale.get("details", {}))
+                            if sale.get("text"): merge_or_insert("garage_sales", full_date_str, sale.get("text"), sale.get("location", ""), sale.get("details", {}))
                                     
                         for event in valid_sault_tribe:
-                            if event.get("text"): merge_or_insert("sault_tribe", date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
+                            if event.get("text"): merge_or_insert("sault_tribe", full_date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
                                     
                         for event in valid_sault_schools:
-                            if event.get("text"): merge_or_insert("sault_schools", date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
+                            if event.get("text"): merge_or_insert("sault_schools", full_date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
                     
                     print(f"[API] Success via {m_id} for {slug}", flush=True)
                     success = True; break
@@ -2509,6 +2510,15 @@ def cooladmin():
     
     if not (is_basic or is_native or is_sso):
         return redirect('/login')
+        
+    def to_local_time(ts_str):
+        if not ts_str: return ""
+        try:
+            dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+            dt = dt.replace(tzinfo=pytz.utc).astimezone(TZ)
+            return dt.strftime("%b %d, %Y %I:%M %p")
+        except:
+            return ts_str
 
     cleanup_summary = None
 
@@ -3084,7 +3094,7 @@ def cooladmin():
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
             c.execute("SELECT id, submitted_at, event_type, text, location, event_date, source_url, submitter_email FROM user_submissions WHERE status='pending' ORDER BY id ASC")
-            pending_submissions = [{"id": r[0], "submitted_at": r[1], "event_type": r[2], "text": r[3], "location": r[4], "event_date": r[5], "source_url": r[6], "submitter_email": r[7]} for r in c.fetchall()]
+            pending_submissions = [{"id": r[0], "submitted_at": to_local_time(r[1]), "event_type": r[2], "text": r[3], "location": r[4], "event_date": r[5], "source_url": r[6], "submitter_email": r[7]} for r in c.fetchall()]
     except:
         pending_submissions = []
 
@@ -3103,7 +3113,7 @@ def cooladmin():
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
             c.execute("SELECT ip, reason, reinstatement_requested, banned_at FROM banned_ips ORDER BY banned_at DESC")
-            banned_ips = [{"ip": r[0], "reason": r[1], "requested": bool(r[2]), "banned_at": r[3]} for r in c.fetchall()]
+            banned_ips = [{"ip": r[0], "reason": r[1], "requested": bool(r[2]), "banned_at": to_local_time(r[3])} for r in c.fetchall()]
     except:
         banned_ips = []
 
@@ -3111,7 +3121,7 @@ def cooladmin():
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
             c.execute("SELECT id, retrieved_at, date, text, reason FROM hallucinations_log ORDER BY retrieved_at DESC")
-            hallucinations = [{"id": r[0], "retrieved_at": r[1], "date": r[2], "text": r[3], "reason": r[4]} for r in c.fetchall()]
+            hallucinations = [{"id": r[0], "retrieved_at": to_local_time(r[1]), "date": r[2], "text": r[3], "reason": r[4]} for r in c.fetchall()]
     except:
         hallucinations = []
         
@@ -3132,7 +3142,7 @@ def cooladmin():
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
             c.execute("SELECT id, name, target_table, scrape_url, schedule_type, schedule_details, prompt_text, last_run, is_active FROM scheduled_sources ORDER BY id DESC")
-            scheduled_sources = [{"id": r[0], "name": r[1], "target_table": r[2], "scrape_url": r[3], "schedule_type": r[4], "schedule_details": r[5], "prompt_text": r[6], "last_run": r[7], "is_active": bool(r[8])} for r in c.fetchall()]
+            scheduled_sources = [{"id": r[0], "name": r[1], "target_table": r[2], "scrape_url": r[3], "schedule_type": r[4], "schedule_details": r[5], "prompt_text": r[6], "last_run": to_local_time(r[7]), "is_active": bool(r[8])} for r in c.fetchall()]
     except: scheduled_sources = []
 
     garage_sales = load_garage_sales() or []
@@ -3544,11 +3554,20 @@ def submit_vote():
 
 @app.route('/api/system/logs')
 def get_system_logs():
+    def to_local_time(ts_str):
+        if not ts_str: return ""
+        try:
+            dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+            dt = dt.replace(tzinfo=pytz.utc).astimezone(TZ)
+            return dt.strftime("%b %d, %Y %I:%M %p")
+        except:
+            return ts_str
+
     try:
         with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
             c.execute("SELECT timestamp, log_type, message, details FROM logs ORDER BY id DESC LIMIT 100")
-            logs = [{"timestamp": r[0], "type": r[1], "message": r[2], "details": r[3]} for r in c.fetchall()]
+            logs = [{"timestamp": to_local_time(r[0]), "type": r[1], "message": r[2], "details": r[3]} for r in c.fetchall()]
             return jsonify(logs)
     except Exception as e:
         return jsonify({"error": str(e)}), 500

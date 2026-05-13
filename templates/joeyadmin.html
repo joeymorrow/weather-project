@@ -51,7 +51,26 @@
             background-repeat: no-repeat; background-position: right 8px center; padding-right: 28px !important;
         }
         .form-input { background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; outline:none; }
-        .help-tip { cursor: help; color: #ffaa00; border: 1px solid #ffaa00; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 5px; text-decoration: none; font-weight: bold; }
+        .help-tip { cursor: help; color: #ffaa00; border: 1px solid #ffaa00; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 5px; text-decoration: none; font-weight: bold; position: relative; }
+        .help-tip:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 150%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            color: #fff;
+            padding: 5px 10px;
+            border: 1px solid #ffaa00;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            width: max-content;
+            max-width: 250px;
+            z-index: 1000;
+            font-size: 12px;
+            pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
         
         /* Custom Range Slider Styles */
         input[type=range].governor {
@@ -508,7 +527,7 @@
             </h2>
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="pulses"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
-                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="openConverseModal('main_pulse', 'prompt_text_main_pulse')">🪄 Converse & Refine Prompt</button>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="openConverseModal('garage_sales', null, `{{ active_prompts | selectattr('prompt_type', 'equalto', 'garage_sales') | map(attribute='prompt_text') | first | default('') | escape }}`)">🪄 Converse & Refine Prompt</button>
             </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_pulse">
@@ -703,7 +722,7 @@
             <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🪶 Sault Tribe News ({{ sault_tribe|length }})</span></h2>
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="sault_tribe"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
-                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="openConverseModal('sault_tribe')">🪄 Converse & Refine Prompt</button>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="openConverseModal('sault_tribe', null, `{{ active_prompts | selectattr('prompt_type', 'equalto', 'sault_tribe') | map(attribute='prompt_text') | first | default('') | escape }}`)">🪄 Converse & Refine Prompt</button>
             </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_sault_tribe">
@@ -1179,7 +1198,7 @@
         let currentSuggestTopic = '';
         let currentBadItems = [];
         
-        async function openConverseModal(topic, textareaId = null) {
+        async function openConverseModal(topic, textareaId = null, fallbackText = '') {
             currentSuggestTopic = topic;
             currentBadItems = [];
             
@@ -1195,7 +1214,7 @@
 
             document.getElementById('suggest-topic').value = topic;
             
-            let currentText = '';
+            let currentText = fallbackText;
             if(textareaId && document.getElementById(textareaId)) {
                 currentText = document.getElementById(textareaId).value;
             }
@@ -1373,6 +1392,10 @@
 
         fetchApiHealth();
         fetchSystemLogs();
+
+        setInterval(fetchApiHealth, 30000);
+        setInterval(fetchSystemLogs, 10000);
+        setInterval(fetchApiUsage, 60000);
 
         function updateLimitEstimates() {
             const dailySlider = document.getElementById('gemini_daily_slider');
