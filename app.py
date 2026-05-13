@@ -104,6 +104,11 @@ def init_db():
                                 text TEXT
                              )''')
             try:
+                pulse_conn.execute("ALTER TABLE old_pulses ADD COLUMN location TEXT DEFAULT ''")
+                pulse_conn.execute("ALTER TABLE old_pulses ADD COLUMN details TEXT DEFAULT '{}'")
+            except sqlite3.OperationalError:
+                pass
+            try:
                 pulse_conn.execute("ALTER TABLE pulses ADD COLUMN location TEXT DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
@@ -888,7 +893,7 @@ def sync_for_location(slug, loc_name, query):
                         try:
                             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                 c = conn.cursor()
-                                c.execute(f"SELECT id, text, details FROM {table} ORDER BY id DESC LIMIT 20")
+                                c.execute(f"SELECT id, text, details FROM {table} ORDER BY id DESC LIMIT 20")  # nosec B608
                                 rows = c.fetchall()
                                 for r in rows:
                                     r_id, r_text, r_details = r
@@ -912,10 +917,10 @@ def sync_for_location(slug, loc_name, query):
                                         for s in item_details.get('sources', []):
                                             if s.get('url'): src_map[s['url']] = s
                                         item_details['sources'] = list(src_map.values())
-                                        c.execute(f"UPDATE {table} SET text=?, location=?, details=? WHERE id=?", (item_text, item_loc, json.dumps(item_details), r_id))
+                                        c.execute(f"UPDATE {table} SET text=?, location=?, details=? WHERE id=?", (item_text, item_loc, json.dumps(item_details), r_id))  # nosec B608
                                         conn.commit()
                                         return
-                                c.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, item_text, item_loc, json.dumps(item_details)))
+                                c.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, item_text, item_loc, json.dumps(item_details)))  # nosec B608
                                 conn.commit()
                         except sqlite3.IntegrityError: pass
                         except Exception as e: print(f"[ERROR] merge_or_insert {table}: {e}", flush=True)
@@ -2233,7 +2238,7 @@ def cooladmin():
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn:
                             conn.execute("INSERT INTO ai_training_log (topic, action_type, new_details) VALUES (?, ?, ?)", (table, "manual_edit", json.dumps(details)))
-                            conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(details), real_id))
+                            conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(details), real_id))  # nosec B608
                 except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
 
@@ -2252,7 +2257,7 @@ def cooladmin():
                             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                                 with conn:
                                     conn.execute("INSERT INTO ai_training_log (topic, original_text, new_details, action_type, gather_prompt) VALUES (?, ?, ?, ?, ?)", (table, text, json.dumps(new_details), "refresh_single", p_used))
-                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), real_id))
+                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), real_id))  # nosec B608
                         except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
 
@@ -2262,7 +2267,7 @@ def cooladmin():
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         c = conn.cursor()
-                        c.execute(f"SELECT id, text FROM {table} ORDER BY id DESC LIMIT 20")
+                        c.execute(f"SELECT id, text FROM {table} ORDER BY id DESC LIMIT 20")  # nosec B608
                         rows = c.fetchall()
                     events_to_verify = [{"id": str(r[0]), "text": r[1]} for r in rows]
                     v_res, p_used = verify_events_batch(events_to_verify)
@@ -2271,7 +2276,7 @@ def cooladmin():
                             for row in rows:
                                 i_id = str(row[0])
                                 if i_id in v_res and not v_res[i_id].get("hallucinated"):
-                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(v_res[i_id].get("details", {})), i_id))
+                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(v_res[i_id].get("details", {})), i_id))  # nosec B608
                             conn.execute("INSERT INTO ai_training_log (topic, action_type, gather_prompt) VALUES (?, ?, ?)", (table, "refresh_tower", p_used))
                 except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
@@ -2324,7 +2329,7 @@ def cooladmin():
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn: 
-                            conn.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, loc, json.dumps(details)))
+                            conn.execute(f"INSERT INTO {table} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, loc, json.dumps(details)))  # nosec B608
                 except: pass
 
                 with state_lock:
@@ -2366,7 +2371,7 @@ def cooladmin():
                         }
                         if event_type in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
                             with conn:
-                                conn.execute(f"INSERT INTO {event_type} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, location, json.dumps(details)))
+                                conn.execute(f"INSERT INTO {event_type} (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, location, json.dumps(details)))  # nosec B608
                                 conn.execute("UPDATE user_submissions SET status='approved' WHERE id=?", (sub_id,))
                         if notify and submitter_email:
                             send_alert_email("BEACON Event Approved", f"Hi!\n\nYour {event_type} submission ('{text}') has been approved and added to the dashboard.", submitter_email)

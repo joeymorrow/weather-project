@@ -113,6 +113,11 @@ def setup_db():
                             date TEXT,
                             text TEXT
                          )''')
+        try:
+            conn.execute("ALTER TABLE old_pulses ADD COLUMN location TEXT DEFAULT ''")
+            conn.execute("ALTER TABLE old_pulses ADD COLUMN details TEXT DEFAULT '{}'")
+        except sqlite3.OperationalError:
+            pass
         conn.execute('''CREATE TABLE IF NOT EXISTS garage_sales (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             date TEXT,
@@ -236,17 +241,28 @@ def main():
     if args.list_old_pulses:
         with sqlite3.connect(DB_FILE) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id, date, archived_at, text FROM old_pulses ORDER BY archived_at DESC")
+            try:
+                cursor.execute("SELECT id, date, archived_at, text, location, details FROM old_pulses ORDER BY archived_at DESC")
+                has_details = True
+            except sqlite3.OperationalError:
+                cursor.execute("SELECT id, date, archived_at, text FROM old_pulses ORDER BY archived_at DESC")
+                has_details = False
             rows = cursor.fetchall()
             print("--- Archived Old Pulses ---")
             if not rows: print("No old pulses archived.")
             for r in rows:
-                print(f"[{r[0]}] Date: {r[1]} | Archived At: {r[2]}\nText: {r[3]}\n")
+                if has_details:
+                    print(f"[{r[0]}] Date: {r[1]} | Archived At: {r[2]} | Loc: {r[4]}\nText: {r[3]}\nDetails: {r[5]}\n")
+                else:
+                    print(f"[{r[0]}] Date: {r[1]} | Archived At: {r[2]}\nText: {r[3]}\n")
         return
 
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, date, text FROM pulses")
+        try:
+            cursor.execute("SELECT id, date, text, location, details FROM pulses")
+        except sqlite3.OperationalError:
+            cursor.execute("SELECT id, date, text, '' as location, '{}' as details FROM pulses")
         pulses = cursor.fetchall()
 
         cursor.execute("SELECT id, date, text FROM garage_sales")
@@ -262,8 +278,8 @@ def main():
         now = datetime.now(pytz.timezone('America/Detroit'))
         archived_count = 0
 
-        # Age out Pulses (> 36 hours)
-        for pulse_id, date_str, text in pulses:
+        # Age out Pulses (> 72 hours)
+        for pulse_id, date_str, text, location, details in pulses:
             try:
                 date_clean = date_str.split('[')[0].strip()
                 try: dt_naive = datetime.strptime(f"{now.year} {date_clean}", "%Y %B %d, %I:%M %p")
@@ -273,7 +289,7 @@ def main():
 
                 age = now - dt
                 if age > timedelta(hours=72):
-                    cursor.execute("INSERT INTO old_pulses (date, text) VALUES (?, ?)", (date_str, text))
+                    cursor.execute("INSERT INTO old_pulses (date, text, location, details) VALUES (?, ?, ?, ?)", (date_str, text, location, details))
                     cursor.execute("DELETE FROM pulses WHERE id = ?", (pulse_id,))
                     conn.commit()
                     print(f"-> [ARCHIVED] Pulse ID {pulse_id} ({date_str}) is >72 hours old.", flush=True)
