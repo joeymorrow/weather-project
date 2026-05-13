@@ -816,11 +816,16 @@
                     </td>
                     <td style="padding: 10px; color: #aaa;">{{ src.target_table }}</td>
                     <td style="padding: 10px; color: #aaa;">
-                        <span style="color: #ffaa00; font-weight: bold;">{{ src.schedule_type | upper }}</span><br>
+                        <span style="color: {% if src.is_active %}#ffaa00{% else %}#666{% endif %}; font-weight: bold;">{{ src.schedule_type | upper }} {% if not src.is_active %}(PAUSED){% endif %}</span><br>
                         <span style="font-size: 0.8rem;">{{ src.schedule_details }}</span><br>
                         <span style="font-size: 0.7rem; color: #666;">Last Run: {{ src.last_run or 'Never' }}</span>
                     </td>
-                    <td style="padding: 10px; text-align: right;">
+                    <td style="padding: 10px; text-align: right; display: flex; gap: 5px; justify-content: flex-end;">
+                        <form method="POST" style="margin:0;">
+                            <input type="hidden" name="action" value="toggle_scheduled_source">
+                            <input type="hidden" name="source_id" value="{{ src.id }}">
+                            <button type="submit" class="manage-btn" style="padding: 4px 8px; background: {% if src.is_active %}#ffaa00{% else %}#00ff00{% endif %}; color: #000;">{% if src.is_active %}Pause{% else %}Resume{% endif %}</button>
+                        </form>
                         <form method="POST" style="margin:0;" onsubmit="return confirm('Delete this scheduled source?');">
                             <input type="hidden" name="action" value="delete_scheduled_source">
                             <input type="hidden" name="source_id" value="{{ src.id }}">

@@ -744,7 +744,7 @@ def sync_for_location(slug, loc_name, query):
         buddy_task = (
             "Task 1 (Bubble): 3-5 word unique greeting observing the beautiful sunrise. STRICT LIMIT: Under 6 words. DO NOT concatenate tasks here." 
             if (is_morning_golden and clouds < 75) else 
-            "Task 1 (Bubble): 3-5 word ambient technical activity (e.g., 'Calibrating firmware...', 'Parsing archives...', 'Grabbing a pastie..."). STRICT LIMIT: Under 6 words. DO NOT concatenate tasks here."
+            "Task 1 (Bubble): 3-5 word ambient technical activity (e.g., 'Calibrating firmware...', 'Parsing archives...', 'Grabbing a pastie...)." STRICT LIMIT: Under 6 words. DO NOT concatenate tasks here."
         )
 
         global manual_override
@@ -2484,6 +2484,13 @@ def cooladmin():
             try:
                 with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                     with conn: conn.execute("DELETE FROM scheduled_sources WHERE id=?", (request.form.get('source_id'),))
+            except: pass
+            return redirect('/cooladmin')
+            
+        elif action == 'toggle_scheduled_source':
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn: conn.execute("UPDATE scheduled_sources SET is_active = NOT is_active WHERE id=?", (request.form.get('source_id'),))
             except: pass
             return redirect('/cooladmin')
 
