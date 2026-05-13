@@ -458,12 +458,12 @@ def main():
                 conn.commit()
                 print(f"{RED}-> Deleted {item_type} ID: {item_id}\n{RESET}", flush=True)
                 round_results.append((date, text, reason))
-        elif is_hallucinated is False:
+            elif is_hallucinated is False:
                 print(f"-> [VALID] {reason}\n", flush=True)
                 cursor.execute("INSERT OR IGNORE INTO hallucination_checked_texts (text) VALUES (?)", (text,))
                 conn.commit()
-        else:
-            print(f"-> [ERROR/SKIPPED] {reason}. Will retry next round.\n", flush=True)
+            else:
+                print(f"-> [ERROR/SKIPPED] {reason}. Will retry next round.\n", flush=True)
 
             time.sleep(1) # Prevent hitting API rate limits
 
