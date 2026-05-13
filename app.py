@@ -735,13 +735,13 @@ def sync_for_location(slug, loc_name, query):
         do_deep_search = not is_late_night and (now_ts_sec - last_deep_search.get(slug, 0) > 3600)
         
         pulse_task = (
-            f"Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of {tomorrow_label}'s weather into this comforting thought. IMPORTANT: Because it is currently {time_str}, do NOT refer to 'evening' or 'tonight' as future events. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the exact time. Do not search for news. Set 'is_news' to false." 
+            f"Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of {tomorrow_label}'s weather into this comforting thought. IMPORTANT: Because it is currently {time_str}, do NOT refer to 'evening' or 'tonight' as future events. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the exact time. DO NOT use markdown like asterisks (**). Do not use intense or zine-like language; keep it ambient and conversational. Do not search for news. Set 'is_news' to false." 
             if is_late_night else 
             (
                 f"Task 2 (Pulse): Adopt the persona of an inspiring, steadfast community leader and masterful speechwriter, focused on the indomitable human spirit. "
-                f"SEARCH for recent local news, community successes, acts of kindness, or verifiable events happening TODAY in {loc_name}. If no specific news or event is found, DO NOT invent names or fake heroics; instead, offer a grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i>). CONTENT: Provide a 2-sentence update. Give a brief shoutout/kudos to a local achievement OR share the real event, weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. TRUTH BOUNDARY: Only include specific details if verified. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid overly saccharine words. Set 'is_news' to true ONLY if specific verified news/events are shared; otherwise, set to false."
+                f"SEARCH for recent local news, community successes, acts of kindness, or verifiable events happening TODAY in {loc_name}. If no specific news or event is found, DO NOT invent names or fake heroics; instead, offer a grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i>). CONTENT: Provide a 2-sentence update. Give a brief shoutout/kudos to a local achievement OR share the real event, weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. TRUTH BOUNDARY: Only include specific details if verified. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid overly saccharine words. DO NOT use markdown like asterisks (**). Do not use intense or zine-like language; keep it grounded, conversational, and ambient. Set 'is_news' to true ONLY if specific verified news/events are shared; otherwise, set to false."
                 if do_deep_search else
-                f"Task 2 (Pulse): Adopt the persona of an inspiring, steadfast community leader. Offer a 2-sentence grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' in {loc_name} (e.g., <i>shipping traffic</i>), weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. FORMATTING: Wrap specific locations in <i> tags. Set 'is_news' to false."
+                f"Task 2 (Pulse): Adopt the persona of an inspiring, steadfast community leader. Offer a 2-sentence grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' in {loc_name} (e.g., <i>shipping traffic</i>), weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. FORMATTING: Wrap specific locations in <i> tags. DO NOT use markdown like asterisks (**). Do not use intense or zine-like language; keep it grounded, conversational, and ambient. Set 'is_news' to false."
             )
         )
 
@@ -800,7 +800,7 @@ def sync_for_location(slug, loc_name, query):
                 json_str = text[json_start:json_end+1]
                 ai = json.loads(json_str)
                 
-                new_pulse = ai.get("pulse", new_pulse)
+                new_pulse = str(ai.get("pulse", new_pulse)).replace('**', '')
                 new_pulse_loc = ai.get("location", "")
                 is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
                 ai_garage_sales = ai.get("garage_sales", [])
