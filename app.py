@@ -1012,13 +1012,13 @@ def sync_for_location(slug, loc_name, query):
                     
                     print(f"[API] Success via {m_id} for {slug}", flush=True)
                     success = True; break
-            except Exception as e:
-                if handle_gemini_error(e):
-                    gemini_disabled = True
-                    break
-                print(f"[API] Generation failed with {m_id}: {e}", flush=True)
-                log_system_event("AI_GENERATION_ERROR", f"Failed with {m_id} on {slug}", str(e))
-                continue
+                except Exception as e:
+                    if handle_gemini_error(e):
+                        gemini_disabled = True
+                        break
+                    print(f"[API] Generation failed with {m_id}: {e}", flush=True)
+                    log_system_event("AI_GENERATION_ERROR", f"Failed with {m_id} on {slug}", str(e))
+                    continue
         
         if not success:
             if gemini_disabled:
