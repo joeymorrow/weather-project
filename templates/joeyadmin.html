@@ -50,6 +50,7 @@
             background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2300ffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
             background-repeat: no-repeat; background-position: right 8px center; padding-right: 28px !important;
         }
+        .form-input { background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; outline:none; }
         .help-tip { cursor: help; color: #ffaa00; border: 1px solid #ffaa00; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 5px; text-decoration: none; font-weight: bold; }
     </style>
 </head>
@@ -755,6 +756,85 @@
             </table>
         </div>
 
+        <!-- Dynamic Scheduled Sources -->
+        <div class="card" style="grid-column: 1 / -1; border-color: #ffaa00; box-shadow: 0 0 15px rgba(255,170,0,0.2);">
+            <h2 style="color: #ffaa00; border-bottom-color: #ffaa00;">📅 Dynamic Scheduled Sources</h2>
+            <p style="font-size: 0.9rem; color: #888;">Schedule recurring scrapers for PDFs or web pages to automatically feed Gemini and populate your database tables.</p>
+            
+            <form method="POST" style="background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2); margin-bottom: 15px;">
+                <input type="hidden" name="action" value="add_scheduled_source">
+                <input type="hidden" name="schedule_details" id="schedule_details_json">
+                
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <input type="text" name="name" required placeholder="Task Name (e.g. Sault Schools Annual Calendar)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                    <select name="target_table" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                        <option value="sault_schools">Target: Sault Schools</option>
+                        <option value="sault_tribe">Target: Sault Tribe</option>
+                        <option value="garage_sales">Target: Garage Sales</option>
+                        <option value="pulses">Target: Main Pulse</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 10px;">
+                    <input type="url" name="scrape_url" required placeholder="Scrape URL (e.g. https://www.saultschools.org/calendar)" style="width: 100%; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; box-sizing: border-box;">
+                </div>
+                
+                <div style="margin-bottom: 10px;">
+                    <textarea name="prompt_text" required placeholder="Prompt Text (e.g. Extract the events from this calendar PDF...)" style="width: 100%; height: 80px; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; box-sizing: border-box;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <select id="schedule_type" name="schedule_type" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;" onchange="updateScheduleUI()">
+                        <option value="one-time">One-Time</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                    <input type="date" id="schedule_end_date" placeholder="End Date (Optional)" title="End Date (Optional)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                </div>
+
+                <!-- Dynamic Schedule Detail Fields -->
+                <div id="schedule_details_ui" style="margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 4px; border: 1px dashed #00ffff; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                    <!-- Javascript will populate this based on schedule_type -->
+                </div>
+
+                <button type="submit" class="manage-btn" style="background:#ffaa00; color:#000; border:none;" onclick="buildScheduleDetails()">Add Scheduled Source</button>
+            </form>
+
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background: rgba(255,170,0,0.1); border-bottom: 2px solid #ffaa00;">
+                    <th style="padding: 10px; text-align: left; color: #ffaa00;">Name & URL</th>
+                    <th style="padding: 10px; text-align: left; color: #ffaa00;">Target</th>
+                    <th style="padding: 10px; text-align: left; color: #ffaa00;">Schedule</th>
+                    <th style="padding: 10px; text-align: right; color: #ffaa00;">Actions</th>
+                </tr>
+                {% for src in scheduled_sources %}
+                <tr style="border-bottom: 1px solid rgba(255,170,0,0.2);">
+                    <td style="padding: 10px; max-width: 250px; word-break: break-all;">
+                        <strong style="color: #fff;">{{ src.name }}</strong><br>
+                        <a href="{{ src.scrape_url }}" target="_blank" style="color:#0ff; font-size: 0.8rem;">{{ src.scrape_url }}</a>
+                    </td>
+                    <td style="padding: 10px; color: #aaa;">{{ src.target_table }}</td>
+                    <td style="padding: 10px; color: #aaa;">
+                        <span style="color: #ffaa00; font-weight: bold;">{{ src.schedule_type | upper }}</span><br>
+                        <span style="font-size: 0.8rem;">{{ src.schedule_details }}</span><br>
+                        <span style="font-size: 0.7rem; color: #666;">Last Run: {{ src.last_run or 'Never' }}</span>
+                    </td>
+                    <td style="padding: 10px; text-align: right;">
+                        <form method="POST" style="margin:0;" onsubmit="return confirm('Delete this scheduled source?');">
+                            <input type="hidden" name="action" value="delete_scheduled_source">
+                            <input type="hidden" name="source_id" value="{{ src.id }}">
+                            <button type="submit" class="danger-btn" style="padding: 4px 8px;">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not scheduled_sources %}
+                <tr><td colspan="4" style="padding: 10px; text-align: center; color: #666; font-style: italic;">No scheduled sources configured.</td></tr>
+                {% endif %}
+            </table>
+        </div>
+
         <!-- Prompt & Response Tower Management -->
         <div class="card" style="grid-column: 1 / -1;">
             <h2>🧠 AI Prompt & Response Tower Matrix</h2>
@@ -905,6 +985,49 @@
         {{ metrics | tojson | safe }}
     </script>
     <script>
+        function updateScheduleUI() {
+            const type = document.getElementById('schedule_type').value;
+            const ui = document.getElementById('schedule_details_ui');
+            
+            let html = '';
+            if (type === 'one-time') {
+                html = '<label style="color:#00ffff; font-size:0.8rem;">Date to Run:</label> <input type="date" id="sd_date" class="form-input">';
+            } else if (type === 'daily') {
+                html = '<label style="color:#00ffff; font-size:0.8rem;">Time of Day:</label> <input type="time" id="sd_time" class="form-input">';
+            } else if (type === 'weekly') {
+                html = `<div style="width:100%; color:#00ffff; font-size:0.8rem; margin-bottom:5px;">Days of Week:</div>
+                    <label style="color:#fff; font-size:0.8rem;"><input type="checkbox" class="sd_day" value="Mon"> Mon</label>
+                    <label style="color:#fff; font-size:0.8rem;"><input type="checkbox" class="sd_day" value="Tue"> Tue</label>
+                    <label style="color:#fff; font-size:0.8rem;"><input type="checkbox" class="sd_day" value="Wed"> Wed</label>
+                    <label style="color:#fff; font-size:0.8rem;"><input type="checkbox" class="sd_day" value="Thu"> Thu</label>
+                    <label style="color:#fff; font-size:0.8rem;"><input type="checkbox" class="sd_day" value="Fri"> Fri</label>
+                    <label style="color:#fff; font-size:0.8rem;"><input type="checkbox" class="sd_day" value="Sat"> Sat</label>
+                    <label style="color:#fff; font-size:0.8rem;"><input type="checkbox" class="sd_day" value="Sun"> Sun</label>
+                    <div style="width:100%; margin-top:5px;"><label style="color:#00ffff; font-size:0.8rem;">Time of Day:</label> <input type="time" id="sd_time" class="form-input"></div>`;
+            } else if (type === 'yearly') {
+                html = `<label style="color:#00ffff; font-size:0.8rem;">Month:</label> <select id="sd_month" class="form-input">
+                    <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+                    <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+                    <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+                    <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                </select>
+                <label style="color:#00ffff; font-size:0.8rem;">Day:</label> <input type="number" id="sd_daynum" min="1" max="31" class="form-input" style="width: 60px;">
+                <label style="color:#00ffff; font-size:0.8rem;">Time:</label> <input type="time" id="sd_time" class="form-input">`;
+            }
+            ui.innerHTML = html;
+        }
+        function buildScheduleDetails() {
+            const type = document.getElementById('schedule_type').value;
+            const endDate = document.getElementById('schedule_end_date').value;
+            let details = { end_date: endDate };
+            if (type === 'one-time') { const d = document.getElementById('sd_date'); if(d) details.date = d.value; }
+            else if (type === 'daily') { const t = document.getElementById('sd_time'); if(t) details.time = t.value; }
+            else if (type === 'weekly') { const t = document.getElementById('sd_time'); if(t) details.time = t.value; details.days = Array.from(document.querySelectorAll('.sd_day:checked')).map(cb => cb.value); }
+            else if (type === 'yearly') { const m = document.getElementById('sd_month'); const d = document.getElementById('sd_daynum'); const t = document.getElementById('sd_time'); if(m) details.month = m.value; if(d) details.day = d.value; if(t) details.time = t.value; }
+            document.getElementById('schedule_details_json').value = JSON.stringify(details);
+        }
+        document.addEventListener("DOMContentLoaded", updateScheduleUI);
+
         const allMetrics = JSON.parse(document.getElementById('metrics-data').textContent || '[]');
         
         function openEditDetailsModal(id, table, detailsStr) {

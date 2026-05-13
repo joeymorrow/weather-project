@@ -218,6 +218,17 @@ def init_db():
             except sqlite3.OperationalError:
                 pass
             
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS scheduled_sources (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                name TEXT,
+                                target_table TEXT,
+                                scrape_url TEXT,
+                                schedule_type TEXT,
+                                schedule_details TEXT,
+                                prompt_text TEXT,
+                                last_run DATETIME,
+                                is_active BOOLEAN DEFAULT 1
+                             )''')
             # Seed the default dynamic schools to replace the old static ones
             pulse_conn.execute("INSERT OR IGNORE INTO beacon_pages (slug, title, zipcode) VALUES ('sault-schools', 'Sault Schools', '49783,US')")
             pulse_conn.execute("INSERT OR IGNORE INTO beacon_pages (slug, title, zipcode) VALUES ('pickford-schools', 'Pickford Schools', '49774,US')")
@@ -791,7 +802,7 @@ def sync_for_location(slug, loc_name, query):
             if slug == "main":
                 extra_tasks = f"Task 6 (Garage Sales): SEARCH for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market. The 'location' must contain a valid street/road name.{gs_extra}\n        "
                 extra_tasks += f"Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS.{st_extra}\n        "
-                extra_tasks += f"Task 8 (Sault Schools): SEARCH for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary) in the NEXT 7 DAYS. Check athletics and board meetings.{ss_extra} If an athletic event is found, append pricing: '$2 public, $1 seniors, Free for students/faculty' unless specified otherwise.\n        "
+                extra_tasks += f"Task 8 (Sault Schools): SEARCH for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary) in the NEXT 7 DAYS. ONLY include public or large-gathering events (sports games, graduations, board meetings). DO NOT list private events, staff in-services, or closed gatherings.{ss_extra} If an athletic event is found, append pricing: '$2 public, $1 seniors, Free for students/faculty' unless specified otherwise.\n        "
                 json_format += ', "garage_sales": [{"text": "sale info", "location": "address"}], "sault_tribe": [{"text": "news/event", "location": "location"}], "sault_schools": [{"text": "event details", "location": "location"}]'
         json_format += ' }'
 
@@ -1126,6 +1137,130 @@ def sync_loop():
         run_sync()
         time.sleep(600)
 
+def fetch_annual_school_calendar():
+    import calendar
+    global gemini_client
+    now = datetime.now(TZ)
+    current_year = now.year
+
+    with state_lock:
+        last_fetch = state.get("last_calendar_fetch_year", 0)
+        
+    if last_fetch >= current_year:
+        return
+
+    # Calculate Memorial Day (last Monday of May)
+    cal = calendar.monthcalendar(current_year, 5)
+    last_monday_day = cal[-1][calendar.MONDAY] if cal[-1][calendar.MONDAY] != 0 else cal[-2][calendar.MONDAY]
+    
+    # 14 days before Memorial Day
+    memorial_day = TZ.localize(datetime(current_year, 5, last_monday_day, 0, 0, 0))
+    target_date = memorial_day - timedelta(days=14)
+
+    if now >= target_date:
+        print(f"[ANNUAL TASK] Time to fetch the Sault Schools calendar for {current_year}...", flush=True)
+        try:
+            from bs4 import BeautifulSoup
+            res = requests.get("https://www.saultschools.org/sault-area-public-schools-calendar", timeout=15)
+            soup = BeautifulSoup(res.text, 'html.parser')
+            pdf_url = None
+            for a in soup.find_all('a', href=True):
+                if a['href'].lower().endswith('.pdf'):
+                    pdf_url = a['href']
+                    if not pdf_url.startswith('http'):
+                        pdf_url = "https://www.saultschools.org" + pdf_url if pdf_url.startswith('/') else "https://www.saultschools.org/" + pdf_url
+                    break
+            
+            if not pdf_url:
+                print("[ANNUAL TASK] No PDF link found on the calendar page.", flush=True)
+                return
+
+            if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+            
+            print(f"[ANNUAL TASK] Found PDF: {pdf_url}. Processing with Gemini...", flush=True)
+            # Depending on Gemini SDK context, from_uri prefers Google Cloud URLs or File API URIs.
+            # Passing standard HTTPS relies on the model executing a sub-fetch.
+            pdf_part = types.Part.from_uri(file_uri=pdf_url, mime_type="application/pdf")
+            prompt = f"""Using the attached blue calendar, extract the events. ONLY include public or large-gathering events like sports games, parent-teacher conferences, or graduations. DO NOT include private events, staff in-services, or closed gatherings.
+
+Return ONLY a valid JSON array of objects matching this exact structure:
+[
+  {{
+    "text": "Brief description of the event",
+    "location": "Location if known, or Sault Schools",
+    "date": "Month Day", 
+    "details": {{
+       "who": "Person/Group involved",
+       "what": "Brief description of the event",
+       "where": "Specific location or address",
+       "when": "Date and Time",
+       "why": "Context or purpose",
+       "sources": [{{"title": "School Calendar", "url": "{pdf_url}"}}]
+    }}
+  }}
+]"""
+
+            config = types.GenerateContentConfig()
+            best_models = get_best_models()
+            success = False
+            for m_id in best_models:
+                try:
+                    resp = gemini_client.models.generate_content(
+                        model=m_id,
+                        contents=[pdf_part, prompt],
+                        config=config
+                    )
+                    text = resp.text
+                    json_start = text.find('[')
+                    json_end = text.rfind(']')
+                    if json_start != -1 and json_end != -1:
+                        events = json.loads(text[json_start:json_end+1])
+                        
+                        for ev in events:
+                            event_text = ev.get('text', '')
+                            event_loc = ev.get('location', '')
+                            event_date = ev.get('date', '')
+                            event_details = ev.get('details', {})
+                            if event_text and event_date:
+                                try:
+                                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                        c = conn.cursor()
+                                        c.execute("SELECT id, text FROM sault_schools ORDER BY id DESC LIMIT 50")
+                                        rows = c.fetchall()
+                                        is_dup = False
+                                        r_id_to_update = None
+                                        for r in rows:
+                                            r_id, r_text = r
+                                            w1 = set(event_text.lower().split())
+                                            w2 = set(r_text.lower().split())
+                                            if w1 and w2 and len(w1.intersection(w2)) > max(3, len(w1)//2):
+                                                is_dup = True
+                                                r_id_to_update = r_id
+                                                break
+                                        if is_dup and r_id_to_update:
+                                            c.execute("UPDATE sault_schools SET text=?, location=?, details=? WHERE id=?", (event_text, event_loc, json.dumps(event_details), r_id_to_update))
+                                        else:
+                                            c.execute("INSERT INTO sault_schools (date, text, location, details) VALUES (?, ?, ?, ?)", (event_date, event_text, event_loc, json.dumps(event_details)))
+                                        conn.commit()
+                                except Exception as e:
+                                    print(f"[ANNUAL TASK] DB Error: {e}", flush=True)
+                        success = True
+                        break
+                except Exception as e:
+                    print(f"[ANNUAL TASK] Gemini processing failed with {m_id}: {e}", flush=True)
+                    continue
+
+            if success:
+                with state_lock:
+                    state["last_calendar_fetch_year"] = current_year
+                    try:
+                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                    except: pass
+                print("[ANNUAL TASK] Successfully fetched and processed school calendar.", flush=True)
+
+        except Exception as e:
+            print(f"[ANNUAL TASK] Error fetching calendar: {e}", flush=True)
+
 def monitor_loop():
     # Prevent multiple Gunicorn workers from spawning redundant monitor threads
     lock = filelock.FileLock(os.path.join(DATA_DIR, "monitor_loop.lock"))
@@ -1144,6 +1279,8 @@ def monitor_loop():
 
     while True:
         time.sleep(300) # Run every 5 minutes
+        
+        fetch_annual_school_calendar()
         
         record_telemetry()
 
@@ -2329,6 +2466,27 @@ def cooladmin():
             except: pass
             return redirect('/cooladmin')
 
+        elif action == 'add_scheduled_source':
+            name = request.form.get('name')
+            target_table = request.form.get('target_table')
+            scrape_url = request.form.get('scrape_url')
+            schedule_type = request.form.get('schedule_type')
+            schedule_details = request.form.get('schedule_details')
+            prompt_text = request.form.get('prompt_text')
+            if name and target_table and scrape_url:
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn:
+                            conn.execute("INSERT INTO scheduled_sources (name, target_table, scrape_url, schedule_type, schedule_details, prompt_text) VALUES (?, ?, ?, ?, ?, ?)", (name, target_table, scrape_url, schedule_type, schedule_details, prompt_text))
+                except Exception as e: print(f"Error adding scheduled source: {e}", flush=True)
+            return redirect('/cooladmin')
+        elif action == 'delete_scheduled_source':
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with conn: conn.execute("DELETE FROM scheduled_sources WHERE id=?", (request.form.get('source_id'),))
+            except: pass
+            return redirect('/cooladmin')
+
         elif action == 'edit_details':
             item_id = request.form.get('item_id')
             table = request.form.get('table')
@@ -2670,6 +2828,13 @@ def cooladmin():
                     seen_types.add(r[1])
     except:
         active_prompts = []
+        
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, name, target_table, scrape_url, schedule_type, schedule_details, prompt_text, last_run, is_active FROM scheduled_sources ORDER BY id DESC")
+            scheduled_sources = [{"id": r[0], "name": r[1], "target_table": r[2], "scrape_url": r[3], "schedule_type": r[4], "schedule_details": r[5], "prompt_text": r[6], "last_run": r[7], "is_active": bool(r[8])} for r in c.fetchall()]
+    except: scheduled_sources = []
 
     garage_sales = load_garage_sales() or []
     sault_tribe = load_sault_tribe() or []
@@ -2742,7 +2907,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources)
 
 @app.route('/portfolio')
 def portfolio():
