@@ -1317,7 +1317,12 @@ def monitor_loop():
             try:
                 global gemini_client
                 if not gemini_client: gemini_client = genai.Client(api_key=G_KEY) # AI client initialized
-                prompt = f"A Python memory leak was detected. Top 5 allocations: {leak_details}. Evaluate if this is a severe, compounding leak or normal background caching. Return JSON only: {{\"critical\": true, \"reason\": \"<why>\", \"prompt_suggestion\": \"<how I should prompt you to fix it>\"}} Or if safe: {{\"critical\": false}}"
+                prompt = (
+                    f"A Python memory leak was detected. Top 5 allocations: {leak_details}. "
+                    "Evaluate if this is a severe, compounding leak or normal background caching. "
+                    'Return JSON only: {"critical": true, "reason": "<why>", "prompt_suggestion": "<how I should prompt you to fix it>"} '
+                    'Or if safe: {"critical": false}'
+                )
                 for m_id in get_best_models():
                     try:
                         resp = gemini_client.models.generate_content(model=m_id, contents=prompt)
