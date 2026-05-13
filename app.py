@@ -599,7 +599,6 @@ def sync_for_location(slug, loc_name, query):
         is_evening_golden = (sunset - 2700 <= now_ts < sunset + 900)
         is_golden = (is_morning_golden or is_evening_golden) and (clouds < 75)
         is_day = (sunrise <= now_ts < sunset) and not is_golden
-        pop = int(f['list'][0].get('pop', 0) * 100)
         
         sunrise_str = sunrise_dt.strftime('%I:%M %p').lstrip('0')
         sunset_str = sunset_dt.strftime('%I:%M %p').lstrip('0')
@@ -668,6 +667,32 @@ def sync_for_location(slug, loc_name, query):
             today_high = int(w['main']['temp_max'])
             today_low = int(w['main']['temp_min'])
         
+        # Human-centric Precipitation Probability (PoP) Time Window
+        # - Morning to Afternoon: Care about rain until ~6 PM
+        # - Evening (6 PM - 11 PM): Care about rain until Midnight
+        # - Late Night (11 PM+): Care about rain for the next 8 hours (waking up)
+        pop_target_dt = now.replace(minute=0, second=0, microsecond=0)
+        if h < 18:
+            pop_target_dt = pop_target_dt.replace(hour=18)
+        elif h < 23:
+            pop_target_dt = (pop_target_dt + timedelta(days=1)).replace(hour=0)
+        else:
+            pop_target_dt = pop_target_dt + timedelta(hours=8)
+            
+        # Ensure we always look ahead at least 3 hours to capture imminent weather
+        if (pop_target_dt - now).total_seconds() < 10800:
+            pop_target_dt = now + timedelta(hours=3)
+
+        pop_items = []
+        for i in f['list']:
+            dt_utc = datetime.strptime(i['dt_txt'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.utc)
+            dt_local = dt_utc.astimezone(TZ)
+            if dt_local > pop_target_dt:
+                break
+            pop_items.append(i)
+            
+        pop = int(max([i.get('pop', 0) for i in pop_items]) * 100) if pop_items else int(f['list'][0].get('pop', 0) * 100)
+        
         # Calculate 5-Day Outlook
         daily_forecasts = {}
         for item in f['list']:
@@ -705,7 +730,11 @@ def sync_for_location(slug, loc_name, query):
         is_severe = any(kw in weather_desc for kw in severe_keywords)
         mood_instruction = "IMPORTANT: The current weather is SEVERE. Keep Buddy's tone serious, urgent, and focused on safety. Do not be overly cheerful." if is_severe else "Buddy should be his usual helpful, friendly self."
 
-        buddy_task = "Task 1 (Buddy): 3-5 word unique greeting observing the beautiful sunrise." if (is_morning_golden and clouds < 75) else "Task 1 (Buddy): 3-5 word technical activity (Passat maintenance, lab coding)."
+        buddy_task = (
+            "Task 1 (Bubble): 3-5 word unique greeting observing the beautiful sunrise. STRICT LIMIT: Under 6 words. DO NOT concatenate tasks here." 
+            if (is_morning_golden and clouds < 75) else 
+            "Task 1 (Bubble): 3-5 word ambient technical activity (e.g., 'Calibrating firmware...', 'Parsing archives...', 'Grabbing a pastie..."). STRICT LIMIT: Under 6 words. DO NOT concatenate tasks here."
+        )
 
         global manual_override
         if manual_override and time.time() < override_expiry:
@@ -755,7 +784,7 @@ def sync_for_location(slug, loc_name, query):
         ss_extra = f" Prioritize these vetted sources: {', '.join(school_src)}." if school_src else ""
 
         extra_tasks = ""
-        json_format = '{ "tip": "attire", "say": "task", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
+        json_format = '{ "tip": "attire", "bubble": "Task 1 (3-5 words ONLY)", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
         
         if do_deep_search:
             last_deep_search[slug] = now_ts_sec
@@ -775,7 +804,9 @@ def sync_for_location(slug, loc_name, query):
         Task 3 (Forecast): 1 short sentence summarizing today/tomorrow's weather based on forecast.
         Task 4 (Attire): 2-4 word practical clothing/gear suggestion based on the forecast. Factor in current season ({now.strftime('%B')}).
         Task 5 (Weekly): 1-2 sentence overall outlook for the upcoming 5 days based on the forecast trend.
-        {extra_tasks}Return JSON: {json_format}
+        {extra_tasks}
+        CRITICAL INSTRUCTION: Separate each task into its exact JSON key. Do not output conversational filler. Keep 'bubble' strictly 3-5 words.
+        Return JSON: {json_format}
         """
         
         success = False
@@ -1375,11 +1406,11 @@ def internal_action():
             override_expiry = time.time() + 3600
             now = datetime.now(TZ)
             bubbles = {
-                "coffee": "Grabbing a brew...", "office": "Compiling data...", 
-                "gym": "Gaining processing power...", "store": "Running errands...", 
-                "library": "Parsing archives...", "garage": "Diagnostic mode...", 
-                "park": "Nature protocol engaged...", "kitchen": "Refueling...", 
-                "bed": "Powering down..."
+                "coffee": "Brewing some camp coffee...", "office": "Mapping the local trails...", 
+                "gym": "Chopping digital firewood...", "store": "Grabbing some fresh pasties...", 
+                "library": "Reading the old legends...", "garage": "Tuning up the sled...", 
+                "park": "Watching the freighters pass...", "kitchen": "Frying up some whitefish...", 
+                "bed": "Resting by the fire..."
             }
             with state_lock:
                     updates = {"station": station, "is_sleeping": (station == "bed"), "bubble": bubbles.get(station, "Rerouting..."), "acc_css": "none" if station != "bed" else "zzz", "show_bed": (station == "bed")}
@@ -3113,11 +3144,11 @@ def move_buddy(station):
     
     # Local fallback responses so web interactions don't trigger expensive API calls
     bubbles = {
-        "coffee": "Grabbing a brew...", "office": "Compiling data...", 
-        "gym": "Gaining processing power...", "store": "Running errands...", 
-        "library": "Parsing archives...", "garage": "Diagnostic mode...", 
-        "park": "Nature protocol engaged...", "kitchen": "Refueling...", 
-        "bed": "Powering down..."
+        "coffee": "Brewing some camp coffee...", "office": "Mapping the local trails...", 
+        "gym": "Chopping digital firewood...", "store": "Grabbing some fresh pasties...", 
+        "library": "Reading the old legends...", "garage": "Tuning up the sled...", 
+        "park": "Watching the freighters pass...", "kitchen": "Frying up some whitefish...", 
+        "bed": "Resting by the fire..."
     }
     
     with state_lock:

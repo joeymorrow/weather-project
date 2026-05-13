@@ -265,6 +265,27 @@
             /* 5. Force the pods into a static, single row at the very bottom */
             .pods { order: 4; display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; justify-content: center !important; width: 100% !important; position: relative !important; z-index: 60 !important; }
             
+            /* Reorder Engagement Links and Municipal Branding for Mobile */
+            #engagement-links {
+                position: relative !important;
+                top: auto !important;
+                right: auto !important;
+                display: flex !important;
+                justify-content: center !important;
+                flex-wrap: wrap !important;
+                width: 100% !important;
+                order: 5;
+                margin-top: 15px !important;
+                margin-bottom: 20px !important;
+            }
+            #municipal-branding {
+                position: relative !important;
+                bottom: auto !important;
+                order: 6;
+                margin-top: auto !important;
+                padding-bottom: 20px !important;
+            }
+            
             /* Overrides the JS opacity/pointer-events wheel logic and locks them at 60% scale */
             .pod { position: relative !important; left: auto !important; top: auto !important; transform: scale(0.6) !important; margin: -10px -5px !important; opacity: 1 !important; pointer-events: auto !important; }
             #pos-bed { position: relative !important; left: auto !important; bottom: auto !important; transform: scale(0.6) !important; margin: -10px -5px !important; }
@@ -323,6 +344,28 @@
         @keyframes lava-lamp { 0% { background-position: 0% 0%, 100% 0%, 50% 100%; } 50% { background-position: 100% 100%, 0% 50%, 100% 0%; } 100% { background-position: 50% 50%, 0% 100%, 0% 0%; } }
         body.groovy-mode .buddy-aura { animation: rave-colors 2s infinite linear, pulse-aura 3s infinite alternate; opacity: 0.8; }
         body.groovy-mode .buddy-body { background: repeating-linear-gradient(45deg, #ff00ff, #ff00ff 10px, #ffaa00 10px, #ffaa00 20px, #00ffcc 20px, #00ffcc 30px); } body.groovy-mode .arm { background: repeating-linear-gradient(45deg, #ff00ff, #ff00ff 5px, #ffaa00 5px, #ffaa00 10px, #00ffcc 10px, #00ffcc 15px); }
+        
+        /* Native Yooper Theme */
+        body.native-yooper-mode { --bg: #1c1412; --accent: #48c9b0; --dim: #e67e22; --buddy-blue: #0b5345; --text-main: #fcf3cf; --pod-border: #48c9b0; --pod-bg: rgba(72, 201, 176, 0.05); --pod-hover-glow: rgba(230, 126, 34, 0.3); --shadow-color: rgba(0,0,0,0.8); }
+        body.native-yooper-mode::before { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0; background-image: linear-gradient(45deg, rgba(230,126,34,0.04) 25%, transparent 25%, transparent 75%, rgba(230,126,34,0.04) 75%, rgba(230,126,34,0.04)), linear-gradient(-45deg, rgba(72,201,176,0.04) 25%, transparent 25%, transparent 75%, rgba(72,201,176,0.04) 75%, rgba(72,201,176,0.04)); background-size: 60px 60px; opacity: 0; animation: theme-fade-in 1.5s forwards; }
+        body.native-yooper-mode .buddy-aura { background: radial-gradient(circle, transparent 35%, rgba(72,201,176,0.2) 40%, rgba(230,126,34,0.2) 45%, transparent 50%), radial-gradient(circle, var(--dim) 0%, transparent 65%); }
+        body.native-yooper-mode .buddy-body {
+            background-color: var(--buddy-blue);
+            background-image: 
+                radial-gradient(circle at 25px 48px, #fcf3cf 3px, #e74c3c 3px, #e74c3c 5px, #f1c40f 5px, #f1c40f 7px, #111 7px, #111 8px, transparent 8px),
+                linear-gradient(45deg, transparent 40%, #e74c3c 40%, #e74c3c 60%, transparent 60%),
+                linear-gradient(-45deg, transparent 40%, #f1c40f 40%, #f1c40f 60%, transparent 60%),
+                linear-gradient(45deg, transparent 40%, #48c9b0 40%, #48c9b0 60%, transparent 60%),
+                linear-gradient(-45deg, transparent 40%, #e67e22 40%, #e67e22 60%, transparent 60%);
+            background-size: 100% 100%, 12px 12px, 12px 12px, 12px 12px, 12px 12px;
+            background-position: 0 0, 0 65px, 0 65px, 0 77px, 0 77px;
+            background-repeat: no-repeat, repeat-x, repeat-x, repeat-x, repeat-x;
+        }
+        body.native-yooper-mode .arm { border-left: 2px dashed #e67e22; border-right: 2px dashed #e67e22; }
+        body.native-yooper-mode .buddy-body::before { content: ''; position: absolute; top: -10px; left: -5px; width: 60px; height: 25px; background: #8b0000; background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.3) 5px, rgba(0,0,0,0.3) 10px); border-radius: 20px 20px 5px 5px; box-shadow: inset 0 -4px 0 #4a0000, 0 4px 5px rgba(0,0,0,0.5); z-index: 5; }
+        body.native-yooper-mode .buddy-body::after { content: ''; position: absolute; top: 4px; left: 2px; width: 46px; height: 4px; background: #fff; border-radius: 2px; z-index: 6; opacity: 0.8; border: 1px dashed #000; }
+        body.native-yooper-mode .visor { z-index: 4; }
+
         #buddy-container.dragging { transition: none !important; z-index: 3000 !important; cursor: grabbing !important; }
     </style>
 </head>
@@ -338,6 +381,7 @@
     <div id="lore-trigger" class="ambient-hide" tabindex="0">i</div>
     <div class="lore-box">Hi I'm Buddy! Integrated Model Discovery 6.0 Active. Click my body to meet my creators!<br><br><span style="opacity:0.5; font-size:0.8em; font-style:italic;">Forecast generated by Gemini API using OpenWeather data</span>
         <div id="managed-theme-link" onclick="acceptManagedTheme()" style="display:none; margin-top: 15px; color: #ff4444; font-weight: bold; cursor: pointer; border: 1px solid #ff4444; padding: 8px; border-radius: 8px; text-align: center; transition: 0.2s;">Overwrite my theme with Managed Theme</div>
+        <div onclick="setThemePack('native-yooper-mode')" style="margin-top: 10px; color: var(--accent); font-weight: bold; cursor: pointer; border: 1px solid var(--accent); padding: 8px; border-radius: 8px; text-align: center; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">🏕️ Native Yooper Theme</div>
     </div>
     <div id="weekly-trigger" class="ambient-hide" role="button" tabindex="0" onclick="document.getElementById('weekly-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('weekly-modal').style.display='flex'" title="5-Day Outlook">📅</div>
     <div id="agenda-trigger" class="ambient-hide" role="button" tabindex="0" onclick="openAgenda()" onkeydown="if(event.key==='Enter')openAgenda()" title="Daily Agenda">🗓️</div>
@@ -372,6 +416,7 @@
         <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(8px, 1.5vh, 15px); max-width: 800px; padding: clamp(5px, 1vh, 10px) 20px;">
             <div class="egg-btn" id="theme-ocean" tabindex="0" onclick="setThemePack('ocean-mode')" onkeydown="if(event.key==='Enter')setThemePack('ocean-mode')">Deep Sea</div>
             <div class="egg-btn" id="theme-groovy" tabindex="0" onclick="setThemePack('groovy-mode')" onkeydown="if(event.key==='Enter')setThemePack('groovy-mode')">Groovy</div>
+            <div class="egg-btn" id="theme-native" tabindex="0" onclick="setThemePack('native-yooper-mode')" onkeydown="if(event.key==='Enter')setThemePack('native-yooper-mode')">Native Yooper</div>
             <div class="egg-btn" id="theme-day" tabindex="0" onclick="setThemePack('day-mode')" onkeydown="if(event.key==='Enter')setThemePack('day-mode')">Day Mode</div>
             <div class="egg-btn" id="theme-golden" tabindex="0" onclick="setThemePack('golden-mode')" onkeydown="if(event.key==='Enter')setThemePack('golden-mode')">Golden Hour</div>
             <div class="egg-btn" id="theme-contrast" tabindex="0" onclick="toggleContrast()" onkeydown="if(event.key==='Enter')toggleContrast()">High Contrast</div>
@@ -534,7 +579,7 @@
         <div class="egg-btn" tabindex="0" onclick="document.getElementById('school-modal').style.display='none'" style="margin-top:clamp(15px, 3vh, 30px); border-color:gray; color:gray;">Close</div>
     </div>
     {% endif %}
-    <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.5 : 0" style="position: absolute; bottom: 15px; left: 20px; font-size: 0.7rem; color: {{ branding.color | default('var(--accent)') }}; opacity: 0; z-index: 3500; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease; display: {% if branding and branding.text %}block{% else %}none{% endif %};">{{ branding.text }}</div>
+    <div id="municipal-branding" onclick="this.style.opacity = this.style.opacity == 0 ? 0.6 : 0" style="position: absolute; bottom: 10px; left: 0; width: 100%; text-align: center; font-size: 0.7rem; color: {{ branding.color | default('var(--accent)') }}; opacity: 0.6; z-index: 3500; letter-spacing: 1px; cursor: pointer; transition: opacity 0.3s ease; display: {% if branding and branding.text %}block{% else %}none{% endif %}; pointer-events: auto;">{{ branding.text }}</div>
     <div id="engagement-links" class="ambient-hide" style="position: absolute; top: 20px; right: 70px; display: flex; gap: clamp(10px, 2vw, 15px); z-index: 3500;">
         <a href="#" onclick="document.getElementById('submit-modal').style.display='flex'; document.getElementById('rendered_at_ts').value = Date.now() / 1000; return false;" style="background: rgba(0,255,255,0.15); border: 1px solid var(--accent); color: var(--accent); padding: 6px 15px; border-radius: 20px; font-weight: bold; text-decoration: none; font-size: clamp(0.7rem, 1vw, 0.9rem); transition: 0.3s; text-transform: uppercase; box-shadow: 0 0 10px rgba(0,255,255,0.2); backdrop-filter: blur(4px);">📝 Submit Event</a>
         <a href="/demo" style="background: rgba(0,255,255,0.15); border: 1px solid var(--accent); color: var(--accent); padding: 6px 15px; border-radius: 20px; font-weight: bold; text-decoration: none; font-size: clamp(0.7rem, 1vw, 0.9rem); transition: 0.3s; text-transform: uppercase; box-shadow: 0 0 10px rgba(0,255,255,0.2); backdrop-filter: blur(4px);">🚀 Demo Hub</a>
@@ -614,7 +659,7 @@
         let pulseHistory = JSON.parse(decodeURIComponent("{{ pulse_history | default([]) | tojson | urlencode }}")) || [];
         let currentHourly = JSON.parse(decodeURIComponent("{{ hourly_list | default([]) | tojson | urlencode }}")) || [];
         const podOrder = ['coffee', 'office', 'gym', 'store', 'library', 'garage', 'park', 'kitchen'];
-        const defaultBubbles = { "coffee": "Grabbing a brew...", "office": "Compiling data...", "gym": "Gaining processing power...", "store": "Running errands...", "library": "Parsing archives...", "garage": "Diagnostic mode...", "park": "Nature protocol engaged...", "kitchen": "Refueling...", "bed": "Powering down..." };
+        const defaultBubbles = { "coffee": "Grabbing a brew...", "office": "Iteratively improving...", "gym": "Chopping digital firewood...", "store": "Grabbing some fresh pasties...", "library": "Reading the old legends...", "garage": "Tuning up...", "park": "Watching the freighters pass...", "kitchen": "Pizza..?", "bed": "Powering down..." };
         let signageSlides = [];
         let activeSlideTimer = null;
         let canvaAutoplayTimer = null;
@@ -711,11 +756,13 @@
             }
         });
 
+        function isOverlappingRect(r1, r2) {
+            return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+        }
+
         function isOverlapping(el1, el2) {
             if (!el1 || !el2) return false;
-            const r1 = el1.getBoundingClientRect();
-            const r2 = el2.getBoundingClientRect();
-            return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+            return isOverlappingRect(el1.getBoundingClientRect(), el2.getBoundingClientRect());
         }
 
         function checkObfuscation() {
@@ -730,10 +777,23 @@
             }
             const bbl = document.getElementById('ui-bbl');
             const buddy = document.getElementById('buddy-container');
-            const pulse = document.getElementById('ui-pulse');
+            
+            const importantElements = [
+                document.getElementById('ui-pulse'),
+                document.getElementById('header-container'),
+                document.getElementById('engagement-links'),
+                ...document.querySelectorAll('.ambient-hide')
+            ].filter(el => el && el.offsetHeight > 0 && getComputedStyle(el).opacity !== '0');
             
             if (bbl && buddy && pulse && bbl.style.display !== 'none' && !buddy.classList.contains('sleeping')) {
-                isObfuscating = isOverlapping(buddy, pulse) || isOverlapping(bbl, pulse);
+                let overlap = false;
+                for (let el of importantElements) {
+                    if (isOverlapping(buddy, el) || isOverlapping(bbl, el)) {
+                        overlap = true;
+                        break;
+                    }
+                }
+                isObfuscating = overlap;
             } else {
                 isObfuscating = false;
             }
@@ -905,12 +965,45 @@
             bbl.style.setProperty('transform-origin', tOrigin, 'important');
             bbl.style.setProperty('transform', `${tX} scale(1)`, 'important');
             
-            // 3. Last Resort: Apply 85% scale if the bounding box STILL overflows the screen edge
+            // 3. Collision & Edge Detection
             if (targetX === undefined) {
+                let scale = 1;
                 const rect = bbl.getBoundingClientRect();
                 if (rect.left < 5 || rect.right > window.innerWidth - 5 || rect.top < 5 || rect.bottom > window.innerHeight - 5) {
-                    bbl.style.setProperty('transform', `${tX} scale(0.85)`, 'important');
+                    scale = 0.85;
                 }
+                
+                bbl.style.setProperty('transform', `${tX} scale(${scale})`, 'important');
+                const newRect = bbl.getBoundingClientRect();
+                
+                const importantElements = [
+                    document.getElementById('header-container'),
+                    document.querySelector('.clock'),
+                    document.querySelector('.temp-row'),
+                    document.getElementById('ui-forecast'),
+                    document.getElementById('ui-sugg'),
+                    document.getElementById('ui-pulse'),
+                    document.getElementById('engagement-links'),
+                    ...document.querySelectorAll('.ambient-hide')
+                ].filter(el => el && el.offsetHeight > 0 && getComputedStyle(el).opacity !== '0');
+                
+                let overlap = false;
+                for(let el of importantElements) {
+                    const elRect = el.getBoundingClientRect();
+                    if (!(newRect.right < elRect.left + 5 || newRect.left > elRect.right - 5 || newRect.bottom < elRect.top + 5 || newRect.top > elRect.bottom - 5)) {
+                        overlap = true;
+                        break;
+                    }
+                }
+                
+                if (overlap) {
+                    scale = 0.65;
+                    bbl.style.setProperty('z-index', '3600', 'important'); 
+                } else {
+                    bbl.style.setProperty('z-index', '10', 'important');
+                }
+                
+                bbl.style.setProperty('transform', `${tX} scale(${scale})`, 'important');
             }
         };
 
@@ -1092,6 +1185,7 @@
         window.updateSecretMenuUI = function() {
             const oceanBtn = document.getElementById('theme-ocean');
             const groovyBtn = document.getElementById('theme-groovy');
+            const nativeBtn = document.getElementById('theme-native');
             const dayBtn = document.getElementById('theme-day');
             const goldenBtn = document.getElementById('theme-golden');
             const contrastBtn = document.getElementById('theme-contrast');
@@ -1103,6 +1197,7 @@
 
             if (oceanBtn) oceanBtn.innerHTML = (tp === 'ocean-mode' ? '✓ ' : '') + 'Deep Sea';
             if (groovyBtn) groovyBtn.innerHTML = (tp === 'groovy-mode' ? '✓ ' : '') + 'Groovy';
+            if (nativeBtn) nativeBtn.innerHTML = (tp === 'native-yooper-mode' ? '✓ ' : '') + 'Native Yooper';
             if (dayBtn) dayBtn.innerHTML = (tp === 'day-mode' ? '✓ ' : '') + 'Day Mode';
             if (goldenBtn) goldenBtn.innerHTML = (tp === 'golden-mode' ? '✓ ' : '') + 'Golden Hour';
             if (contrastBtn) contrastBtn.innerHTML = (hc ? '✓ ' : '') + 'High Contrast';
@@ -1967,7 +2062,7 @@
                 if (localTheme !== null) appliedTheme = localTheme;
                 else if (serverTheme) appliedTheme = serverTheme;
 
-                const allThemes = ['day-mode', 'golden-mode', 'ocean-mode', 'groovy-mode', 'high-contrast-mode'];
+                const allThemes = ['day-mode', 'golden-mode', 'ocean-mode', 'groovy-mode', 'high-contrast-mode', 'native-yooper-mode'];
                 let targetTheme = null;
                 if (appliedTheme && appliedTheme !== "") targetTheme = appliedTheme;
                 else if (s.is_day) targetTheme = 'day-mode';
