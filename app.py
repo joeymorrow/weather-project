@@ -744,7 +744,7 @@ def sync_for_location(slug, loc_name, query):
         buddy_task = (
             "Task 1 (Bubble): 3-5 word unique greeting observing the beautiful sunrise. STRICT LIMIT: Under 6 words. DO NOT concatenate tasks here." 
             if (is_morning_golden and clouds < 75) else 
-            "Task 1 (Bubble): 3-5 word ambient technical activity (e.g., 'Calibrating firmware...', 'Parsing archives...', 'Grabbing a pastie...)." STRICT LIMIT: Under 6 words. DO NOT concatenate tasks here."
+            "Task 1 (Bubble): 3-5 word ambient technical activity (e.g., 'Calibrating firmware...', 'Parsing archives...', 'Grabbing a pastie...'). STRICT LIMIT: Under 6 words. DO NOT concatenate tasks here."
         )
 
         global manual_override
