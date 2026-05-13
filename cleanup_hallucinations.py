@@ -36,6 +36,7 @@ if os.environ.get("HOST_DATA_DIR") and not os.path.exists("/.dockerenv"):
     DATA_DIR = os.environ.get("HOST_DATA_DIR")
 
 DB_FILE = os.path.join(DATA_DIR, "pulse_history.db")
+STATE_FILE = os.path.join(DATA_DIR, "buddy_state.json")
 G_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 if not G_KEY:
@@ -45,6 +46,27 @@ if not G_KEY:
 client = genai.Client(api_key=G_KEY)
 
 _best_models_cache = []
+
+def is_gemini_disabled():
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                return json.load(f).get("gemini_api_disabled", False)
+    except: pass
+    return False
+
+def set_gemini_disabled():
+    try:
+        st = {}
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                st = json.load(f)
+        if st.get("gemini_api_disabled"): return False
+        st["gemini_api_disabled"] = True
+        with open(STATE_FILE, 'w') as f: json.dump(st, f)
+        return True
+    except: return False
+
 def get_best_models():
     global _best_models_cache
     if _best_models_cache:
@@ -192,6 +214,14 @@ Evaluate if the following generated text is a hallucination or an intended respo
             data = json.loads(json_str)
             return data.get("hallucinated", False), data.get("reason", "No reason provided")
         except Exception as e:
+            err_str = str(e).lower()
+            if "429" in err_str or "exhausted" in err_str or "quota" in err_str:
+                if set_gemini_disabled():
+                    send_report_email(
+                        "[CRITICAL - BEACON BUDDY] Gemini API Quota Exhausted",
+                        "The Gemini API has returned a Resource Exhausted / 429 error during hallucination cleanup. AI generation has been disabled. Re-enable it in CoolAdmin."
+                    )
+                return False, "Gemini API Quota Exhausted"
             last_error = e
             continue
 
@@ -215,6 +245,10 @@ def main():
         DB_FILE = os.path.abspath(args.db)
 
     setup_db()
+
+    if is_gemini_disabled():
+        print("Gemini API is currently disabled due to quota exhaustion. Skipping cleanup.", flush=True)
+        return
 
     if args.list_previous_hallucinations:
         with sqlite3.connect(DB_FILE) as conn:

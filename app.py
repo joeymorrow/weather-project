@@ -401,6 +401,9 @@ def log_audit_event(user, action, details=""):
 
 def verify_events_batch(events_to_verify, is_manual=False):
     if not events_to_verify: return {}, ""
+    with state_lock:
+        if state.get("gemini_api_disabled", False):
+            return {}, ""
     verified_details = {}
     
     if is_manual:
@@ -472,6 +475,8 @@ Return ONLY a valid JSON array of objects matching this exact structure:
             for item in check_data: verified_details[item["id"]] = item
             break
         except Exception as e:
+            if handle_gemini_error(e):
+                break
             print(f"Check failed with {m_check}: {e}", flush=True)
             continue
     return verified_details, check_prompt
@@ -540,6 +545,24 @@ def get_best_models():
         print(f"[ERROR] get_best_models: {e}", flush=True)
         log_system_event("API_ERROR", "Failed to list Gemini models", str(e))
         return ["gemini-2.0-flash", "gemini-1.5-flash"]
+
+def handle_gemini_error(e):
+    err_str = str(e).lower()
+    if "429" in err_str or "exhausted" in err_str or "quota" in err_str:
+        with state_lock:
+            already_disabled = state.get("gemini_api_disabled", False)
+            if not already_disabled:
+                state["gemini_api_disabled"] = True
+                try:
+                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                except: pass
+        if not already_disabled:
+            send_alert_email(
+                "[CRITICAL - BEACON BUDDY] Gemini API Quota Exhausted",
+                "The Gemini API has returned a Resource Exhausted / 429 error. AI generation has been disabled. You can re-enable it in CoolAdmin."
+            )
+        return True
+    return False
 
 def contains_denied_words(text):
     if not text: return False
@@ -827,29 +850,33 @@ def sync_for_location(slug, loc_name, query):
 
         tools_config = types.GenerateContentConfig(tools=[{"google_search": {}}]) if do_deep_search else types.GenerateContentConfig()
         
-        for m_id in get_best_models():
-            try:
-                resp = gemini_client.models.generate_content(
-                    model=m_id, 
-                    contents=prompt,
-                    config=tools_config
-                )
-                text = resp.text
-                json_start = text.find('{')
-                json_end = text.rfind('}')
-                if json_start == -1 or json_end == -1:
-                    raise ValueError("Invalid JSON boundaries from AI")
-                json_str = text[json_start:json_end+1]
-                ai = json.loads(json_str)
-                
-                new_pulse = str(ai.get("pulse", new_pulse)).replace('**', '')
-                new_pulse_loc = ai.get("location", "")
-                is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
-                ai_garage_sales = ai.get("garage_sales", [])
-                ai_sault_tribe = ai.get("sault_tribe", [])
-                ai_sault_schools = ai.get("sault_schools", [])
-                
-                events_to_verify = []
+        with state_lock:
+            gemini_disabled = state.get("gemini_api_disabled", False)
+            
+        if not gemini_disabled:
+            for m_id in get_best_models():
+                try:
+                    resp = gemini_client.models.generate_content(
+                        model=m_id, 
+                        contents=prompt,
+                        config=tools_config
+                    )
+                    text = resp.text
+                    json_start = text.find('{')
+                    json_end = text.rfind('}')
+                    if json_start == -1 or json_end == -1:
+                        raise ValueError("Invalid JSON boundaries from AI")
+                    json_str = text[json_start:json_end+1]
+                    ai = json.loads(json_str)
+                    
+                    new_pulse = str(ai.get("pulse", new_pulse)).replace('**', '')
+                    new_pulse_loc = ai.get("location", "")
+                    is_news = str(ai.get("is_news", False)).lower() in ["true", "1", "yes"]
+                    ai_garage_sales = ai.get("garage_sales", [])
+                    ai_sault_tribe = ai.get("sault_tribe", [])
+                    ai_sault_schools = ai.get("sault_schools", [])
+                    
+                    events_to_verify = []
                 if is_news and new_pulse and "Anchoring" not in new_pulse:
                     events_to_verify.append({"id": "pulse", "type": "pulse", "text": new_pulse})
                 
@@ -986,11 +1013,29 @@ def sync_for_location(slug, loc_name, query):
                 print(f"[API] Success via {m_id} for {slug}", flush=True)
                 success = True; break
             except Exception as e:
+                if handle_gemini_error(e):
+                    gemini_disabled = True
+                    break
                 print(f"[API] Generation failed with {m_id}: {e}", flush=True)
                 log_system_event("AI_GENERATION_ERROR", f"Failed with {m_id} on {slug}", str(e))
                 continue
         
-        if not success: ai["bubble"] = "Optimizing antenna..."
+        if not success:
+            if gemini_disabled:
+                ai["bubble"] = "Conserving energy..."
+                ai["forecast"] = w['weather'][0]['description'].title()
+                ai["weekly_summary"] = "Weekly pattern steady."
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        c = conn.cursor()
+                        c.execute("SELECT text, location FROM pulses ORDER BY id DESC LIMIT 1")
+                        row = c.fetchone()
+                        if row:
+                            new_pulse = row[0]
+                            ai["location"] = row[1] if row[1] else ""
+                except: pass
+            else:
+                ai["bubble"] = "Optimizing antenna..."
         
         ai['bubble'] = ai.get('bubble', '...').replace('**', '') if isinstance(ai.get('bubble'), str) else ai.get('bubble', '...')
         ai['suggestion'] = ai.get('suggestion', '').replace('**', '') if isinstance(ai.get('suggestion'), str) else ai.get('suggestion')
@@ -1163,6 +1208,11 @@ def fetch_annual_school_calendar():
             from bs4 import BeautifulSoup
             res = requests.get("https://www.saultschools.org/sault-area-public-schools-calendar", timeout=15)
             soup = BeautifulSoup(res.text, 'html.parser')
+            
+            with state_lock:
+                if state.get("gemini_api_disabled", False):
+                    print("[ANNUAL TASK] Skipped due to Gemini API disabled.", flush=True)
+                    return
             pdf_url = None
             for a in soup.find_all('a', href=True):
                 if a['href'].lower().endswith('.pdf'):
@@ -1247,6 +1297,8 @@ Return ONLY a valid JSON array of objects matching this exact structure:
                         success = True
                         break
                 except Exception as e:
+                    if handle_gemini_error(e):
+                        break
                     print(f"[ANNUAL TASK] Gemini processing failed with {m_id}: {e}", flush=True)
                     continue
 
@@ -1315,6 +1367,15 @@ def monitor_loop():
 
             # Heuristic 3: AI Criticality Check & Triage
             try:
+                with state_lock:
+                    gemini_disabled = state.get("gemini_api_disabled", False)
+                if gemini_disabled:
+                    send_alert_email("[WARNING - BEACON BUDDY] - Memory Leak (AI Offline)", f"Top 5 allocations: {leak_details}")
+                    last_leak_email_time = current_time
+                    last_leak_signature = current_sig
+                    baseline_snapshot = current_snapshot
+                    continue
+                    
                 global gemini_client
                 if not gemini_client: gemini_client = genai.Client(api_key=G_KEY) # AI client initialized
                 prompt = (
@@ -1337,7 +1398,10 @@ def monitor_loop():
                             last_leak_signature = current_sig
                             baseline_snapshot = current_snapshot # Reset baseline ONLY after alerting!
                         break # AI evaluated successfully, break fallback loop
-                    except: continue
+                    except Exception as e:
+                        if handle_gemini_error(e):
+                            break
+                        continue
             except Exception as e:
                 print(f"[ERROR] AI Leak eval/email failed: {e}", flush=True)
 
@@ -1676,6 +1740,10 @@ def api_suggest_prompt():
     if not session.get("admin_auth") and session.get("role") != "Admin":
         return jsonify(success=False, error="Unauthorized"), 403
     
+    with state_lock:
+        if state.get("gemini_api_disabled", False):
+            return jsonify(success=False, error="Gemini API is currently disabled due to quota exhaustion.")
+            
     data = request.json
     topic = data.get('topic')
     bad_items = data.get('bad_items', [])
@@ -1710,7 +1778,10 @@ Return ONLY the new prompt text. No markdown formatting, no explanations.
                 resp = gemini_client.models.generate_content(model=m_id, contents=prompt)
                 suggested = resp.text.strip()
                 if suggested: return jsonify(success=True, suggested_prompt=suggested)
-            except: continue
+            except Exception as e:
+                if handle_gemini_error(e):
+                    return jsonify(success=False, error="Gemini API Quota Exhausted")
+                continue
         return jsonify(success=False, error="AI generation failed")
     except Exception as e:
         return jsonify(success=False, error=str(e))
@@ -2733,6 +2804,15 @@ def cooladmin():
             except Exception as e:
                 cleanup_summary = f"Error running cleanup: {e}"
                 
+        elif action == 'reenable_gemini':
+            with state_lock:
+                state["gemini_api_disabled"] = False
+                try:
+                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                except: pass
+            log_system_event("GEMINI_API_ENABLED", "Admin manually re-enabled Gemini API")
+            return redirect('/cooladmin')
+
         elif action == 'refresh_missing_details':
             def run_backfill():
                 tables = ['pulses', 'old_pulses', 'garage_sales', 'sault_tribe', 'sault_schools']
@@ -2791,6 +2871,7 @@ def cooladmin():
         disabled_pages = state.get('disabled_pages') or []
         eap_pin = state.get('eap_pin', '123456')
         agenda_votes = state.get('agenda_votes', {})
+        gemini_api_disabled = state.get('gemini_api_disabled', False)
     vetted_sources = get_vetted_sources()
 
     try:
@@ -2919,7 +3000,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled)
 
 @app.route('/portfolio')
 def portfolio():
