@@ -52,14 +52,114 @@
         }
         .form-input { background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:5px; border-radius:4px; font-family:monospace; outline:none; }
         .help-tip { cursor: help; color: #ffaa00; border: 1px solid #ffaa00; border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; margin-left: 5px; text-decoration: none; font-weight: bold; }
+        
+        /* Custom Range Slider Styles */
+        input[type=range].governor {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 10px 0;
+        }
+        input[type=range].governor::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #gemini_daily_slider::-webkit-slider-runnable-track {
+            background: linear-gradient(to right, #00ff00 0%, #00ff00 20%, #ffaa00 20%, #ffaa00 22.2%, #ff4444 22.2%, #ff4444 100%);
+        }
+        #gemini_hourly_slider::-webkit-slider-runnable-track {
+            background: rgba(0, 255, 255, 0.3);
+        }
+        input[type=range].governor::-webkit-slider-thumb {
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -7px;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
     </style>
 </head>
 <body>
     <h1>CoolAdmin Interface</h1>
     <div class="grid">
+        <!-- API Circuit Breaker & Usage -->
+        <div class="card" style="grid-column: 1 / -1; border-color: #ff00ff; box-shadow: 0 0 15px rgba(255,0,255,0.2);">
+            <h2 style="color: #ff00ff; border-bottom-color: #ff00ff;">⚡ API Circuit Breakers & Usage Tracking</h2>
+            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context to catch runaway loops and prevent budget burn.</p>
+            
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
+                <div style="background: rgba(170,0,255,0.1); border: 1px solid rgba(170,0,255,0.3); padding: 15px; border-radius: 6px; flex: 1;">
+                    <h3 style="margin-top: 0; color: #fff;">Gemini Subsystem</h3>
+                    <p style="font-size: 0.85rem; color: #ccc; margin: 5px 0;">Hard Caps: {{ api_limits.gemini_hourly }}/hr | {{ api_limits.gemini_daily }}/day</p>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
+                        <span style="color: {% if gemini_api_disabled %}#ff4444{% else %}#00ff00{% endif %}; font-weight: bold;">
+                            Status: {% if gemini_api_disabled %}DISABLED (CIRCUIT OPEN){% else %}ACTIVE (CIRCUIT CLOSED){% endif %}
+                        </span>
+                        {% if gemini_api_disabled %}
+                        <form method="POST" style="margin: 0;">
+                            <input type="hidden" name="action" value="reenable_gemini">
+                            <button type="submit" class="manage-btn" style="background: rgba(0, 255, 0, 0.2); border-color: #00ff00; color: #00ff00;">Re-enable Gemini</button>
+                        </form>
+                        {% else %}
+                        <form method="POST" style="margin: 0;">
+                            <input type="hidden" name="action" value="disable_gemini">
+                            <button type="submit" class="danger-btn" style="padding: 5px 10px;">Cutoff Gemini</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    <p style="font-size: 0.8rem; color: #ffaa00; margin-top: 10px; font-style: italic;">* Note: System will automatically disable Gemini and notify you if a 429 quota exhaustion is detected.</p>
+
+                    <form method="POST" style="margin-top: 20px; background: rgba(170,0,255,0.05); padding: 15px; border-radius: 6px; border: 1px solid rgba(170,0,255,0.2);">
+                        <input type="hidden" name="action" value="update_api_limits">
+                        <h4 style="margin-top: 0; color: #00ffff;">Dynamic Governor Limits</h4>
+                        
+                        <label style="color: #00ffff; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; margin-bottom: 15px; border-bottom: 1px solid rgba(0,255,255,0.2); padding-bottom: 10px; cursor: pointer;">
+                            <input type="checkbox" name="auto_free_tier" id="auto_free_tier" value="yes" {% if api_limits.get('auto_free_tier', True) %}checked{% endif %} onchange="updateLimitEstimates()" style="width: auto; margin: 0;">
+                            Auto-Adjust to stay within Free Tier Limits (Clamps max to 1400)
+                        </label>
+                        
+                        <label style="color: #aaa; font-size: 0.85rem;">Gemini Daily Limit: <span id="g_daily_val" style="color:#fff; font-weight:bold;">{{ api_limits.gemini_daily }}</span> calls</label>
+                        <input type="range" name="gemini_daily" id="gemini_daily_slider" class="governor" min="500" max="5000" step="50" value="{{ api_limits.gemini_daily }}" oninput="updateLimitEstimates()">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #aaa; margin-top: 5px;">
+                            <span>Safe (500)</span>
+                            <span style="color: #00ff00;">Safety (1.4k)</span>
+                            <span style="color: #ffaa00;">Free Tier (1.5k)</span>
+                            <span style="color: #ff4444;">Overage (1.5k+)</span>
+                        </div>
+                        
+                        <label style="color: #aaa; font-size: 0.85rem; margin-top: 20px; display: block;">Gemini Hourly Limit: <span id="g_hourly_val" style="color:#fff; font-weight:bold;">{{ api_limits.gemini_hourly }}</span> calls</label>
+                        <input type="range" name="gemini_hourly" id="gemini_hourly_slider" class="governor" min="20" max="500" step="10" value="{{ api_limits.gemini_hourly }}" oninput="document.getElementById('g_hourly_val').innerText = this.value;">
+                        
+                        <div id="cost_estimate" style="margin-top: 15px; font-size: 0.9rem; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 4px; border-left: 3px solid #00ff00;">
+                            Estimated cost per day: $0.00 (Within Free Tier)
+                        </div>
+                        
+                        <button type="submit" class="manage-btn" style="margin-top: 15px; width: 100%;">Apply New Limits</button>
+                    </form>
+                </div>
+                
+                <div style="background: rgba(255,170,0,0.1); border: 1px solid rgba(255,170,0,0.3); padding: 15px; border-radius: 6px; flex: 1;">
+                    <h3 style="margin-top: 0; color: #fff;">OpenWeatherMap Subsystem</h3>
+                    <p style="font-size: 0.85rem; color: #ccc; margin: 5px 0;">Hard Caps: {{ api_limits.owm_hourly }}/hr | {{ api_limits.owm_daily }}/day</p>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
+                        <span style="color: #00ff00; font-weight: bold;">Status: ACTIVE (CIRCUIT CLOSED)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="width: 100%; min-height: 300px;">
+                <canvas id="apiUsageChart"></canvas>
+            </div>
+        </div>
+
         <!-- System Services -->
         <div class="card">
-            <h2>⚙️ Core Services Status</h2>
+            <h2 style="display: flex; align-items: center;">⚙️ Core Services Status <span class="help-tip" style="margin-left: 10px;" title="These are your background workers. They safely isolate themselves if they encounter an error to protect the whole system.">?</span></h2>
             {% for s in services %}
             <div style="margin-bottom: 10px;">
                 <div class="service-row">
@@ -137,8 +237,8 @@
                     {% else %}
                     <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="{{ pr }}"><button type="submit" class="danger-btn">Disable</button></form>
                     {% endif %}
-                    <a href="{% if page.slug.startswith('demo-') %}/demo/{{ page.slug }}{% else %}/schools/{{ page.slug }}{% endif %}" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
-                    <a href="{% if page.slug.startswith('demo-') %}/demo/{{ page.slug }}/admin{% else %}/schools/{{ page.slug }}/admin{% endif %}" target="_blank" class="manage-btn">Manage Site</a>
+                    <a href="/schools/{{ page.slug }}" target="_blank" class="manage-btn" style="background:transparent; color:#00ffff; border:1px solid #00ffff;">View</a>
+                    <a href="/schools/{{ page.slug }}/admin" target="_blank" class="manage-btn">Manage Site</a>
                     <form method="POST" style="margin:0;"><input type="hidden" name="action" value="delete_beacon_page"><input type="hidden" name="page_id" value="{{ page.id }}"><button type="submit" class="danger-btn" onclick="return confirm('Delete this dynamic page?')">Delete</button></form>
                 </div>
             </div>
@@ -163,7 +263,7 @@
 
         <!-- EAP Integration & Dispatch -->
         <div class="card">
-            <h2>📡 EAP Integration & Dispatch</h2>
+            <h2 style="display: flex; align-items: center;">📡 EAP Integration & Dispatch <span class="help-tip" style="margin-left: 10px;" title="Emergency broadcast systems. Triggering these will override local displays with emergency colors and sirens safely.">?</span></h2>
             <p style="font-size: 0.9rem; color: #888;">Map local network multicast streams to synchronize alerts with fire panels or InformaCast. Broadcast outbound alerts via the PWA.</p>
             
             <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
@@ -189,7 +289,7 @@
                         <option value="CommonSense">Common Sense / Guess</option>
                         <option value="ILoveUGuys">I Love U Guys (SRP)</option>
                     </select>
-                    <span class="help-tip" title="CommonSense parses raw text for keywords (fire, lockdown). ILoveUGuys expects standard SRP IncidentTypes.">?</span>
+                    <span class="help-tip" title="All profiles currently use heuristic keyword matching. Future updates will map ILoveUGuys strictly to standard SRP IncidentTypes.">?</span>
                     <button type="submit" class="manage-btn">Add EAP Listener</button>
                 </form>
             </div>
@@ -264,7 +364,7 @@
         <!-- RBAC Configuration -->
         <div class="card" style="grid-column: 1 / -1;">
             <h2>🛡️ Role-Based Access Control (RBAC)</h2>
-            <p style="font-size: 0.9rem; color: #888;">Manage permissions matrix for native and SSO users. Native "admin" and "sales" roles bypass SSO.</p>
+            <p style="font-size: 0.9rem; color: #888;">Manage permissions matrix for native and SSO users. The native "admin" user bypasses SSO globally.</p>
             
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2); margin-bottom: 15px;">
                 <input type="hidden" name="action" value="add_rbac_user">
@@ -293,7 +393,7 @@
                 </select>
                 
                 <input type="password" name="password" placeholder="Password (Native Only)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:120px;" title="Leave blank to keep existing password">
-                <label style="color: #00ffff; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; flex:1;" title="If checked, this specific user's role will override any role assigned to their broader SSO group.">
+                <label style="color: #00ffff; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; flex:1;" title="(Future Feature) If checked, this user's role will override any role assigned to their broader SSO group once AD Group Sync is implemented.">
                     <input type="checkbox" name="override_group" value="yes" style="margin: 0; width: auto;"> Override Group <span class="help-tip" style="margin-left:0;">?</span>
                 </label>
                 
@@ -402,13 +502,13 @@
 
         <!-- Pulse Management -->
         <div class="card">
-            <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                <span>📡 Pulse Archives & Management</span>
+            <h2 style="display: flex; justify-content: space-between; align-items: center; margin-top: 0;">
+                <span style="display: flex; align-items: center;">📡 Pulse Archives & Management <span class="help-tip" style="margin-left: 10px;" title="You can safely delete old or bad events here. The AI uses this history to learn what NOT to repeat tomorrow!">?</span></span>
                 <span style="font-size: 0.9rem; color: #00ffff; background: rgba(0, 255, 255, 0.1); padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(0, 255, 255, 0.3);">Agenda Items: {{ agenda_item_count }}</span>
             </h2>
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="pulses"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
-                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('main_pulse')">🤖 Analyze Checked & Suggest Prompt</button>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="openConverseModal('main_pulse', 'prompt_text_main_pulse')">🪄 Converse & Refine Prompt</button>
             </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_pulse">
@@ -541,10 +641,10 @@
         
         <!-- Local Feeds Management -->
         <div class="card">
-            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏷️ Garage Sales ({{ garage_sales|length }})</span></h2>
+            <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏷️ Garage Sales ({{ garage_sales|length }}) <span class="help-tip" title="Add community events manually here. The AI will natively pick them up and verify them.">?</span></span></h2>
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="garage_sales"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
-                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('garage_sales')">🤖 Analyze Checked & Suggest Prompt</button>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="openConverseModal('garage_sales')">🪄 Converse & Refine Prompt</button>
             </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_garage_sale">
@@ -603,7 +703,7 @@
             <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🪶 Sault Tribe News ({{ sault_tribe|length }})</span></h2>
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="sault_tribe"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
-                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('sault_tribe')">🤖 Analyze Checked & Suggest Prompt</button>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="openConverseModal('sault_tribe')">🪄 Converse & Refine Prompt</button>
             </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_sault_tribe">
@@ -662,7 +762,7 @@
             <h2 style="display: flex; justify-content: space-between; align-items: center;"><span>🏫 Sault Schools Activity ({{ sault_schools|length }})</span></h2>
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                 <form method="POST" style="margin:0;"><input type="hidden" name="action" value="refresh_tower"><input type="hidden" name="table" value="sault_schools"><button type="submit" class="manage-btn" style="background: #aa00aa;">🔄 AI Refresh Entire Tower</button></form>
-                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="suggestPromptImprovement('sault_schools')">🤖 Analyze Checked & Suggest Prompt</button>
+                <button class="manage-btn" style="background: #ffaa00; color: #000;" onclick="openConverseModal('sault_schools', 'prompt_text_sault_schools')">🪄 Converse & Refine Prompt</button>
             </div>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
                 <input type="hidden" name="action" value="add_sault_school_event">
@@ -712,19 +812,30 @@
 
         <!-- Vetted Data Sources -->
         <div class="card" style="grid-column: 1 / -1;">
-            <h2>📚 AI Vetted Data Sources</h2>
-            <p style="font-size: 0.9rem; color: #888;">These sources are injected into the AI's search prompt so it knows exactly where to look for verified events.</p>
-            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px;">
+            <h2 style="display: flex; align-items: center;">📚 AI Vetted Data Sources <span class="help-tip" style="margin-left: 10px;" title="The AI prioritizes links mapped here. If it hallucinated a bad link, simply map it to the 'Blocked / Blacklist' topic here to ban it forever!">?</span></h2>
+            <p style="font-size: 0.9rem; color: #888;">These sources are injected into the AI's search prompt so it knows exactly where to look for verified events, or which sources to avoid if blocked.</p>
+            <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px; align-items: flex-start;">
                 <input type="hidden" name="action" value="add_vetted_source">
-                <select name="topic" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
+                <select name="topic" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; height: 36px;">
                     <option value="pulses">Main Pulse</option>
                     <option value="garage_sales">Garage Sales</option>
                     <option value="sault_tribe">Sault Tribe</option>
                     <option value="sault_schools">Sault Schools</option>
+                    <option value="blocked">🚫 Blocked / Blacklist</option>
                 </select>
-                <input type="text" name="name" placeholder="Source Name (e.g. Athletics Calendar)" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <input type="text" name="url" placeholder="URL (e.g. saultschools.org/athletics)" required style="flex: 2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px;">
-                <button type="submit" class="manage-btn">Add Source</button>
+                <input type="text" name="name" placeholder="Source Name (e.g. Athletics Calendar or Facebook)" required style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; height: 36px; box-sizing: border-box;">
+                <div style="flex: 2; display: flex; flex-direction: column; gap: 5px;">
+                    <select id="known_blocked" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; height: 36px;" onchange="if(this.value){document.getElementById('url_input').value = this.value; document.querySelector('input[name=name]').value = this.options[this.selectedIndex].text;}">
+                        <option value="">-- Quick Block List --</option>
+                        <option value="*facebook.com*">Facebook</option>
+                        <option value="*eventbrite.com*">Eventbrite</option>
+                        <option value="*yelp.com*">Yelp</option>
+                        <option value="*tripadvisor.com*">Tripadvisor</option>
+                        <option value="*allevents.in*">AllEvents</option>
+                    </select>
+                    <input type="text" name="url" id="url_input" placeholder="URL or Wildcard (e.g. saultschools.org/athletics or *facebook.com*)" required style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; height: 36px; box-sizing: border-box;">
+                </div>
+                <button type="submit" class="manage-btn" style="height: 36px;">Add Source</button>
             </form>
             <table style="width: 100%; border-collapse: collapse;">
                 <tr style="background: rgba(0,255,255,0.1); border-bottom: 2px solid #00ffff;">
@@ -758,7 +869,7 @@
 
         <!-- Dynamic Scheduled Sources -->
         <div class="card" style="grid-column: 1 / -1; border-color: #ffaa00; box-shadow: 0 0 15px rgba(255,170,0,0.2);">
-            <h2 style="color: #ffaa00; border-bottom-color: #ffaa00;">📅 Dynamic Scheduled Sources</h2>
+            <h2 style="color: #ffaa00; border-bottom-color: #ffaa00; display: flex; align-items: center;">📅 Dynamic Scheduled Sources <span class="help-tip" style="margin-left: 10px;" title="Safely automate data fetching from PDFs or URLs. Background loops process these independently so they will not lag your dashboard.">?</span></h2>
             <p style="font-size: 0.9rem; color: #888;">Schedule recurring scrapers for PDFs or web pages to automatically feed Gemini and populate your database tables.</p>
             
             <form method="POST" style="background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2); margin-bottom: 15px;">
@@ -842,7 +953,7 @@
 
         <!-- Prompt & Response Tower Management -->
         <div class="card" style="grid-column: 1 / -1;">
-            <h2>🧠 AI Prompt & Response Tower Matrix</h2>
+            <h2 style="display: flex; align-items: center;">🧠 AI Prompt & Response Tower Matrix <span class="help-tip" style="margin-left: 10px;" title="Use the 'Converse & Refine' button above to have a chat with the AI about modifying these. Nuke Tower is a safe reset button if things get completely out of hand!">?</span></h2>
             <p style="font-size: 0.9rem; color: #888;">Manage base AI instructions and purge hallucination response stacks. Default O.G. prompts cannot be deleted.</p>
             
             <!-- Main Pulse -->
@@ -851,7 +962,7 @@
                 <form method="POST" style="display: flex; gap: 10px; margin-bottom: 10px;">
                     <input type="hidden" name="action" value="add_prompt">
                     <input type="hidden" name="prompt_type" value="main_pulse">
-                    <textarea name="prompt_text" required placeholder="Enter new instruction set..." style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; resize:vertical; min-height:60px;"></textarea>
+                    <textarea name="prompt_text" id="prompt_text_main_pulse" required placeholder="Enter new instruction set..." style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; resize:vertical; min-height:60px;">{% for p in active_prompts if p.prompt_type == 'main_pulse' %}{{ p.prompt_text }}{% endfor %}</textarea>
                     <button type="submit" class="manage-btn" style="align-self: flex-start;">Add Prompt</button>
                 </form>
                 <div style="display: flex; gap: 10px;">
@@ -866,7 +977,7 @@
                 <form method="POST" style="display: flex; gap: 10px; margin-bottom: 10px;">
                     <input type="hidden" name="action" value="add_prompt">
                     <input type="hidden" name="prompt_type" value="sault_schools">
-                    <textarea name="prompt_text" required placeholder="Override default instructions..." style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; resize:vertical; min-height:60px;"></textarea>
+                    <textarea name="prompt_text" id="prompt_text_sault_schools" required placeholder="Override default instructions..." style="flex: 1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; resize:vertical; min-height:60px;">{% for p in active_prompts if p.prompt_type == 'sault_schools' %}{{ p.prompt_text }}{% endfor %}</textarea>
                     <button type="submit" class="manage-btn" style="align-self: flex-start;">Add Prompt</button>
                 </form>
                 <div style="display: flex; gap: 10px;">
@@ -879,6 +990,7 @@
         <!-- API Health Status -->
         <div class="card" style="grid-column: 1 / -1; border-color: #aa00ff; box-shadow: 0 0 15px rgba(170,0,255,0.2);">
             <h2 style="color: #aa00ff; border-bottom-color: #aa00ff;">🌐 External API Health & Deprecation Checks</h2>
+            
             <div id="api-health-container">
                 <p style="color: #aaa;">Pinging OpenWeatherMap and Google Gemini APIs...</p>
             </div>
@@ -896,7 +1008,7 @@
 
         <!-- Nuclear Option -->
         <div class="card" style="border-color: #ff0000; box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);">
-            <h2 style="color: #ff0000; border-bottom-color: #ff0000;">☢️ Nuclear Option</h2>
+            <h2 style="color: #ff0000; border-bottom-color: #ff0000; display: flex; align-items: center;">☢️ Nuclear Option <span class="help-tip" style="border-color: #ff0000; color: #ff0000; margin-left: 10px;" title="This safely kills the web server. Docker will automatically reboot a fresh, clean instance. Use if memory freezes.">?</span></h2>
             <p style="font-size: 0.9rem; color: #aaa;">Kills the application server process. If using Docker, the container should automatically restart it.</p>
             <form method="POST" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;" onsubmit="return confirm('WARNING: Are you absolutely sure you want to shut down the server?');">
                 <input type="hidden" name="action" value="shutdown">
@@ -974,14 +1086,29 @@
 
     <div id="prompt-suggest-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; align-items: center; justify-content: center;">
         <div style="background: #002222; padding: 20px; border: 1px solid #00ffff; border-radius: 8px; width: 90%; max-width: 600px;">
-            <h3 style="margin-top:0; color:#00ffff;">AI Prompt Suggestion</h3>
-            <p style="font-size: 0.9rem; color:#aaa;">Based on the bad items selected, the AI suggests the following improved prompt:</p>
-            <form method="POST" id="accept-prompt-form">
+            <h3 style="margin-top:0; color:#00ffff;">🪄 Conversational Prompt Refiner</h3>
+            <p style="font-size: 0.9rem; color:#aaa;">Chat with the AI to adjust your prompts on the fly, or refine based on bad items.</p>
+            <div id="bad-items-container" style="display:none; margin-bottom:10px;">
+                <strong style="color:#ffaa00;">Selected Bad Items:</strong>
+                <ul id="bad-items-list" style="color:#ccc; font-size:0.8rem; max-height:100px; overflow-y:auto; margin-top: 5px;"></ul>
+            </div>
+            <label style="color:#00ffff; font-size:0.8rem;">Current Prompt Base (Editable):</label>
+            <textarea id="suggest-current-prompt" style="width:100%; height:80px; background:#000; color:#0ff; border:1px solid #0ff; padding:5px; margin-bottom:10px; font-family:monospace;"></textarea>
+            
+            <label style="color:#00ffff; font-size:0.8rem;">How should we change it? (Conversational Instruction):</label>
+            <input type="text" id="suggest-user-instruction" placeholder="e.g. 'Stop using the word I, ignore canadian garage sales but keep regular events...'" style="width:100%; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:10px; border-radius:4px; margin-bottom:10px; box-sizing:border-box;">
+            
+            <button type="button" class="manage-btn" style="background:#ffaa00; color:#000; width:100%; margin-bottom:15px; padding: 10px;" onclick="triggerPromptAI()">✨ Ask AI to Rewrite Prompt</button>
+            
+            <label style="color:#00ffff; font-size:0.8rem;">AI Suggested New Prompt:</label>
+            <form method="POST" id="accept-prompt-form" style="margin-top: 5px;">
                 <input type="hidden" name="action" value="add_prompt">
                 <input type="hidden" name="prompt_type" id="suggest-topic">
-                <textarea name="prompt_text" id="suggest-text" style="width:100%; height:150px; background:#000; color:#0ff; border:1px solid #0ff; padding:10px; margin-bottom:15px; box-sizing:border-box; font-family:monospace;"></textarea>
-                <p id="suggest-timer" style="color: #ffaa00; font-size: 0.8rem; font-weight:bold;">Auto-rejecting in 30s...</p>
-                <div style="display:flex; justify-content:space-between;"><button type="button" class="danger-btn" onclick="rejectSuggestedPrompt()">Reject (Keep Old)</button><button type="submit" class="manage-btn" style="background:#00ff00; color:#000;">Accept New Prompt</button></div>
+                <textarea name="prompt_text" id="suggest-text" style="width:100%; height:120px; background:#000; color:#0ff; border:1px solid #0ff; padding:10px; margin-bottom:10px; box-sizing:border-box; font-family:monospace;"></textarea>
+                <div style="display:flex; justify-content:space-between;">
+                    <button type="button" class="danger-btn" onclick="document.getElementById('prompt-suggest-modal').style.display='none'">Cancel</button>
+                    <button type="submit" class="manage-btn" style="background:#00ff00; color:#000;" id="accept-new-prompt-btn" disabled>Accept & Apply New Prompt</button>
+                </div>
             </form>
         </div>
     </div>
@@ -1049,44 +1176,60 @@
             document.getElementById('edit-details-modal').style.display = 'flex';
         }
 
-        let suggestTimeout = null;
-        async function suggestPromptImprovement(topic) {
-            const checkboxes = document.querySelectorAll(`.bad-item-cb[data-topic="${topic}"]:checked`);
-            const badItems = Array.from(checkboxes).map(cb => cb.getAttribute('data-text'));
-            if(badItems.length === 0) { alert("Please check the 'Bad Prompt?' box on at least one item first."); return; }
+        let currentSuggestTopic = '';
+        let currentBadItems = [];
+        
+        async function openConverseModal(topic, textareaId = null) {
+            currentSuggestTopic = topic;
+            currentBadItems = [];
             
+            // Auto-check if any bad items are selected for this topic
+            const checkboxes = document.querySelectorAll(`.bad-item-cb[data-topic="${topic}"]:checked`);
+            if(checkboxes.length > 0) {
+                currentBadItems = Array.from(checkboxes).map(cb => cb.getAttribute('data-text'));
+                document.getElementById('bad-items-list').innerHTML = currentBadItems.map(item => `<li>${item}</li>`).join('');
+                document.getElementById('bad-items-container').style.display = 'block';
+            } else {
+                document.getElementById('bad-items-container').style.display = 'none';
+            }
+
+            document.getElementById('suggest-topic').value = topic;
+            
+            let currentText = '';
+            if(textareaId && document.getElementById(textareaId)) {
+                currentText = document.getElementById(textareaId).value;
+            }
+            document.getElementById('suggest-current-prompt').value = currentText;
+            document.getElementById('suggest-user-instruction').value = currentBadItems.length > 0 ? "Please rewrite the prompt to strictly prevent these bad items from appearing." : "";
+            document.getElementById('suggest-text').value = '';
+            document.getElementById('accept-new-prompt-btn').disabled = true;
+            
+            document.getElementById('prompt-suggest-modal').style.display = 'flex';
+        }
+        
+        async function triggerPromptAI() {
             const btn = event.target;
             const originalText = btn.innerText;
-            btn.innerText = "🤖 Analyzing..."; btn.disabled = true;
+            btn.innerText = "🤖 Analyzing & Rewriting..."; btn.disabled = true;
             
             try {
                 const res = await fetch('/api/internal/suggest_prompt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ topic, bad_items: badItems })
+                    body: JSON.stringify({ 
+                        topic: currentSuggestTopic, 
+                        bad_items: currentBadItems,
+                        user_instruction: document.getElementById('suggest-user-instruction').value,
+                        current_prompt_text: document.getElementById('suggest-current-prompt').value
+                    })
                 });
                 const data = await res.json();
                 if(data.success) {
-                    document.getElementById('suggest-topic').value = topic;
                     document.getElementById('suggest-text').value = data.suggested_prompt;
-                    document.getElementById('prompt-suggest-modal').style.display = 'flex';
-                    let timeLeft = 30;
-                    document.getElementById('suggest-timer').innerText = `Auto-rejecting in ${timeLeft}s...`;
-                    clearInterval(suggestTimeout);
-                    suggestTimeout = setInterval(() => {
-                        timeLeft--;
-                        document.getElementById('suggest-timer').innerText = `Auto-rejecting in ${timeLeft}s...`;
-                        if(timeLeft <= 0) rejectSuggestedPrompt();
-                    }, 1000);
+                    document.getElementById('accept-new-prompt-btn').disabled = false;
                 } else { alert("Failed to generate suggestion: " + data.error); }
             } catch(e) { alert("Error: " + e.message); }
             btn.innerText = originalText; btn.disabled = false;
-        }
-
-        function rejectSuggestedPrompt() {
-            clearInterval(suggestTimeout);
-            document.getElementById('prompt-suggest-modal').style.display = 'none';
-            document.getElementById('suggest-text').value = '';
         }
 
         let memChart, loadChart;
@@ -1111,6 +1254,37 @@
             });
         }
 
+        async function fetchApiUsage() {
+            try {
+                const res = await fetch('/api/internal/api_usage');
+                const data = await res.json();
+                if (data.error) return;
+                
+                const hours = [...new Set(data.map(d => d.hour))].sort();
+                const contexts = [...new Set(data.map(d => `${d.api}: ${d.context}`))];
+                const neonColors = ['#00ffff', '#ff00ff', '#ffff00', '#00ff00', '#ffaa00', '#ff4444', '#aa00ff', '#00aaff', '#ffffff'];
+                
+                const datasets = contexts.map((ctx, idx) => {
+                    const ctxData = data.filter(d => `${d.api}: ${d.context}` === ctx);
+                    return {
+                        label: ctx,
+                        data: hours.map(h => { const match = ctxData.find(d => d.hour === h); return match ? match.count : 0; }),
+                        backgroundColor: neonColors[idx % neonColors.length],
+                        stack: 'Stack 0',
+                    };
+                });
+                
+                new Chart(document.getElementById('apiUsageChart'), {
+                    type: 'bar',
+                    data: { labels: hours.map(h => new Date(h + " UTC").toLocaleTimeString([], {hour: '2-digit'})), datasets: datasets },
+                    options: { responsive: true, maintainAspectRatio: false,
+                        scales: { x: { stacked: true, grid: { color: 'rgba(0,255,255,0.1)' } }, y: { stacked: true, grid: { color: 'rgba(0,255,255,0.1)' }, beginAtZero: true } },
+                        plugins: { legend: { position: 'right', labels: { color: '#00ffff' } } }
+                    }
+                });
+            } catch (e) { console.error("Failed to load API usage chart", e); }
+        }
+
         window.applyTelemetryFilter = function() {
             const hours = parseFloat(document.getElementById('telemetryFilter').value);
             const cutoff = new Date(Date.now() - hours * 3600 * 1000);
@@ -1131,6 +1305,7 @@
 
         initCharts();
         applyTelemetryFilter();
+        fetchApiUsage();
 
         async function fetchApiHealth() {
             try {
@@ -1198,6 +1373,36 @@
 
         fetchApiHealth();
         fetchSystemLogs();
+
+        function updateLimitEstimates() {
+            const dailySlider = document.getElementById('gemini_daily_slider');
+            if (!dailySlider) return;
+            const autoFree = document.getElementById('auto_free_tier');
+            
+            let dailyVal = parseInt(dailySlider.value);
+            
+            if (autoFree && autoFree.checked && dailyVal > 1400) {
+                dailySlider.value = 1400;
+                dailyVal = 1400;
+            }
+            document.getElementById('g_daily_val').innerText = dailyVal;
+            
+            const costBox = document.getElementById('cost_estimate');
+            if (dailyVal <= 1400) {
+                costBox.style.borderLeftColor = '#00ff00';
+                costBox.innerHTML = `<strong>Status: Below Free Tier Safety</strong><br>Estimated Cost: $0.00/day. You are well protected from surprise billing.`;
+            } else if (dailyVal <= 1500) {
+                costBox.style.borderLeftColor = '#ffaa00';
+                costBox.innerHTML = `<strong>Status: At Free Tier Limit</strong><br>Estimated Cost: $0.00/day. You are riding the exact line of the free tier.`;
+            } else {
+                costBox.style.borderLeftColor = '#ff4444';
+                const overage = dailyVal - 1500;
+                const est = (overage * 0.0002).toFixed(2);
+                const estMonth = (overage * 0.0002 * 30).toFixed(2);
+                costBox.innerHTML = `<strong>Status: Above Free Tier (Pay-As-You-Go)</strong><br>Overage: ${overage} calls/day.<br>Estimated Cost: <span style="color:#ff4444;">~$${est}/day (~$${estMonth}/month)</span>.`;
+            }
+        }
+        document.addEventListener('DOMContentLoaded', updateLimitEstimates);
     </script>
 
     <div style="margin: 40px auto; max-width: 800px;">

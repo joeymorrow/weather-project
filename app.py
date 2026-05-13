@@ -255,6 +255,13 @@ def init_db():
                                 action TEXT,
                                 details TEXT
                              )''')
+            log_conn.execute('''CREATE TABLE IF NOT EXISTS api_usage_log (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                api_name TEXT,
+                                caller_context TEXT,
+                                tokens_used INTEGER DEFAULT 0
+                             )''')
 init_db()
 
 def get_agenda_item_count():
@@ -399,6 +406,49 @@ def log_audit_event(user, action, details=""):
     except Exception as e:
         print(f"[ERROR] Failed to write to audit log: {e}", flush=True)
 
+class CircuitBreakerError(Exception):
+    pass
+
+def check_and_log_api_usage(api_name, caller_context):
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-1 hour')", (api_name,))
+            hourly_count = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-24 hours')", (api_name,))
+            daily_count = c.fetchone()[0]
+
+            if api_name == 'gemini':
+                with state_lock:
+                    g_daily = state.get("api_limits", {}).get("gemini_daily", 1400)
+                    g_hourly = state.get("api_limits", {}).get("gemini_hourly", 100)
+                    if state.get("api_limits", {}).get("auto_free_tier", True):
+                        g_daily = min(g_daily, 1400)
+                if daily_count >= g_daily or hourly_count >= g_hourly:
+                    log_system_event("CIRCUIT_BREAKER", f"Gemini API limit reached! Daily: {daily_count}, Hourly: {hourly_count}. Caller: {caller_context}")
+                    print(f"[CIRCUIT BREAKER] Gemini Limit Hit by {caller_context}", flush=True)
+                    return False
+            elif api_name == 'openweathermap':
+                with state_lock:
+                    o_daily = state.get("api_limits", {}).get("owm_daily", 900)
+                    o_hourly = state.get("api_limits", {}).get("owm_hourly", 60)
+                if daily_count >= o_daily or hourly_count >= o_hourly:
+                    log_system_event("CIRCUIT_BREAKER", f"OWM API limit reached! Daily: {daily_count}, Hourly: {hourly_count}. Caller: {caller_context}")
+                    print(f"[CIRCUIT BREAKER] OWM Limit Hit by {caller_context}", flush=True)
+                    return False
+                    
+            conn.execute("INSERT INTO api_usage_log (api_name, caller_context) VALUES (?, ?)", (api_name, caller_context))
+            conn.commit()
+            return True
+    except Exception as e:
+        print(f"[ERROR] API Tracking DB Error: {e}", flush=True)
+        return True # Fail open to prevent DB locks from freezing the app
+
+def safe_owm_get(url, caller_context="unknown", timeout=10):
+    if not check_and_log_api_usage('openweathermap', caller_context):
+        raise CircuitBreakerError(f"OpenWeatherMap API Circuit Breaker Limit Reached by {caller_context}.")
+    return http_session.get(url, timeout=timeout)
+
 def verify_events_batch(events_to_verify, is_manual=False):
     if not events_to_verify: return {}, ""
     with state_lock:
@@ -406,6 +456,9 @@ def verify_events_batch(events_to_verify, is_manual=False):
             return {}, ""
     verified_details = {}
     
+    blocked_src = [s['url'] for s in get_vetted_sources() if s['topic'] == 'blocked']
+    block_extra = f"\nCRITICAL: DO NOT use or search these blocked sources: {', '.join(blocked_src)}." if blocked_src and not is_manual else ""
+
     if is_manual:
         check_prompt = f"""
 You are an AI assistant processing MANUALLY VERIFIED local events for Sault Ste. Marie, Michigan.
@@ -438,7 +491,7 @@ Return ONLY a valid JSON array of objects matching this exact structure:
 You are a strict fact-checker and investigative journalist for Sault Ste. Marie, Michigan.
 I will provide a JSON list of events. For EACH event, use Google Search to verify if it actually happened or is scheduled.
 If it is real/verified: Extract the 5 Ws (Who, What, Where, When, Why) and any source URLs.
-If it is fake, hallucinated, or you cannot find proof: set "hallucinated": true.
+If it is fake, hallucinated, or you cannot find proof: set "hallucinated": true.{block_extra}
 
 Input Events:
 {json.dumps(events_to_verify)}
@@ -466,7 +519,7 @@ Return ONLY a valid JSON array of objects matching this exact structure:
     for m_check in get_best_models():
         try:
             config = types.GenerateContentConfig(tools=tools) if tools else types.GenerateContentConfig()
-            check_resp = gemini_client.models.generate_content(model=m_check, contents=check_prompt, config=config)
+            check_resp = safe_gemini_generate_content(model=m_check, contents=check_prompt, config=config, caller_context=f"verify_events_{'manual' if is_manual else 'auto'}")
             check_text = check_resp.text
             c_start = check_text.find('[')
             c_end = check_text.rfind(']')
@@ -546,9 +599,28 @@ def get_best_models():
         log_system_event("API_ERROR", "Failed to list Gemini models", str(e))
         return ["gemini-2.0-flash", "gemini-1.5-flash"]
 
+def safe_gemini_generate_content(model, contents, config=None, caller_context="unknown"):
+    with state_lock:
+        if state.get("gemini_api_disabled", False):
+            raise CircuitBreakerError("Gemini API is manually disabled.")
+            
+    if not check_and_log_api_usage('gemini', caller_context):
+        with state_lock:
+            if not state.get("gemini_api_disabled", False):
+                state["gemini_api_disabled"] = True
+                try:
+                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                except: pass
+        send_alert_email("[CRITICAL - BEACON BUDDY] API Circuit Breaker Tripped", f"Gemini API exceeded limits (Caller: {caller_context}). It has been disabled to prevent runaway costs. View the CoolAdmin dashboard to investigate and re-enable.")
+        raise CircuitBreakerError("Gemini API Circuit Breaker Limit Reached.")
+        
+    global gemini_client
+    if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+    return gemini_client.models.generate_content(model=model, contents=contents, config=config) if config else gemini_client.models.generate_content(model=model, contents=contents)
+
 def handle_gemini_error(e):
     err_str = str(e).lower()
-    if "429" in err_str or "exhausted" in err_str or "quota" in err_str:
+    if "429" in err_str or "exhausted" in err_str or "quota" in err_str or "circuit breaker" in err_str:
         with state_lock:
             already_disabled = state.get("gemini_api_disabled", False)
             if not already_disabled:
@@ -557,10 +629,25 @@ def handle_gemini_error(e):
                     with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                 except: pass
         if not already_disabled:
-            send_alert_email(
-                "[CRITICAL - BEACON BUDDY] Gemini API Quota Exhausted",
-                "The Gemini API has returned a Resource Exhausted / 429 error. AI generation has been disabled. You can re-enable it in CoolAdmin."
-            )
+            # Canary check: How many calls did we ACTUALLY make today?
+            daily_count = 0
+            try:
+                with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-24 hours')")
+                    daily_count = c.fetchone()[0]
+            except: pass
+
+            if "circuit breaker" in err_str:
+                subject = "[CRITICAL - BEACON BUDDY] Internal API Governor Tripped"
+                msg = f"Our internal API Circuit Breaker tripped at {daily_count} calls today. AI generation has been disabled to safely stay within your budget constraints. View the CoolAdmin dashboard to investigate and re-enable."
+            else:
+                subject = "[WARNING - BEACON BUDDY] Service Degraded: External API Constraints"
+                msg = f"The Gemini API returned a Resource Exhausted / 429 error, but our internal tracker only counted {daily_count} calls today.\n\n"
+                msg += "This indicates either Google lowered their free-tier limits unexpectedly, or another application using this API key consumed the quota. AI generation disabled. Go to CoolAdmin to review your telemetry graphs."
+                
+            send_alert_email(subject, msg)
+            
         return True
     return False
 
@@ -603,14 +690,14 @@ def scrape_closings():
 
 def sync_for_location(slug, loc_name, query):
     try:
-        w = http_session.get(f"https://api.openweathermap.org/data/2.5/weather?q={query}&appid={OWM_KEY}&units=imperial", timeout=10).json()
+        w = safe_owm_get(f"https://api.openweathermap.org/data/2.5/weather?q={query}&appid={OWM_KEY}&units=imperial", caller_context=f"owm_weather_{slug}", timeout=10).json()
         
         # Automatically correct the AI context to the true OpenWeatherMap city name!
         owm_city = w.get('name')
         if owm_city and owm_city.strip():
             loc_name = owm_city
             
-        f = http_session.get(f"https://api.openweathermap.org/data/2.5/forecast?q={query}&appid={OWM_KEY}&units=imperial", timeout=10).json()
+        f = safe_owm_get(f"https://api.openweathermap.org/data/2.5/forecast?q={query}&appid={OWM_KEY}&units=imperial", caller_context=f"owm_forecast_{slug}", timeout=10).json()
         now = datetime.now(TZ)
         h = now.hour
         is_sleep = (h >= 22 or h < 6)
@@ -797,25 +884,54 @@ def sync_for_location(slug, loc_name, query):
         # Community event extraction and Search Grounding are heavy. Limit to once per hour.
         do_deep_search = not is_late_night and (now_ts_sec - last_deep_search.get(slug, 0) > 3600)
         
-        pulse_task = (
-            f"Task 2 (Pulse): Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of {tomorrow_label}'s weather into this comforting thought. IMPORTANT: Because it is currently {time_str}, do NOT refer to 'evening' or 'tonight' as future events. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the exact time. DO NOT use markdown like asterisks (**). Do not use intense or zine-like language; keep it ambient and conversational. Do not search for news. Set 'is_news' to false." 
-            if is_late_night else 
-            (
-                f"Task 2 (Pulse): Adopt the persona of an inspiring, steadfast community leader and masterful speechwriter, focused on the indomitable human spirit. "
-                f"SEARCH for recent local news, community successes, acts of kindness, or verifiable events happening TODAY in {loc_name}. If no specific news or event is found, DO NOT invent names or fake heroics; instead, offer a grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i>). CONTENT: Provide a 2-sentence update. Give a brief shoutout/kudos to a local achievement OR share the real event, weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. TRUTH BOUNDARY: Only include specific details if verified. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid overly saccharine words. DO NOT use markdown like asterisks (**). Do not use intense or zine-like language; keep it grounded, conversational, and ambient. Set 'is_news' to true ONLY if specific verified news/events are shared; otherwise, set to false."
-                if do_deep_search else
-                f"Task 2 (Pulse): Adopt the persona of an inspiring, steadfast community leader. Offer a 2-sentence grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' in {loc_name} (e.g., <i>shipping traffic</i>), weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. FORMATTING: Wrap specific locations in <i> tags. DO NOT use markdown like asterisks (**). Do not use intense or zine-like language; keep it grounded, conversational, and ambient. Set 'is_news' to false."
-            )
-        )
+        custom_prompts = {}
+        try:
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                c = conn.cursor()
+                c.execute("SELECT prompt_type, prompt_text FROM prompts ORDER BY id DESC")
+                for r in c.fetchall():
+                    if r[0] not in custom_prompts:
+                        custom_prompts[r[0]] = r[1]
+        except Exception as e:
+            print(f"[ERROR] Fetching custom prompts: {e}", flush=True)
 
         vetted_srcs = get_vetted_sources()
         gs_src = [s['url'] for s in vetted_srcs if s['topic'] == 'garage_sales']
         tribe_src = [s['url'] for s in vetted_srcs if s['topic'] == 'sault_tribe']
         school_src = [s['url'] for s in vetted_srcs if s['topic'] == 'sault_schools']
+        blocked_src = [s['url'] for s in vetted_srcs if s['topic'] == 'blocked']
 
         gs_extra = f" Prioritize these vetted sources: {', '.join(gs_src)}." if gs_src else ""
         st_extra = f" Prioritize these vetted sources: {', '.join(tribe_src)}." if tribe_src else ""
         ss_extra = f" Prioritize these vetted sources: {', '.join(school_src)}." if school_src else ""
+        
+        block_extra = f" CRITICAL: DO NOT use or search these blocked sources: {', '.join(blocked_src)}." if blocked_src else ""
+
+        gs_default = f"SEARCH for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market. The 'location' must contain a valid street/road name."
+        gs_prompt = custom_prompts.get("garage_sales", gs_default)
+
+        st_default = f"SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS."
+        st_prompt = custom_prompts.get("sault_tribe", st_default)
+
+        ss_default = f"SEARCH for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary) in the NEXT 7 DAYS. ONLY include public or large-gathering events (sports games, graduations, board meetings). DO NOT list private events, staff in-services, or closed gatherings. If an athletic event is found, append pricing: '$2 public, $1 seniors, Free for students/faculty' unless specified otherwise."
+        ss_prompt = custom_prompts.get("sault_schools", ss_default)
+
+        mp_late_default = f"Adopt the persona of a comforting, poetic night-owl. Provide a quiet 1-2 sentence late-night observation of {loc_name}'s nocturnal rhythm. Seamlessly weave a brief mention of {tomorrow_label}'s weather into this comforting thought. IMPORTANT: Because it is currently {time_str}, do NOT refer to 'evening' or 'tonight' as future events. Keep the tone warm, hushed, and safe (never eerie or lonely). Wrap specific local landmarks in <i> tags. DO NOT state the exact time. DO NOT use markdown like asterisks (**). Do not use first-person pronouns (I, me, my). Do not use intense or zine-like language; keep it ambient and conversational. Do not search for news. Set 'is_news' to false."
+        mp_deep_default = f"Adopt the persona of an inspiring, steadfast community leader and masterful speechwriter, focused on the indomitable human spirit. SEARCH for recent local news, community successes, acts of kindness, or verifiable events happening TODAY in {loc_name}. If no specific news or event is found, DO NOT invent names or fake heroics; instead, offer a grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' (e.g., <i>shipping traffic</i>). CONTENT: Provide a 2-sentence update. Give a brief shoutout/kudos to a local achievement OR share the real event, weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. TRUTH BOUNDARY: Only include specific details if verified. FORMATTING: Wrap specific locations, subjects, and verified event times in <i> tags. Avoid overly saccharine words. DO NOT use markdown like asterisks (**). Do not use first-person pronouns (I, me, my). Do not use intense or zine-like language; keep it grounded, conversational, and ambient. Set 'is_news' to true ONLY if specific verified news/events are shared; otherwise, set to false."
+        mp_norm_default = f"Adopt the persona of an inspiring, steadfast community leader. Offer a 2-sentence grounded note of gratitude for the community's resilience or a 'Seasonal Rhythm' in {loc_name} (e.g., <i>shipping traffic</i>), weaving the current weather into this message seamlessly. Make the reader feel proud and ready to take on the day. FORMATTING: Wrap specific locations in <i> tags. DO NOT use markdown like asterisks (**). Do not use first-person pronouns (I, me, my). Do not use intense or zine-like language; keep it grounded, conversational, and ambient. Set 'is_news' to false."
+
+        mp_prompt = custom_prompts.get("main_pulse")
+        if mp_prompt:
+            pulse_task = f"Task 2 (Pulse): {mp_prompt} (Current Loc: {loc_name}, Time: {time_str}, Tomorrow: {tomorrow_label}). FORMATTING: Wrap specific locations in <i> tags. DO NOT use markdown like asterisks (**)."
+            if do_deep_search:
+                pulse_task += f" {block_extra}"
+        else:
+            if is_late_night:
+                pulse_task = f"Task 2 (Pulse): {mp_late_default}"
+            elif do_deep_search:
+                pulse_task = f"Task 2 (Pulse): {mp_deep_default}{block_extra}"
+            else:
+                pulse_task = f"Task 2 (Pulse): {mp_norm_default}"
 
         extra_tasks = ""
         json_format = '{ "tip": "attire", "bubble": "Task 1 (3-5 words ONLY)", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
@@ -823,9 +939,9 @@ def sync_for_location(slug, loc_name, query):
         if do_deep_search:
             last_deep_search[slug] = now_ts_sec
             if slug == "main":
-                extra_tasks = f"Task 6 (Garage Sales): SEARCH for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market. The 'location' must contain a valid street/road name.{gs_extra}\n        "
-                extra_tasks += f"Task 7 (Sault Tribe): SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS.{st_extra}\n        "
-                extra_tasks += f"Task 8 (Sault Schools): SEARCH for Sault Area Public Schools events (Malcolm High, Sault High, Sault Middle, Sault Elementary) in the NEXT 7 DAYS. ONLY include public or large-gathering events (sports games, graduations, board meetings). DO NOT list private events, staff in-services, or closed gatherings.{ss_extra} If an athletic event is found, append pricing: '$2 public, $1 seniors, Free for students/faculty' unless specified otherwise.\n        "
+                extra_tasks = f"Task 6 (Garage Sales): {gs_prompt}{gs_extra}{block_extra}\n        "
+                extra_tasks += f"Task 7 (Sault Tribe): {st_prompt}{st_extra}{block_extra}\n        "
+                extra_tasks += f"Task 8 (Sault Schools): {ss_prompt}{ss_extra}{block_extra}\n        "
                 json_format += ', "garage_sales": [{"text": "sale info", "location": "address"}], "sault_tribe": [{"text": "news/event", "location": "location"}], "sault_schools": [{"text": "event details", "location": "location"}]'
         json_format += ' }'
 
@@ -856,11 +972,7 @@ def sync_for_location(slug, loc_name, query):
         if not gemini_disabled:
             for m_id in get_best_models():
                 try:
-                    resp = gemini_client.models.generate_content(
-                        model=m_id, 
-                        contents=prompt,
-                        config=tools_config
-                    )
+                    resp = safe_gemini_generate_content(model=m_id, contents=prompt, config=tools_config, caller_context=f"sync_pulse_{slug}")
                     text = resp.text
                     json_start = text.find('{')
                     json_end = text.rfind('}')
@@ -1190,8 +1302,13 @@ def fetch_annual_school_calendar():
 
     with state_lock:
         last_fetch = state.get("last_calendar_fetch_year", 0)
+        last_attempt = state.get("last_calendar_attempt_time", 0)
         
     if last_fetch >= current_year:
+        return
+
+    # Prevent the API from spamming Retries every 5 minutes if the AI fails to parse the PDF
+    if time.time() - last_attempt < 86400:
         return
 
     # Calculate Memorial Day (last Monday of May)
@@ -1203,6 +1320,12 @@ def fetch_annual_school_calendar():
     target_date = memorial_day - timedelta(days=14)
 
     if now >= target_date:
+        with state_lock:
+            state["last_calendar_attempt_time"] = time.time()
+            try:
+                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+            except: pass
+            
         print(f"[ANNUAL TASK] Time to fetch the Sault Schools calendar for {current_year}...", flush=True)
         try:
             from bs4 import BeautifulSoup
@@ -1255,11 +1378,7 @@ Return ONLY a valid JSON array of objects matching this exact structure:
             success = False
             for m_id in best_models:
                 try:
-                    resp = gemini_client.models.generate_content(
-                        model=m_id,
-                        contents=[pdf_part, prompt],
-                        config=config
-                    )
+                    resp = safe_gemini_generate_content(model=m_id, contents=[pdf_part, prompt], config=config, caller_context="fetch_annual_calendar")
                     text = resp.text
                     json_start = text.find('[')
                     json_end = text.rfind(']')
@@ -1386,7 +1505,7 @@ def monitor_loop():
                 )
                 for m_id in get_best_models():
                     try:
-                        resp = gemini_client.models.generate_content(model=m_id, contents=prompt)
+                        resp = safe_gemini_generate_content(model=m_id, contents=prompt, caller_context="monitor_leak_eval")
                         t_start = resp.text.find('{')
                         t_end = resp.text.rfind('}')
                         if t_start == -1 or t_end == -1: raise ValueError("No JSON in eval")
@@ -1408,9 +1527,23 @@ def monitor_loop():
         # 4. Cleanup expired demos
         try:
             now_str = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
+            expired_slugs = []
             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                with conn:
-                    conn.execute("DELETE FROM beacon_pages WHERE slug LIKE 'demo-%' AND expires_at < ?", (now_str,))
+                c = conn.cursor()
+                c.execute("SELECT slug FROM beacon_pages WHERE slug LIKE 'demo-%' AND expires_at < ?", (now_str,))
+                expired_slugs = [r[0] for r in c.fetchall()]
+                if expired_slugs:
+                    with conn:
+                        conn.execute("DELETE FROM beacon_pages WHERE slug LIKE 'demo-%' AND expires_at < ?", (now_str,))
+            if expired_slugs:
+                with state_lock:
+                    for s in expired_slugs:
+                        if 'tenants' in state and s in state['tenants']:
+                            del state['tenants'][s]
+                            print(f"[CLEANUP] Removed expired demo state for {s}", flush=True)
+                    try:
+                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                    except: pass
         except Exception as e:
             pass
 
@@ -1747,36 +1880,55 @@ def api_suggest_prompt():
     data = request.json
     topic = data.get('topic')
     bad_items = data.get('bad_items', [])
+    user_instruction = data.get('user_instruction', '')
+    current_prompt = data.get('current_prompt_text', '')
     
-    if not topic or not bad_items:
-        return jsonify(success=False, error="Missing data"), 400
+    if not topic:
+        return jsonify(success=False, error="Missing topic data"), 400
         
-    try:
-        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-            c = conn.cursor()
-            c.execute("SELECT prompt_text FROM prompts WHERE prompt_type = ? ORDER BY id DESC LIMIT 1", (topic,))
-            row = c.fetchone()
-            current_prompt = row[0] if row else "Default instruction for " + topic
-    except:
-        current_prompt = "Unknown"
+    if not current_prompt:
+        try:
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                c = conn.cursor()
+                c.execute("SELECT prompt_text FROM prompts WHERE prompt_type = ? ORDER BY id DESC LIMIT 1", (topic,))
+                row = c.fetchone()
+                if row:
+                    current_prompt = row[0]
+                else:
+                    if topic == 'main_pulse':
+                        current_prompt = "Adopt the persona of an inspiring community leader. SEARCH for recent local news, community successes, or acts of kindness happening TODAY. Provide a 2-sentence update weaving the current weather seamlessly. DO NOT use first-person pronouns (I, me, my). Wrap specific locations in <i> tags."
+                    elif topic == 'garage_sales':
+                        current_prompt = "SEARCH for real Garage/Yard/Estate Sales scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales UNLESS it is a massive flea market."
+                    elif topic == 'sault_tribe':
+                        current_prompt = "SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS."
+                    elif topic == 'sault_schools':
+                        current_prompt = "SEARCH for Sault Area Public Schools events in the NEXT 7 DAYS. ONLY include public or large-gathering events. DO NOT list private events, staff in-services, or closed gatherings."
+                    else:
+                        current_prompt = "Default instruction for " + topic
+        except:
+            current_prompt = "Unknown"
         
     prompt = f"""
 You are an expert prompt engineer. We use the following instructions to gather local data for Sault Ste. Marie, MI for the category "{topic}".
-Current Prompt: "{current_prompt}"
-
-However, it recently produced these bad or hallucinated items:
-{json.dumps(bad_items)}
-
-Please suggest a brief, improved version of the prompt that prevents these issues (e.g., by adding stricter constraints or specific exclusion rules).
-Return ONLY the new prompt text. No markdown formatting, no explanations.
+Current Base Prompt: "{current_prompt}"
 """
+    if bad_items:
+        prompt += f"\nIt recently produced these bad or hallucinated items:\n{json.dumps(bad_items)}\n"
+        
+    if user_instruction:
+        prompt += f"\nThe user has requested the following conversational changes to the prompt:\n\"{user_instruction}\"\n"
+    else:
+        prompt += "\nPlease suggest a brief, improved version of the prompt that prevents these issues (e.g., by adding stricter constraints or specific exclusion rules)."
+        
+    prompt += "\nRewrite the prompt to satisfy this request while keeping the original intent intact. Return ONLY the new prompt text. No markdown formatting, no explanations, do not surround it with quotes."
+
     try:
         global gemini_client
         if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
         for m_id in get_best_models():
             try:
-                resp = gemini_client.models.generate_content(model=m_id, contents=prompt)
-                suggested = resp.text.strip()
+                resp = safe_gemini_generate_content(model=m_id, contents=prompt, caller_context="api_suggest_prompt")
+                suggested = resp.text.strip().strip('"').strip("'")
                 if suggested: return jsonify(success=True, suggested_prompt=suggested)
             except Exception as e:
                 if handle_gemini_error(e):
@@ -1799,7 +1951,7 @@ def api_health_endpoint():
     # OpenWeatherMap
     try:
         start = time.time()
-        res = http_session.get(f"https://api.openweathermap.org/data/2.5/weather?q=London&appid={OWM_KEY}", timeout=5)
+        res = safe_owm_get(f"https://api.openweathermap.org/data/2.5/weather?q=London&appid={OWM_KEY}", caller_context="health_check_owm", timeout=5)
         elapsed = round((time.time() - start) * 1000)
         health["openweathermap"]["latency"] = f"{elapsed}ms"
         if res.status_code == 200:
@@ -1835,6 +1987,26 @@ def api_health_endpoint():
         health["gemini"]["warnings"].append(str(e))
         
     return jsonify(health)
+
+@app.route('/api/internal/api_usage')
+def api_usage_data():
+    if not session.get("admin_auth") and session.get("role") != "Admin":
+        return jsonify(success=False, error="Unauthorized"), 403
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT strftime('%Y-%m-%d %H:00:00', timestamp) as hour, 
+                       api_name, caller_context, COUNT(*) as count 
+                FROM api_usage_log 
+                WHERE timestamp >= datetime('now', '-24 hours') 
+                GROUP BY hour, api_name, caller_context 
+                ORDER BY hour ASC
+            """)
+            rows = c.fetchall()
+            return jsonify([{"hour": r[0], "api": r[1], "context": r[2], "count": r[3]} for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.before_request
 def check_disabled_pages():
@@ -1949,7 +2121,7 @@ def demo_hub():
                     return "<script>alert('Maximum active demos (11) reached. Please try again later once some expire.'); window.location.href='/demo';</script>"
                 
                 try:
-                    w_res = requests.get(f"https://api.openweathermap.org/data/2.5/weather?q={zipcode},US&appid={OWM_KEY}", timeout=5).json()
+                    w_res = safe_owm_get(f"https://api.openweathermap.org/data/2.5/weather?q={zipcode},US&appid={OWM_KEY}", caller_context="demo_zip_validation", timeout=5).json()
                     if str(w_res.get("cod")) != "200" or not w_res.get("name"):
                         return f"<script>alert('Invalid zip code ({zipcode}). OpenWeather could not find a city for this location. Please try again.'); window.location.href='/demo';</script>"
                     title = w_res.get("name")
@@ -2403,8 +2575,19 @@ def cooladmin():
             page_id = request.form.get('page_id')
             try:
                 with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                    with conn:
-                        conn.execute("DELETE FROM beacon_pages WHERE id = ?", (page_id,))
+                    c = conn.cursor()
+                    c.execute("SELECT slug FROM beacon_pages WHERE id = ?", (page_id,))
+                    row = c.fetchone()
+                    if row:
+                        slug_to_del = row[0]
+                        with conn:
+                            conn.execute("DELETE FROM beacon_pages WHERE id = ?", (page_id,))
+                        with state_lock:
+                            if 'tenants' in state and slug_to_del in state['tenants']:
+                                del state['tenants'][slug_to_del]
+                            try:
+                                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                            except: pass
             except: pass
             return redirect('/cooladmin')
 
@@ -2813,6 +2996,28 @@ def cooladmin():
             log_system_event("GEMINI_API_ENABLED", "Admin manually re-enabled Gemini API")
             return redirect('/cooladmin')
 
+        elif action == 'disable_gemini':
+            with state_lock:
+                state["gemini_api_disabled"] = True
+                try:
+                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                except: pass
+            log_system_event("GEMINI_API_DISABLED", "Admin manually disabled Gemini API")
+            return redirect('/cooladmin')
+
+        elif action == 'update_api_limits':
+            with state_lock:
+                if 'api_limits' not in state:
+                    state['api_limits'] = {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 60, "auto_free_tier": True}
+                state['api_limits']['gemini_daily'] = int(request.form.get('gemini_daily', 1400))
+                state['api_limits']['gemini_hourly'] = int(request.form.get('gemini_hourly', 100))
+                state['api_limits']['auto_free_tier'] = request.form.get('auto_free_tier') == 'yes'
+                try:
+                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                except: pass
+            log_system_event("API_LIMITS_UPDATED", f"Admin updated API limits to Daily: {state['api_limits']['gemini_daily']}")
+            return redirect('/cooladmin')
+
         elif action == 'refresh_missing_details':
             def run_backfill():
                 tables = ['pulses', 'old_pulses', 'garage_sales', 'sault_tribe', 'sault_schools']
@@ -2872,6 +3077,7 @@ def cooladmin():
         eap_pin = state.get('eap_pin', '123456')
         agenda_votes = state.get('agenda_votes', {})
         gemini_api_disabled = state.get('gemini_api_disabled', False)
+        api_limits = state.get('api_limits', {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 60, "auto_free_tier": True})
     vetted_sources = get_vetted_sources()
 
     try:
@@ -3000,7 +3206,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits)
 
 @app.route('/portfolio')
 def portfolio():
@@ -3224,8 +3430,19 @@ def admin(slug="main"):
                 page_id = request.form.get('page_id')
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                        with conn:
-                            conn.execute("DELETE FROM beacon_pages WHERE id = ?", (page_id,))
+                        c = conn.cursor()
+                        c.execute("SELECT slug FROM beacon_pages WHERE id = ?", (page_id,))
+                        row = c.fetchone()
+                        if row:
+                            slug_to_del = row[0]
+                            with conn:
+                                conn.execute("DELETE FROM beacon_pages WHERE id = ?", (page_id,))
+                            with state_lock:
+                                if 'tenants' in state and slug_to_del in state['tenants']:
+                                    del state['tenants'][slug_to_del]
+                                try:
+                                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                                except: pass
                 except: pass
             elif action == 'update_school_alert':
                 loc_slug = request.form.get('location_slug')

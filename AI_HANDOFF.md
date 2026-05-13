@@ -14,6 +14,7 @@ It operates as a multi-tenant platform with several frontend views:
 - **Framework:** Python, Flask, Gunicorn.
 - **Concurrency:** We use background threads (`threading.Thread`) alongside `filelock` (POSIX locks) to prevent multiple Gunicorn workers from spawning duplicate sync or memory-monitor loops.
 - **AI Integration:** Uses `google.genai` SDK. The AI adopts the persona of a masterful, charismatic presidential speechwriter focused on the "indomitable human spirit."
+- **API Governor & Circuit Breakers:** We aggressively track API token telemetry via `api_usage_log`. If background loops runaway or hit predefined daily limits (e.g. 1,400 calls/day), a custom `CircuitBreakerError` is raised, forcing external API dependencies to gracefully degrade.
 - **Data Persistence:** SQLite is used for `pulse_history.db` and `system_logs.db`. Local JSON (`buddy_state.json`) handles state persistence across device reloads.
 - **Memory Monitoring:** `tracemalloc` actively watches the heap and automatically triages severe memory leaks via an AI evaluation before sending an emergency SMTP email.
 

@@ -36,6 +36,7 @@ if os.environ.get("HOST_DATA_DIR") and not os.path.exists("/.dockerenv"):
     DATA_DIR = os.environ.get("HOST_DATA_DIR")
 
 DB_FILE = os.path.join(DATA_DIR, "pulse_history.db")
+LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 STATE_FILE = os.path.join(DATA_DIR, "buddy_state.json")
 G_KEY = os.environ.get("GEMINI_API_KEY", "")
 
@@ -66,6 +67,34 @@ def set_gemini_disabled():
         with open(STATE_FILE, 'w') as f: json.dump(st, f)
         return True
     except: return False
+
+def check_and_log_api_usage(api_name, caller_context):
+    try:
+        g_daily = 1400
+        g_hourly = 100
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                st = json.load(f)
+                limits = st.get("api_limits", {})
+                g_daily = limits.get("gemini_daily", 1400)
+                g_hourly = limits.get("gemini_hourly", 100)
+                if limits.get("auto_free_tier", True):
+                    g_daily = min(g_daily, 1400)
+
+        with sqlite3.connect(LOG_DB_FILE, timeout=10) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-1 hour')", (api_name,))
+            hourly = c.fetchone()[0]
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-24 hours')", (api_name,))
+            daily = c.fetchone()[0]
+            
+            if daily >= g_daily or hourly >= g_hourly:
+                return False
+                
+            conn.execute("INSERT INTO api_usage_log (api_name, caller_context) VALUES (?, ?)", (api_name, caller_context))
+            conn.commit()
+            return True
+    except: return True
 
 def get_best_models():
     global _best_models_cache
@@ -158,6 +187,9 @@ def setup_db():
                             text TEXT UNIQUE,
                             location TEXT
                          )''')
+        conn.execute('''CREATE TABLE IF NOT EXISTS hallucination_checked_texts (
+                            text TEXT PRIMARY KEY
+                         )''')
 
 def check_hallucination(text, date_str, item_type="pulse"):
     if item_type == "garage_sale":
@@ -200,6 +232,14 @@ Evaluate if the following generated text is a hallucination or an intended respo
 
     for m_id in models_to_try:
         try:
+            if not check_and_log_api_usage('gemini', 'cleanup_hallucinations'):
+                if set_gemini_disabled():
+                    send_report_email(
+                        "[CRITICAL - BEACON BUDDY] API Circuit Breaker Tripped",
+                        "Gemini API exceeded limits during hallucination cleanup. AI generation disabled."
+                    )
+                return False, "Gemini API Circuit Breaker Limit Reached"
+                
             response = client.models.generate_content(
                 model=m_id,
                 contents=prompt,
@@ -221,12 +261,12 @@ Evaluate if the following generated text is a hallucination or an intended respo
                         "[CRITICAL - BEACON BUDDY] Gemini API Quota Exhausted",
                         "The Gemini API has returned a Resource Exhausted / 429 error during hallucination cleanup. AI generation has been disabled. Re-enable it in CoolAdmin."
                     )
-                return False, "Gemini API Quota Exhausted"
+                return None, "Gemini API Quota Exhausted" # Return None to indicate API failure, NOT "valid"
             last_error = e
             continue
 
     print(f"Error checking text: {last_error}")
-    return False, str(last_error)
+    return None, str(last_error)
 
 RED = '\033[91m'
 RESET = '\033[0m'
@@ -308,6 +348,9 @@ def main():
         cursor.execute("SELECT id, date, text FROM sault_schools")
         sault_schools = cursor.fetchall()
 
+        cursor.execute("SELECT text FROM hallucination_checked_texts")
+        checked_texts = set(r[0] for r in cursor.fetchall())
+
         items_to_check = []
         now = datetime.now(pytz.timezone('America/Detroit'))
         archived_count = 0
@@ -331,7 +374,8 @@ def main():
                     continue
             except ValueError: pass # Skip unparsable or malformed legacy dates
 
-            items_to_check.append(("pulse", pulse_id, date_str, text))
+            if text not in checked_texts:
+                items_to_check.append(("pulse", pulse_id, date_str, text))
 
         # Age out Garage Sales (> 48 hours to preserve today and tomorrow only)
         for sale_id, date_str, text in garage_sales:
@@ -350,7 +394,8 @@ def main():
                     continue
             except ValueError: pass
 
-            items_to_check.append(("garage_sale", sale_id, date_str, text))
+            if text not in checked_texts:
+                items_to_check.append(("garage_sale", sale_id, date_str, text))
 
         # Age out Sault Tribe (> 72 hours)
         for tribe_id, date_str, text in sault_tribe:
@@ -369,7 +414,8 @@ def main():
                     continue
             except ValueError: pass
 
-            items_to_check.append(("sault_tribe", tribe_id, date_str, text))
+            if text not in checked_texts:
+                items_to_check.append(("sault_tribe", tribe_id, date_str, text))
 
         # Age out Sault Schools (> 72 hours)
         for school_id, date_str, text in sault_schools:
@@ -387,7 +433,8 @@ def main():
                     archived_count += 1
                     continue
             except ValueError: pass
-            items_to_check.append(("sault_schools", school_id, date_str, text))
+            if text not in checked_texts:
+                items_to_check.append(("sault_schools", school_id, date_str, text))
 
         print(f"Found {len(items_to_check)} items to check for hallucinations (Archived/Deleted {archived_count} old items).\n")
 
@@ -411,8 +458,12 @@ def main():
                 conn.commit()
                 print(f"{RED}-> Deleted {item_type} ID: {item_id}\n{RESET}", flush=True)
                 round_results.append((date, text, reason))
-            else:
+        elif is_hallucinated is False:
                 print(f"-> [VALID] {reason}\n", flush=True)
+                cursor.execute("INSERT OR IGNORE INTO hallucination_checked_texts (text) VALUES (?)", (text,))
+                conn.commit()
+        else:
+            print(f"-> [ERROR/SKIPPED] {reason}. Will retry next round.\n", flush=True)
 
             time.sleep(1) # Prevent hitting API rate limits
 
@@ -423,6 +474,12 @@ def main():
                               ORDER BY retrieved_at DESC
                               LIMIT 100
                           )''')
+
+        cursor.execute('''DELETE FROM hallucination_checked_texts 
+                          WHERE text NOT IN (SELECT text FROM pulses)
+                          AND text NOT IN (SELECT text FROM garage_sales)
+                          AND text NOT IN (SELECT text FROM sault_tribe)
+                          AND text NOT IN (SELECT text FROM sault_schools)''')
         conn.commit()
 
         print("Cleanup complete!", flush=True)

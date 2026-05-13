@@ -27,6 +27,7 @@ Government entities are legally required to be accessible. BEACON is built with 
 - **Aria-Live Regions:** Screen readers will automatically announce new weather updates as they refresh.
 - **Alt Text:** All images and dynamic elements are tagged for screen readers.
 - **High Contrast:** The color palette (cyan on dark) meets WCAG 2.1 standards for readability.
+- **Budget Safety:** The "Auto-Adjust Free Tier" governor will actively sever AI dependencies before they incur unapproved API overage charges, ensuring municipalities aren't hit with unexpected cloud bills.
 
 ## Graceful Degradation
 If the OpenWeatherMap API or Gemini API goes down, the dashboard will not crash. Instead, Buddy will gracefully inform the user: *"I'm having trouble seeing the sky right now, but stay safe!"* 
