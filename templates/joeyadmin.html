@@ -990,7 +990,7 @@
             
             <!-- Main Pulse -->
             <div style="margin-bottom: 20px; border-left: 3px solid #00ffff; padding-left: 10px;">
-                <h3 style="margin-top: 0; color: #00ffff;">Main Pulse Directives</h3>
+                <h3 style="margin-top: 0; color: #00ffff;">Main Pulse Directives <span style="font-size: 0.8rem; color: #888; font-weight: normal;">(Last Updated: {% for p in active_prompts if p.prompt_type == 'main_pulse' %}{{ p.created_at }}{% else %}System Default{% endfor %})</span></h3>
                 <form method="POST" style="display: flex; gap: 10px; margin-bottom: 10px;">
                     <input type="hidden" name="action" value="add_prompt">
                     <input type="hidden" name="prompt_type" value="main_pulse">
@@ -1004,7 +1004,7 @@
             </div>
             <!-- School Events -->
             <div style="margin-bottom: 20px; border-left: 3px solid #00ffff; padding-left: 10px;">
-                <h3 style="margin-top: 0; color: #00ffff;">Sault Schools Directives</h3>
+                <h3 style="margin-top: 0; color: #00ffff;">Sault Schools Directives <span style="font-size: 0.8rem; color: #888; font-weight: normal;">(Last Updated: {% for p in active_prompts if p.prompt_type == 'sault_schools' %}{{ p.created_at }}{% else %}System Default{% endfor %})</span></h3>
                 <p style="font-size: 0.8rem; color: #aaa; margin: 0 0 10px 0;">O.G.: "Sports, Activities, Graduations, public events. No emergency/private. Include Date, Time, Location. Shortened address format."</p>
                 <form method="POST" style="display: flex; gap: 10px; margin-bottom: 10px;">
                     <input type="hidden" name="action" value="add_prompt">

@@ -124,6 +124,10 @@ def init_db():
                                 prompt_text TEXT,
                                 is_default BOOLEAN DEFAULT 0
                              )''')
+            try:
+                pulse_conn.execute("ALTER TABLE prompts ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
             pulse_conn.execute('''CREATE TABLE IF NOT EXISTS sault_tribe (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 date TEXT,
@@ -3148,12 +3152,12 @@ def cooladmin():
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
-            c.execute("SELECT id, prompt_type, prompt_text, is_default FROM prompts ORDER BY id DESC")
+            c.execute("SELECT id, prompt_type, prompt_text, is_default, created_at FROM prompts ORDER BY id DESC")
             active_prompts = []
             seen_types = set()
             for r in c.fetchall():
                 if r[1] not in seen_types:
-                    active_prompts.append({"id": r[0], "prompt_type": r[1], "prompt_text": r[2], "is_default": bool(r[3])})
+                    active_prompts.append({"id": r[0], "prompt_type": r[1], "prompt_text": r[2], "is_default": bool(r[3]), "created_at": to_local_time(r[4]) if len(r)>4 and r[4] else "System Default"})
                     seen_types.add(r[1])
     except:
         active_prompts = []
