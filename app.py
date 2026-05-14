@@ -70,6 +70,7 @@ INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET")
 DENYLIST = ["profanity", "badword", "controversial", "inappropriate"]
 last_deep_search = {}
 _best_models_cache = []
+_health_cache = {"data": None, "last_check": 0}
 
 app.secret_key = INTERNAL_API_SECRET or os.urandom(24)
 
@@ -601,6 +602,8 @@ def get_best_models():
     global gemini_client, _best_models_cache
     if _best_models_cache: return _best_models_cache
     try:
+        if not check_and_log_api_usage('gemini', 'model_discovery'):
+            return ["gemini-2.5-flash", "gemini-1.5-flash"]
         if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
         all_m = list(gemini_client.models.list())
         ranked = []
@@ -610,7 +613,7 @@ def get_best_models():
             n_clean = m.name.replace("models/", "")
             
             # Block multimodal/experimental models from draining quota on text tasks
-            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath"]):
+            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath", "veo"]):
                 continue
                 
             if hasattr(m, 'supported_generation_methods') and m.supported_generation_methods:
@@ -2151,6 +2154,11 @@ def api_health_endpoint():
     if not session.get("admin_auth") and session.get("role") != "Admin":
         return jsonify(success=False, error="Unauthorized"), 403
         
+    global _health_cache
+    if time.time() - _health_cache["last_check"] < 300: # Cache for 5 minutes
+        if _health_cache["data"]:
+            return jsonify(_health_cache["data"])
+            
     health = {
         "openweathermap": {"status": "Unknown", "latency": "--", "warnings": []},
         "gemini": {"status": "Unknown", "latency": "--", "warnings": []}
@@ -2177,6 +2185,8 @@ def api_health_endpoint():
     # Gemini API
     try:
         start = time.time()
+        if not check_and_log_api_usage('gemini', 'health_check_gemini'):
+            raise Exception("Governor Disabled API Check")
         global gemini_client
         if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
         
@@ -2194,6 +2204,8 @@ def api_health_endpoint():
         health["gemini"]["status"] = "Offline"
         health["gemini"]["warnings"].append(str(e))
         
+    _health_cache["data"] = health
+    _health_cache["last_check"] = time.time()
     return jsonify(health)
 
 @app.route('/api/internal/api_usage')

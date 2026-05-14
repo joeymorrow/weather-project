@@ -101,6 +101,8 @@ def get_best_models():
     if _best_models_cache:
         return _best_models_cache
     try:
+        if not check_and_log_api_usage('gemini', 'model_discovery'):
+            return ["gemini-2.5-flash", "gemini-1.5-flash"]
         all_m = list(client.models.list())
         ranked = []
         import re
@@ -110,7 +112,7 @@ def get_best_models():
             n_clean = m.name.replace("models/", "")
             
             # Block multimodal/experimental models from draining quota on text tasks
-            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath"]):
+            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath", "veo"]):
                 continue
                 
             if hasattr(m, 'supported_generation_methods') and m.supported_generation_methods:
