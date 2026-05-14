@@ -429,9 +429,9 @@ jobs:
             });
             for (const [service, info] of Object.entries(healthRes)) {
                 if (info.status !== 'OK') {
-                    logError(`[QA API ERROR] \${service} is reporting status \${info.status}: \${info.warnings.join(', ')}`);
+                    logError('[QA API ERROR] ' + service + ' is reporting status ' + info.status + ': ' + info.warnings.join(', '));
                 } else if (info.warnings && info.warnings.length > 0) {
-                    console.warn(`[QA API WARNING] \${service} returned warnings: \${info.warnings.join(', ')}`);
+                    console.warn('[QA API WARNING] ' + service + ' returned warnings: ' + info.warnings.join(', '));
                 }
             }
             
@@ -565,7 +565,7 @@ jobs:
               console.error('\n========================================');
               console.error('❌ QA FAILED: SUMMARY OF ALL ERRORS:');
               console.error('========================================');
-              errorLogs.forEach((err, idx) => console.error(`\${idx + 1}. \${err}`));
+              errorLogs.forEach((err, idx) => console.error((idx + 1) + '. ' + err));
               console.error('========================================\n');
               process.exit(1);
             }

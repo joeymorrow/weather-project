@@ -2969,6 +2969,7 @@ def dynamic_school(slug):
 @app.route('/cooladmin', methods=['GET', 'POST'], strict_slashes=False)
 @app.route('/joeyadmin', methods=['GET', 'POST'], strict_slashes=False) # Legacy support
 def cooladmin():
+    global gemini_client, _best_models_cache
     auth = request.authorization
         
     is_basic = auth and auth.username == admin_username and auth.password == admin_password
@@ -3469,7 +3470,6 @@ def cooladmin():
                 cleanup_summary = f"Error running cleanup: {e}"
                 
         elif action == 'refresh_models':
-            global _best_models_cache
             _best_models_cache = []
             get_best_models()
             log_system_event("MODELS_REFRESHED", "Admin manually refreshed Gemini models list.")
@@ -3536,7 +3536,6 @@ def cooladmin():
                     flash("Custom Gemini API Key removed. Reverting to GitHub Actions Environment Variable.", "success")
                     
                 with open(SECRETS_FILE, 'w') as f: json.dump(secrets, f)
-                global gemini_client, _best_models_cache
                 gemini_client = None # Force re-init on next call
                 _best_models_cache = []
                 
