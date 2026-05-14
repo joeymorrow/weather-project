@@ -103,6 +103,7 @@ def get_best_models():
     try:
         all_m = list(client.models.list())
         ranked = []
+        import re
         for m in all_m:
             n = m.name.lower()
             # Strip models/ prefix to prevent 404s with the v1beta SDK
@@ -112,12 +113,19 @@ def get_best_models():
             if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath"]):
                 continue
                 
+            if hasattr(m, 'supported_generation_methods') and m.supported_generation_methods:
+                if 'generateContent' not in m.supported_generation_methods:
+                    continue
+
             score = 0
-            if "3.1-flash-lite" in n: score = 2000
-            elif "2.5-flash-lite" in n: score = 1500
-            elif "3-flash" in n: score = 1000
-            elif "2.5-flash" in n: score = 800
-            elif "1.5-flash" in n: score = 500
+            if "lite" in n: score += 100
+            if "flash" in n: score += 200
+            if "preview" in n: score -= 500
+            
+            match = re.search(r'(\d+\.\d+)', n)
+            if match:
+                score += float(match.group(1)) * 1000
+                
             if score > 0: ranked.append((n_clean, score))
         ranked.sort(key=lambda x: x[1], reverse=True)
         _best_models_cache = [r[0] for r in ranked] if ranked else ["gemini-2.5-flash", "gemini-1.5-flash"]
@@ -232,6 +240,16 @@ Evaluate if the following generated text is a hallucination or an intended respo
 
     for m_id in models_to_try:
         try:
+            # 1. RPM THROTTLE
+            try:
+                with sqlite3.connect(LOG_DB_FILE, timeout=10) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 minute')")
+                    if c.fetchone()[0] >= 14:
+                        print("[THROTTLE] Approaching Gemini 15 RPM limit. Sleeping 10s...", flush=True)
+                        time.sleep(10)
+            except Exception: pass
+
             if not check_and_log_api_usage('gemini', 'cleanup_hallucinations'):
                 if set_gemini_disabled():
                     send_report_email(
@@ -245,6 +263,15 @@ Evaluate if the following generated text is a hallucination or an intended respo
                 contents=prompt,
                 config=types.GenerateContentConfig(tools=[{"google_search": {}}])
             )
+            
+            try:
+                if hasattr(response, 'usage_metadata') and response.usage_metadata and response.usage_metadata.total_token_count:
+                    tokens = response.usage_metadata.total_token_count
+                    with sqlite3.connect(LOG_DB_FILE, timeout=10) as conn:
+                        conn.execute("UPDATE api_usage_log SET tokens_used = ? WHERE id = (SELECT MAX(id) FROM api_usage_log WHERE api_name='gemini' AND caller_context='cleanup_hallucinations')", (tokens,))
+                        conn.commit()
+            except Exception: pass
+
             resp_text = response.text
             json_start = resp_text.find('{')
             json_end = resp_text.rfind('}')
@@ -262,6 +289,11 @@ Evaluate if the following generated text is a hallucination or an intended respo
                         "The Gemini API has returned a Resource Exhausted / 429 error during hallucination cleanup. AI generation has been disabled. Re-enable it in CoolAdmin."
                     )
                 return None, "Gemini API Quota Exhausted" # Return None to indicate API failure, NOT "valid"
+            if "404" in err_str or "not found" in err_str:
+                last_error = e
+                continue
+            if "hallucination" in err_str or "safety" in err_str or "recitation" in err_str or "blocked" in err_str:
+                return None, "Blocked by Safety/Hallucination Filter"
             last_error = e
             continue
 

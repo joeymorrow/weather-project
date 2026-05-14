@@ -604,6 +604,7 @@ def get_best_models():
         if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
         all_m = list(gemini_client.models.list())
         ranked = []
+        import re
         for m in all_m:
             n = m.name.lower()
             n_clean = m.name.replace("models/", "")
@@ -612,16 +613,22 @@ def get_best_models():
             if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath"]):
                 continue
                 
+            if hasattr(m, 'supported_generation_methods') and m.supported_generation_methods:
+                if 'generateContent' not in m.supported_generation_methods:
+                    continue
+                
             score = 0
-            if "3.1-flash" in n: score = 2000
-            elif "3.0-flash" in n: score = 1800
-            elif "2.5-flash" in n: score = 1500
-            elif "2.0-flash-lite" in n: score = 1200
-            elif "2.0-flash" in n: score = 1000
-            elif "1.5-flash" in n: score = 500
+            if "lite" in n: score += 100
+            if "flash" in n: score += 200
+            if "preview" in n: score -= 500  # Penalize previews to avoid 404s
+            
+            match = re.search(r'(\d+\.\d+)', n)
+            if match:
+                score += float(match.group(1)) * 1000
+                
             if score > 0: ranked.append((n_clean, score))
         ranked.sort(key=lambda x: x[1], reverse=True)
-        _best_models_cache = [r[0] for r in ranked] if ranked else ["gemini-2.0-flash", "gemini-1.5-flash"]
+        _best_models_cache = [r[0] for r in ranked] if ranked else ["gemini-2.5-flash", "gemini-1.5-flash"]
         return _best_models_cache
     except Exception as e:
         print(f"[ERROR] get_best_models: {e}", flush=True)
@@ -633,6 +640,16 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
         if state.get("gemini_api_disabled", False):
             raise CircuitBreakerError("Gemini API is manually disabled.")
             
+    # 1. RPM Soft Throttle (Free Tier limit: 15 Requests Per Minute)
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 minute')")
+            if c.fetchone()[0] >= 14:
+                print(f"[THROTTLE] Approaching Gemini 15 RPM limit (Context: {caller_context}). Sleeping 10s...", flush=True)
+                time.sleep(10)
+    except Exception: pass
+
     if not check_and_log_api_usage('gemini', caller_context):
         with state_lock:
             if not state.get("gemini_api_disabled", False):
@@ -645,7 +662,19 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
         
     global gemini_client
     if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
-    return gemini_client.models.generate_content(model=model, contents=contents, config=config) if config else gemini_client.models.generate_content(model=model, contents=contents)
+    
+    response = gemini_client.models.generate_content(model=model, contents=contents, config=config) if config else gemini_client.models.generate_content(model=model, contents=contents)
+    
+    # 2. Track Exact Token Usage (1 Million TPM limit)
+    try:
+        if hasattr(response, 'usage_metadata') and response.usage_metadata and response.usage_metadata.total_token_count:
+            tokens = response.usage_metadata.total_token_count
+            with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("UPDATE api_usage_log SET tokens_used = ? WHERE id = (SELECT MAX(id) FROM api_usage_log WHERE api_name='gemini' AND caller_context=?)", (tokens, caller_context))
+    except Exception: pass
+    
+    return response
 
 def handle_gemini_error(e):
     err_str = str(e).lower()
@@ -676,6 +705,14 @@ def handle_gemini_error(e):
             send_alert_email(subject, msg)
             
         return True
+    
+    if "404" in err_str or "not found" in err_str:
+        return False
+        
+    if "hallucination" in err_str or "safety" in err_str or "recitation" in err_str or "blocked" in err_str:
+        print(f"[WARNING] Gemini generation blocked (Hallucination/Safety): {e}", flush=True)
+        return False
+        
     return False
 
 def contains_denied_words(text):
@@ -3172,6 +3209,13 @@ def cooladmin():
             except Exception as e:
                 cleanup_summary = f"Error running cleanup: {e}"
                 
+        elif action == 'refresh_models':
+            global _best_models_cache
+            _best_models_cache = []
+            get_best_models()
+            log_system_event("MODELS_REFRESHED", "Admin manually refreshed Gemini models list.")
+            return redirect('/cooladmin')
+
         elif action == 'reenable_gemini':
             with state_lock:
                 state["gemini_api_disabled"] = False

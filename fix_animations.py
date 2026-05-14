@@ -1,6 +1,7 @@
 import os
+import re
 
-file_path = "/home/frigate/repos/weather-project/templates/index.html"
+file_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
 
 with open(file_path, "r") as f:
     content = f.read()
@@ -18,6 +19,9 @@ replacements = [
 
 for old, new in replacements:
     content = content.replace(old, new)
+
+# Strip backdrop-filter to prevent TV compositor crashes and regional pixelation
+content = re.sub(r'backdrop-filter:\s*blur\([^)]+\);?', '', content)
 
 with open(file_path, "w") as f:
     f.write(content)
