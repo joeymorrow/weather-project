@@ -258,7 +258,7 @@
             <div class="location-date">
                 <div id="live-clock" style="font-size: 7cqw; font-weight: 700; color: #0066b2; transition: opacity 1s, text-shadow 1s; line-height: 1.1; margin-bottom: 0.5cqw; white-space: nowrap;"></div>
                 <h1>{{ page_title }}</h1>
-                <h2>{{ date.split(',')[1] | default(date) }}</h2>
+                <h2>{{ date.split(',')[1] | default(date) }}{% if service_degraded %}<span style="opacity: 0.5;" title="Service Degraded"> ✧</span>{% endif %}</h2>
             </div>
             <div class="current-condition">
                 <img src="https://openweathermap.org/img/wn/{{ icon }}@4x.png" alt="weather icon">

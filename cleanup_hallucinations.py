@@ -436,12 +436,13 @@ def main():
             if text not in checked_texts:
                 items_to_check.append(("sault_schools", school_id, date_str, text))
 
-        print(f"Found {len(items_to_check)} items to check for hallucinations (Archived/Deleted {archived_count} old items).\n")
+        total_items = len(items_to_check)
+        print(f"Found {total_items} items to check for hallucinations (Archived/Deleted {archived_count} old items).\n")
 
         round_results = []
 
-        for item_type, item_id, date, text in items_to_check:
-            print(f"Analyzing [{item_type.upper()} {item_id}] {date}: {text}", flush=True)
+        for idx, (item_type, item_id, date, text) in enumerate(items_to_check):
+            print(f"Analyzing [{idx+1} of {total_items}] [{item_type.upper()} {item_id}] {date}: {text}", flush=True)
             is_hallucinated, reason = check_hallucination(text, date, item_type)
 
             if is_hallucinated:

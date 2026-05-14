@@ -374,7 +374,7 @@
     </div>
     <div id="header-container">
         <div id="header" onclick="handleSecretTap()" style="pointer-events: auto; cursor: pointer;" title="Tap 5 times for Secret Menu">{{ main_config.header if main_config else 'MORROW EDGE | BEACON Buddy' }}</div>
-        <div class="date-line" id="ui-date">{{ date }}</div>
+        <div class="date-line"><span id="ui-date">{{ date }}</span><span id="ui-degraded" style="opacity: 0.4; display: {% if service_degraded %}inline{% else %}none{% endif %};" title="Service Degraded"> ✧</span></div>
         <div id="location" style="text-transform: uppercase;">{{ main_config.location if main_config else 'SAULT STE. MARIE, MICHIGAN' }}</div>
     </div>
     <div id="lore-trigger" class="ambient-hide" tabindex="0">i</div>
@@ -2185,6 +2185,9 @@
                 softUpdate('ui-temp', s.temp);
                 softUpdate('ui-desc', s.desc); softUpdate('ui-hl-desc', `H: ${s.high}° L: ${s.low}° | 💧 ${s.pop}% | 🌅 ${s.sunrise} 🌇 ${s.sunset}`);
                 if (s.icon) softUpdate('ui-icon', `https://openweathermap.org/img/wn/${s.icon}@4x.png`, true);
+                
+                const degEl = document.getElementById('ui-degraded');
+                if (degEl) degEl.style.display = s.service_degraded ? 'inline' : 'none';
                 
                 const tEl = document.getElementById('ui-desc-tomorrow');
                 if (s.is_late_night && tEl) {

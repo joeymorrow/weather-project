@@ -43,6 +43,12 @@
         <h1>BEACON Content: <span style="color: #fff;">{{ slug | upper }}</span></h1>
         <a href="{% if slug == 'main' %}/{% elif slug == 'sault-schools' %}/sault-schools{% elif slug == 'pickford-schools' %}/pickford-schools{% else %}/schools/{{ slug }}{% endif %}" style="color: #00ffff; text-decoration: none; font-weight: bold;">&larr; Return to Live Dashboard</a>
         
+        {% if service_degraded %}
+        <div class="alert-banner" style="margin-top: 20px; background: #ffaa00; color: #000; border: 2px solid #ffaa00; box-shadow: 0 0 10px rgba(255, 170, 0, 0.5);">
+            ⚠️ WARNING: External API Services (Weather/AI) are Currently Degraded!
+        </div>
+        {% endif %}
+
         <h2>🚨 Emergency Override Protocol</h2>
         {% if emergency.get('active') %}
             <div class="alert-banner">AN EMERGENCY FLARE IS CURRENTLY ACTIVE!</div>

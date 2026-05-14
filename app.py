@@ -55,6 +55,7 @@ if os.environ.get("HOST_DATA_DIR") and not os.path.exists("/.dockerenv"):
 
 os.makedirs(DATA_DIR, exist_ok=True)
 STATE_FILE = os.path.join(DATA_DIR, "buddy_state.json")
+STATE_LOCK_FILE = os.path.join(DATA_DIR, "buddy_state.lock")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 DB_FILE = os.path.join(DATA_DIR, "pulse_history.db")
@@ -62,6 +63,7 @@ LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 manual_override = None
 override_expiry = 0
 state_lock = threading.Lock()
+backfill_running = False
 slide_history = {}
 admin_username = os.environ.get("ADMIN_USERNAME", "admin")
 admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
@@ -71,6 +73,18 @@ last_deep_search = {}
 _best_models_cache = []
 
 app.secret_key = INTERNAL_API_SECRET or os.urandom(24)
+
+def save_state():
+    try:
+        lock = filelock.FileLock(STATE_LOCK_FILE, timeout=5)
+        with lock:
+            with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+    except Exception as e:
+        print(f"[ERROR] Failed to save state: {e}", flush=True)
+
+def check_service_degraded(target_state=None):
+    ts = target_state if target_state is not None else state
+    return ts.get("gemini_api_disabled", False) or ts.get("desc") == "Data unavailable" or ts.get("forecast") == "Weather data currently offline."
 
 def init_db():
     with closing(sqlite3.connect(DB_FILE, timeout=10)) as pulse_conn:
@@ -1201,9 +1215,7 @@ def sync_for_location(slug, loc_name, query):
                 if 'tenants' not in state: state['tenants'] = {}
                 if slug not in state['tenants']: state['tenants'][slug] = {}
                 state['tenants'][slug].update(update_dict)
-            try:
-                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-            except: pass
+            save_state()
 
     except Exception as e: 
         print(f"[ERROR] sync_for_location {slug}: {e}", flush=True)
@@ -1255,9 +1267,7 @@ def run_sync():
         for k in keys_to_del:
             del state['school_alerts'][k]
         if keys_to_del:
-            try:
-                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-            except: pass
+            save_state()
 
     # Gather all locations to sync
     locations = []
@@ -1767,9 +1777,7 @@ def internal_action():
                     if 'tenants' in state:
                         for tenant in state['tenants'].values():
                             tenant.update(updates)
-            try:
-                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-            except: pass
+            save_state()
             return jsonify(success=True, message=f"Buddy moved to {station}.")
         else:
             return jsonify(success=False, error="Missing station"), 400
@@ -1781,17 +1789,13 @@ def internal_action():
                 "message": data.get('message', ''),
                 "color": data.get('color', '#ff0000')
             }
-            try:
-                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-            except: pass
+            save_state()
         return jsonify(success=True, message="Emergency state updated.")
 
     elif action == 'update_host_services':
         with state_lock:
             state['host_services'] = data.get('services', [])
-            try:
-                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-            except: pass
+            save_state()
         return jsonify(success=True, message="Host services updated.")
 
     return jsonify(success=False, error="Unknown action"), 400
@@ -2282,6 +2286,7 @@ def demo_dashboard(slug):
         page_state['page_title'] = page['title']
         page_state['page_slug'] = slug
         page_state['is_demo'] = True
+        page_state['service_degraded'] = check_service_degraded(page_state)
         return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), is_car_display=False, **page_state)
 
 @app.route('/demo/<slug>/school')
@@ -2298,6 +2303,7 @@ def demo_school(slug):
         page_state['is_demo'] = True
         page_state['school_alerts'] = state.get('school_alerts', {})
         page_state['school_closings'] = state.get('school_closings', {})
+        page_state['service_degraded'] = check_service_degraded(page_state)
         return render_template('school_dashboard.html', **page_state)
 
 @app.route('/favicon.ico')
@@ -2469,13 +2475,13 @@ def index():
     # Detect Fermata Auto, general WebView, or a manual ?auto=true parameter
     is_car = 'fermata' in ua or 'wv' in ua or request.args.get('auto') == 'true'
     with state_lock: 
-        return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), is_car_display=is_car, **state.copy())
+        return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), is_car_display=is_car, service_degraded=check_service_degraded(state), **state.copy())
 
 @app.route('/auto')
 def auto_display():
     # Dedicated route to easily bookmark in the car without relying on User-Agent
     with state_lock: 
-        return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), is_car_display=True, **state.copy())
+        return render_template('index.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), is_car_display=True, service_degraded=check_service_degraded(state), **state.copy())
 
 @app.route('/index')
 def index_redirect():
@@ -2509,6 +2515,7 @@ def dynamic_school(slug):
         page_state['page_slug'] = slug
         page_state['school_alerts'] = state.get('school_alerts', {})
         page_state['school_closings'] = state.get('school_closings', {})
+        page_state['service_degraded'] = check_service_degraded(page_state)
         return render_template('school_dashboard.html', **page_state)
 
 @app.route('/cooladmin', methods=['GET', 'POST'], strict_slashes=False)
@@ -2559,9 +2566,7 @@ def cooladmin():
                         state['bubble'] = "Recalibrating pulse..."
                         trigger_sync = True
                     state['pulse_history'] = load_history()
-                    try:
-                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-                    except: pass
+                    save_state()
                 
                 if trigger_sync:
                     threading.Thread(target=run_sync).start()
@@ -2577,9 +2582,7 @@ def cooladmin():
                         state['disabled_pages'].remove(page_route)
                     else:
                         state['disabled_pages'].append(page_route)
-                    try:
-                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-                    except: pass
+                    save_state()
             return redirect('/cooladmin')
             
         elif action == 'add_beacon_page':
@@ -2822,6 +2825,11 @@ def cooladmin():
                         c.execute(f"SELECT id, text FROM {table} ORDER BY id DESC LIMIT 20")  # nosec B608
                         rows = c.fetchall()
                     events_to_verify = [{"id": str(r[0]), "text": r[1]} for r in rows]
+                    
+                    total_events = len(events_to_verify)
+                    log_system_event("MAINTENANCE", f"[TOWER REFRESH] Starting refresh for {table} ({total_events} items)...")
+                    print(f"[TOWER REFRESH] Starting refresh for {table} ({total_events} items)...", flush=True)
+                    
                     v_res, p_used = verify_events_batch(events_to_verify)
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn:
@@ -2830,6 +2838,9 @@ def cooladmin():
                                 if i_id in v_res and not v_res[i_id].get("hallucinated"):
                                     conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(v_res[i_id].get("details", {})), i_id))  # nosec B608
                             conn.execute("INSERT INTO ai_training_log (topic, action_type, gather_prompt) VALUES (?, ?, ?)", (table, "refresh_tower", p_used))
+                    
+                    log_system_event("MAINTENANCE", f"[TOWER REFRESH] Finished {table} ({total_events} items).")
+                    print(f"[TOWER REFRESH] Finished {table} ({total_events} items).", flush=True)
                 except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
 
@@ -3016,18 +3027,14 @@ def cooladmin():
         elif action == 'reenable_gemini':
             with state_lock:
                 state["gemini_api_disabled"] = False
-                try:
-                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-                except: pass
+                save_state()
             log_system_event("GEMINI_API_ENABLED", "Admin manually re-enabled Gemini API")
             return redirect('/cooladmin')
 
         elif action == 'disable_gemini':
             with state_lock:
                 state["gemini_api_disabled"] = True
-                try:
-                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-                except: pass
+                save_state()
             log_system_event("GEMINI_API_DISABLED", "Admin manually disabled Gemini API")
             return redirect('/cooladmin')
 
@@ -3039,9 +3046,7 @@ def cooladmin():
                 state['api_limits']['gemini_hourly'] = int(request.form.get('gemini_hourly', 100))
                 state['api_limits']['auto_free_tier'] = request.form.get('auto_free_tier') == 'yes'
                 if state['api_limits'].get('owm_hourly', 0) <= 60: state['api_limits']['owm_hourly'] = 300
-                try:
-                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-                except: pass
+                save_state()
             log_system_event("API_LIMITS_UPDATED", f"Admin updated API limits to Daily: {state['api_limits']['gemini_daily']}")
             return redirect('/cooladmin')
 
@@ -3051,25 +3056,47 @@ def cooladmin():
                     state['api_limits'] = {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 300, "auto_free_tier": True}
                 state['api_limits']['owm_daily'] = int(request.form.get('owm_daily', 900))
                 state['api_limits']['owm_hourly'] = int(request.form.get('owm_hourly', 300))
-                try:
-                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-                except: pass
+            save_state()
             log_system_event("OWM_LIMITS_UPDATED", f"Admin updated OWM limits to Daily: {state['api_limits']['owm_daily']}")
             return redirect('/cooladmin')
 
         elif action == 'refresh_missing_details':
+            global backfill_running
+            if backfill_running:
+                return "<script>alert('A background 5Ws extraction is already currently running!\\n\\nPlease wait for it to finish. You can monitor its progress in the System Event Logs.'); window.location.href='/cooladmin';</script>"
+                
+            backfill_running = True
             def run_backfill():
-                tables = ['pulses', 'old_pulses', 'garage_sales', 'sault_tribe', 'sault_schools']
-                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                    for table in tables:
-                        try:
-                            c = conn.cursor()
-                            c.execute(f"SELECT id, text FROM {table} WHERE details = '{{}}' OR details IS NULL OR details = ''")
-                            rows = c.fetchall()
-                            batch = []
-                            for r in rows:
-                                batch.append({"id": str(r[0]), "text": r[1]})
-                                if len(batch) >= 10:
+                global backfill_running
+                try:
+                    tables = ['pulses', 'old_pulses', 'garage_sales', 'sault_tribe', 'sault_schools']
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        for table in tables:
+                            try:
+                                c = conn.cursor()
+                                c.execute(f"SELECT id, text FROM {table} WHERE details = '{{}}' OR details IS NULL OR details = ''")
+                                rows = c.fetchall()
+                                total_rows = len(rows)
+                                if total_rows == 0:
+                                    continue
+                                batch = []
+                                processed = 0
+                                for r in rows:
+                                    batch.append({"id": str(r[0]), "text": r[1]})
+                                    if len(batch) >= 10:
+                                        v_res, _ = verify_events_batch(batch, is_manual=True)
+                                        for item in batch:
+                                            i_id = item["id"]
+                                            if i_id in v_res:
+                                                new_details = v_res[i_id].get("details", {})
+                                                c.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), int(i_id)))
+                                        conn.commit()
+                                        processed += len(batch)
+                                        batch = []
+                                        log_system_event("MAINTENANCE", f"[BACKFILL] Processed batch for {table} ({processed} of {total_rows})...")
+                                        print(f"[BACKFILL] Processed batch for {table} ({processed} of {total_rows})...", flush=True)
+                                        time.sleep(5)  # 5-second sleep to safely respect API quotas
+                                if batch:
                                     v_res, _ = verify_events_batch(batch, is_manual=True)
                                     for item in batch:
                                         i_id = item["id"]
@@ -3077,21 +3104,16 @@ def cooladmin():
                                             new_details = v_res[i_id].get("details", {})
                                             c.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), int(i_id)))
                                     conn.commit()
-                                    batch = []
-                                    print(f"[BACKFILL] Processed batch for {table}...", flush=True)
-                                    time.sleep(5)  # 5-second sleep to safely respect API quotas
-                            if batch:
-                                v_res, _ = verify_events_batch(batch, is_manual=True)
-                                for item in batch:
-                                    i_id = item["id"]
-                                    if i_id in v_res:
-                                        new_details = v_res[i_id].get("details", {})
-                                        c.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), int(i_id)))
-                                conn.commit()
-                                print(f"[BACKFILL] Finished {table}.", flush=True)
-                        except Exception as e:
-                            print(f"[BACKFILL ERROR] {table}: {e}", flush=True)
-                print("[BACKFILL] All tables completed.", flush=True)
+                                    processed += len(batch)
+                                    log_system_event("MAINTENANCE", f"[BACKFILL] Finished {table} ({processed} of {total_rows}).")
+                                    print(f"[BACKFILL] Finished {table} ({processed} of {total_rows}).", flush=True)
+                            except Exception as e:
+                                log_system_event("MAINTENANCE_ERROR", f"[BACKFILL ERROR] {table}: {e}")
+                                print(f"[BACKFILL ERROR] {table}: {e}", flush=True)
+                    log_system_event("MAINTENANCE", "[BACKFILL] All tables completed.")
+                    print("[BACKFILL] All tables completed.", flush=True)
+                finally:
+                    backfill_running = False
             
             threading.Thread(target=run_backfill, daemon=True).start()
             log_system_event("MAINTENANCE", "Admin initiated background 5Ws backfill extraction.")
@@ -3120,6 +3142,7 @@ def cooladmin():
         api_limits = state.get('api_limits', {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 300, "auto_free_tier": True})
         if api_limits.get("owm_hourly", 0) <= 60:
             api_limits["owm_hourly"] = 300
+        service_degraded = check_service_degraded(state)
     vetted_sources = get_vetted_sources()
 
     try:
@@ -3268,7 +3291,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats)
+    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded)
 
 @app.route('/portfolio')
 def portfolio():
@@ -3523,9 +3546,7 @@ def admin(slug="main"):
                         'message': message,
                         'timestamp': time.time()
                     }
-            try:
-                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-            except: pass
+            save_state()
         return redirect(request.path)
 
     with state_lock:
@@ -3554,7 +3575,8 @@ def admin(slug="main"):
                 managed_theme=target_state.get('managed_theme', ''), 
                 beacon_pages=get_beacon_pages(), 
                 school_alerts=state.get('school_alerts') or {},
-                 closings_source=target_state.get('closings_source', 'none'),
+                closings_source=target_state.get('closings_source', 'none'),
+                service_degraded=check_service_degraded(target_state),
                 slug=slug
             )
         except Exception as e:
@@ -3578,6 +3600,7 @@ def get_state(slug="main"):
             out["school_alerts"] = state.get("school_alerts", {})
             out["school_closings"] = state.get("school_closings", {})
             out["emergency"] = state.get("emergency", {})
+        out["service_degraded"] = check_service_degraded(out)
         return jsonify(out)
 
 @app.route('/api/vote', methods=['POST'])
