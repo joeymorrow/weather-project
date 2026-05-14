@@ -335,17 +335,17 @@
             #buddy-container:not(.kaiju-mode):not(.on-date) { transform: scale(0.7) !important; }
             
             #fs-toggle-main {
-                background: var(--accent) !important;
-                color: #000 !important;
-                padding: 8px 15px !important;
-                border-radius: 20px !important;
-                box-shadow: 0 0 20px var(--accent) !important;
+                background: rgba(0,0,0,0.5) !important;
+                color: var(--accent) !important;
+                border: 1px solid var(--accent) !important;
+                padding: 6px 12px !important;
+                border-radius: 15px !important;
+                box-shadow: none !important;
                 width: auto !important;
                 height: auto !important;
-                font-family: 'Segoe UI', sans-serif !important;
-                font-size: 1.1rem !important;
+                font-family: monospace !important;
+                font-size: 0.9rem !important;
                 letter-spacing: 1px !important;
-                animation: pulse-aura 1.5s infinite alternate !important;
                 z-index: 10000 !important;
                 top: 15px !important;
                 right: 15px !important;
@@ -353,9 +353,17 @@
                 display: flex !important;
                 align-items: center !important;
                 pointer-events: auto !important;
+                opacity: 0.55 !important;
+                transition: 0.3s !important;
             }
             body.ambient-awake #fs-toggle-main {
                 opacity: 1 !important;
+            }
+            #fs-toggle-main:hover, #fs-toggle-main:focus {
+                opacity: 1 !important;
+                box-shadow: 0 0 10px var(--accent) !important;
+                background: var(--accent) !important;
+                color: #000 !important;
             }
             #fs-toggle-main::after {
                 content: ' FULLSCREEN';
@@ -2483,7 +2491,16 @@
         if ('{{ is_sleeping }}' === 'True') document.getElementById('ui-zzz').style.animation = 'drift-zzz 4s infinite';
 
         setInterval(updateClock, 1000); updateClock(); 
-        syncBuddy(); window.addEventListener('resize', () => { syncBuddy(); drawHourlyGraph(currentHourly); }); 
+        syncBuddy(); 
+        window.addEventListener('resize', () => { 
+            syncBuddy(); 
+            drawHourlyGraph(currentHourly); 
+            if (window.innerWidth > window.innerHeight && window.innerHeight <= 500 && !document.fullscreenElement) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch(e => {});
+                }
+            }
+        }); 
         setTimeout(() => drawHourlyGraph(currentHourly), 100);
         
         // Kickoff ancient decryption scramble for initial load values

@@ -2546,15 +2546,15 @@ def login_page():
         <div style="text-align:right; margin-top:5px;"><a href="/forgot_password" style="color:#aaa; font-size:0.8rem; text-decoration:none;">Forgot Password?</a></div>
     </form>
     <script>
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.target.tagName !== 'A') {
+        document.addEventListener('keydown', function(e) {{
+            if (e.key === 'Enter' && e.target.tagName !== 'A') {{
                 document.querySelector('form').submit();
-            }
-        });
-        setTimeout(function() {
+            }}
+        }});
+        setTimeout(function() {{
             var u = document.querySelector('input[name="username"]');
             if (u) u.focus();
-        }, 50);
+        }}, 50);
     </script>
     """
     return f"<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><div style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px; box-shadow:0 0 15px rgba(0,255,255,0.1); width:300px;'><h2 style='text-align:center; margin-top:0;'>BEACON LOGIN</h2>{error_msg}{buttons}{native_form}</div></body>"
