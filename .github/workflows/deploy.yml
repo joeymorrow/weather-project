@@ -387,6 +387,41 @@ jobs:
             await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded', timeout: 15000});
             await new Promise(r => setTimeout(r, 1000));
             
+            console.log('Admin Persona: Verifying API Governors...');
+            const govErrors = await page.evaluate(() => {
+              const errs = [];
+              const gDaily = document.getElementById('gemini_daily_slider');
+              const gHourly = document.getElementById('gemini_hourly_slider');
+              const oDaily = document.querySelector('input[name="owm_daily"]');
+              const oHourly = document.querySelector('input[name="owm_hourly"]');
+              const autoFree = document.getElementById('auto_free_tier');
+              
+              if (!gDaily || !gHourly) errs.push('Gemini governor sliders missing.');
+              if (!oDaily || !oHourly) errs.push('OWM governor sliders missing.');
+              if (!autoFree) errs.push('Auto free tier checkbox missing.');
+              const costBox = document.getElementById('cost_estimate');
+              if (!costBox) errs.push('Cost estimate UI is missing from the governor block.');
+              return errs;
+            });
+            if (govErrors.length > 0) {
+              govErrors.forEach(e => logError('[QA GOVERNOR ERROR] ' + e));
+              await takeErrorScreenshot('governor_check_failed');
+            } else {
+              console.log('✅ API Governors are rendering and specified correctly.');
+            }
+
+            console.log('Admin Persona: Testing API Governor limits update...');
+            await page.evaluate(() => { document.getElementById('gemini_daily_slider').value = '1350'; document.getElementById('gemini_daily_slider').dispatchEvent(new Event('input', { bubbles: true })); });
+            await Promise.all([
+              page.waitForNavigation({waitUntil: 'domcontentloaded'}),
+              page.evaluate(() => { document.querySelector('input[value=\"update_api_limits\"]').closest('form').submit(); })
+            ]);
+            const updatedVal = await page.evaluate(() => document.getElementById('gemini_daily_slider').value);
+            if (updatedVal !== '1350') {
+                logError('[QA GOVERNOR ERROR] Failed to persist Gemini daily limit update (Expected 1350, got ' + updatedVal + ')');
+                await takeErrorScreenshot('governor_persistence_failed');
+            } else { console.log('✅ API Governor limits persisted successfully.'); }
+
             console.log('Checking API Health and Deprecation status...');
             const healthRes = await page.evaluate(async () => {
                 const res = await fetch('/api/internal/api_health');
