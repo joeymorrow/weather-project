@@ -431,7 +431,9 @@ def check_and_log_api_usage(api_name, caller_context):
             elif api_name == 'openweathermap':
                 with state_lock:
                     o_daily = state.get("api_limits", {}).get("owm_daily", 900)
-                    o_hourly = state.get("api_limits", {}).get("owm_hourly", 60)
+                    o_hourly = state.get("api_limits", {}).get("owm_hourly", 300)
+                    if o_hourly <= 60: # Fix legacy confusion between 60/min and 60/hr
+                        o_hourly = 300
                 if daily_count >= o_daily or hourly_count >= o_hourly:
                     log_system_event("CIRCUIT_BREAKER", f"OWM API limit reached! Daily: {daily_count}, Hourly: {hourly_count}. Caller: {caller_context}")
                     print(f"[CIRCUIT BREAKER] OWM Limit Hit by {caller_context}", flush=True)
@@ -3021,14 +3023,27 @@ def cooladmin():
         elif action == 'update_api_limits':
             with state_lock:
                 if 'api_limits' not in state:
-                    state['api_limits'] = {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 60, "auto_free_tier": True}
+                    state['api_limits'] = {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 300, "auto_free_tier": True}
                 state['api_limits']['gemini_daily'] = int(request.form.get('gemini_daily', 1400))
                 state['api_limits']['gemini_hourly'] = int(request.form.get('gemini_hourly', 100))
                 state['api_limits']['auto_free_tier'] = request.form.get('auto_free_tier') == 'yes'
+                if state['api_limits'].get('owm_hourly', 0) <= 60: state['api_limits']['owm_hourly'] = 300
                 try:
                     with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                 except: pass
             log_system_event("API_LIMITS_UPDATED", f"Admin updated API limits to Daily: {state['api_limits']['gemini_daily']}")
+            return redirect('/cooladmin')
+
+        elif action == 'update_owm_limits':
+            with state_lock:
+                if 'api_limits' not in state:
+                    state['api_limits'] = {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 300, "auto_free_tier": True}
+                state['api_limits']['owm_daily'] = int(request.form.get('owm_daily', 900))
+                state['api_limits']['owm_hourly'] = int(request.form.get('owm_hourly', 300))
+                try:
+                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                except: pass
+            log_system_event("OWM_LIMITS_UPDATED", f"Admin updated OWM limits to Daily: {state['api_limits']['owm_daily']}")
             return redirect('/cooladmin')
 
         elif action == 'refresh_missing_details':
@@ -3090,7 +3105,9 @@ def cooladmin():
         eap_pin = state.get('eap_pin', '123456')
         agenda_votes = state.get('agenda_votes', {})
         gemini_api_disabled = state.get('gemini_api_disabled', False)
-        api_limits = state.get('api_limits', {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 60, "auto_free_tier": True})
+        api_limits = state.get('api_limits', {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 300, "auto_free_tier": True})
+        if api_limits.get("owm_hourly", 0) <= 60:
+            api_limits["owm_hourly"] = 300
     vetted_sources = get_vetted_sources()
 
     try:

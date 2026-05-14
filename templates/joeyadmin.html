@@ -168,6 +168,19 @@
                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
                         <span style="color: #00ff00; font-weight: bold;">Status: ACTIVE (CIRCUIT CLOSED)</span>
                     </div>
+
+                    <form method="POST" style="margin-top: 20px; background: rgba(255,170,0,0.05); padding: 15px; border-radius: 6px; border: 1px solid rgba(255,170,0,0.2);">
+                        <input type="hidden" name="action" value="update_owm_limits">
+                        <h4 style="margin-top: 0; color: #ffaa00;">OWM Governor Limits</h4>
+                        
+                        <label style="color: #aaa; font-size: 0.85rem;">OWM Daily Limit: <span id="o_daily_val" style="color:#fff; font-weight:bold;">{{ api_limits.owm_daily }}</span> calls</label>
+                        <input type="range" name="owm_daily" class="governor" min="500" max="2000" step="100" value="{{ api_limits.owm_daily }}" oninput="document.getElementById('o_daily_val').innerText = this.value;">
+                        
+                        <label style="color: #aaa; font-size: 0.85rem; margin-top: 20px; display: block;">OWM Hourly Limit: <span id="o_hourly_val" style="color:#fff; font-weight:bold;">{{ api_limits.owm_hourly }}</span> calls</label>
+                        <input type="range" name="owm_hourly" class="governor" min="60" max="1000" step="10" value="{{ api_limits.owm_hourly }}" oninput="document.getElementById('o_hourly_val').innerText = this.value;">
+                        
+                        <button type="submit" class="manage-btn" style="margin-top: 15px; width: 100%; background: rgba(255, 170, 0, 0.2); border-color: #ffaa00; color: #ffaa00;">Apply OWM Limits</button>
+                    </form>
                 </div>
             </div>
 
