@@ -458,11 +458,23 @@ def check_and_log_api_usage(api_name, caller_context):
             with state_lock:
                 reset_at_midnight = state.get("api_limits", {}).get("reset_at_midnight", False)
                 
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND caller_context=? AND timestamp >= datetime('now', '-1 hour')", (api_name, caller_context))
+            context_hourly_count = c.fetchone()[0]
+                
             if reset_at_midnight:
                 c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= date('now')", (api_name,))
             else:
                 c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-24 hours')", (api_name,))
             daily_count = c.fetchone()[0]
+
+            with state_lock:
+                context_limit = state.get("api_limits", {}).get("per_endpoint_hourly", 30)
+
+            # Automagical Endpoint Governor
+            if context_hourly_count >= context_limit and caller_context != 'model_discovery':
+                log_system_event("AUTO_THROTTLE", f"Endpoint '{caller_context}' exceeded {context_limit} calls/hr for {api_name}. Governing calls.", caller_context)
+                print(f"[GOVERNOR] Auto-throttling {caller_context} on {api_name} ({context_hourly_count}/{context_limit} calls/hr)", flush=True)
+                return False
 
             if api_name == 'gemini':
                 with state_lock:
@@ -2224,6 +2236,13 @@ def api_submit_event():
         if row:
             return jsonify(success=False, error="Your IP has been blocked due to suspicious activity.", banned=True, requested=bool(row[0])), 403
 
+    # 0. Global Form Spam / Indiscriminate Submission Throttle
+    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM user_submissions WHERE submitted_at >= datetime('now', '-1 hour')")
+        if c.fetchone()[0] > 30:
+            return jsonify(success=False, error="System under heavy load. Try again later."), 429
+
     # 1. Honeypot & Time-of-Flight Validation
     is_bot = False
     if data.get('website_url'): is_bot = True
@@ -3485,6 +3504,7 @@ def cooladmin():
                     state['api_limits']['reset_at_midnight'] = request.form.get('reset_at_midnight') == 'yes'
                     state['api_limits']['rogue_endpoint_threshold'] = int(request.form.get('rogue_endpoint_threshold', 300))
                     state['api_limits']['failed_job_threshold'] = int(request.form.get('failed_job_threshold', 5))
+                    state['api_limits']['per_endpoint_hourly'] = int(request.form.get('per_endpoint_hourly', 30))
                     if state['api_limits'].get('owm_hourly', 0) <= 60: state['api_limits']['owm_hourly'] = 300
                     save_state()
                     log_system_event("API_LIMITS_UPDATED", f"Admin updated API limits to Daily: {state['api_limits']['gemini_daily']}")
@@ -3786,6 +3806,8 @@ def admin(slug="main"):
                 if slug not in slide_history:
                     slide_history[slug] = {'undo': [], 'redo': []}
                 slide_history[slug]['undo'].append(copy.deepcopy(target_state.get('slides', [])))
+                if len(slide_history[slug]['undo']) > 10:
+                    slide_history[slug]['undo'].pop(0)
                 slide_history[slug]['redo'].clear()
 
             if action == 'update_flare':
@@ -4149,13 +4171,18 @@ def rpg():
     is_christmas = (now.month == 12 and now.day == 25)
     
     with state_lock:
-        return render_template('rpg.html', 
+        html_out = render_template('rpg.html', 
                                terrain_color=season_data["terrain"], 
                                leaf_color=season_data["leaves"],
                                season_name=season_data["season"],
                                is_christmas=is_christmas,
                            is_car_display=is_car,
                                **state.copy())
+        return html_out, 200, {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
 
 @app.route('/api/move/<station>')
 def move_buddy(station):

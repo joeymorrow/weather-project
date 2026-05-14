@@ -82,12 +82,14 @@ def check_and_log_api_usage(api_name, caller_context):
         g_daily = 1400
         g_hourly = 100
         reset_at_midnight = False
+        context_limit = 30
         if os.path.exists(STATE_FILE):
             with open(STATE_FILE, 'r') as f:
                 st = json.load(f)
                 limits = st.get("api_limits", {})
                 g_daily = limits.get("gemini_daily", 1400)
                 g_hourly = limits.get("gemini_hourly", 100)
+                context_limit = limits.get("per_endpoint_hourly", 30)
                 reset_at_midnight = limits.get("reset_at_midnight", False)
                 if limits.get("auto_free_tier", True):
                     g_daily = min(g_daily, 1400)
@@ -97,6 +99,13 @@ def check_and_log_api_usage(api_name, caller_context):
             c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-1 hour')", (api_name,))
             hourly = c.fetchone()[0]
             
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND caller_context=? AND timestamp >= datetime('now', '-1 hour')", (api_name, caller_context))
+            context_hourly_count = c.fetchone()[0]
+            
+            if context_hourly_count >= context_limit and caller_context != 'model_discovery':
+                print(f"[GOVERNOR] Auto-throttling {caller_context} on {api_name} ({context_hourly_count}/{context_limit} calls/hr)", flush=True)
+                return False
+
             if reset_at_midnight:
                 c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= date('now')", (api_name,))
             else:
@@ -490,6 +499,13 @@ def main():
                 items_to_check.append(("sault_schools", school_id, date_str, text))
 
         total_items = len(items_to_check)
+        
+        # Indiscriminate API Prevention: Cap the maximum checks per loop
+        if total_items > 40:
+            print(f"Limiting to 40 items per run to prevent API quota drain (Total pending: {total_items}).\n")
+            items_to_check = items_to_check[:40]
+            total_items = 40
+
         print(f"Found {total_items} items to check for hallucinations (Archived/Deleted {archived_count} old items).\n")
 
         round_results = []
