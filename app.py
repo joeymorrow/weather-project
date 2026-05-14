@@ -2154,7 +2154,6 @@ def api_health_endpoint():
     if not session.get("admin_auth") and session.get("role") != "Admin":
         return jsonify(success=False, error="Unauthorized"), 403
         
-    global _health_cache
     if time.time() - _health_cache["last_check"] < 300: # Cache for 5 minutes
         if _health_cache["data"]:
             return jsonify(_health_cache["data"])
