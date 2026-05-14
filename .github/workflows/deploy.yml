@@ -582,8 +582,25 @@ jobs:
           path: qa_screenshots/
           retention-days: 7
 
+  build_image:
+    name: Pre-build Docker Image
+    runs-on: [self-hosted, Linux]
+    steps:
+      - name: Clean up workspace permissions
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/workspace alpine chown -R $(id -u):$(id -g) /workspace || true
+          rm -rf $GITHUB_WORKSPACE/__pycache__ || true
+
+      - name: Checkout Code
+        uses: actions/checkout@v5
+        with:
+          clean: false
+
+      - name: Pre-build Docker Image
+        run: docker compose build
+
   deploy:
-    needs: [lint, security, e2e]
+    needs: [lint, security, e2e, build_image]
     runs-on: [self-hosted, Linux]
     steps:
       - name: Clean up workspace permissions
@@ -633,9 +650,8 @@ jobs:
           echo "BUILD_TIMESTAMP=$(TZ='America/Detroit' date +'%b %d, %Y %I:%M %p')" >> .env
           echo "HOST_DATA_DIR=${{ github.workspace }}/data" >> .env
 
-      - name: Rebuild and Deploy
+      - name: Deploy Container
         run: |
-          docker compose build
           docker compose up -d --force-recreate
 
       - name: Post-deploy smoke test
