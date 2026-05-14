@@ -627,6 +627,10 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
 def handle_gemini_error(e):
     err_str = str(e).lower()
     if "429" in err_str or "exhausted" in err_str or "quota" in err_str or "circuit breaker" in err_str:
+        if "minute" in err_str or "rpm" in err_str:
+            print("[WARNING] Gemini RPM limit hit. Pausing briefly without disabling API.", flush=True)
+            time.sleep(15)
+            return False
         with state_lock:
             already_disabled = state.get("gemini_api_disabled", False)
             if not already_disabled:
@@ -698,10 +702,9 @@ def sync_for_location(slug, loc_name, query):
     try:
         w = safe_owm_get(f"https://api.openweathermap.org/data/2.5/weather?q={query}&appid={OWM_KEY}&units=imperial", caller_context=f"owm_weather_{slug}", timeout=10).json()
         
-        # Automatically correct the AI context to the true OpenWeatherMap city name!
-        owm_city = w.get('name')
-        if owm_city and owm_city.strip():
-            loc_name = owm_city
+        # We intentionally DO NOT override loc_name with OWM's returned city name here.
+        # OWM sometimes resolves zip codes to tiny unincorporated communities (e.g. "Dick, MI")
+        # instead of the primary city, which confuses the AI and users.
             
         f = safe_owm_get(f"https://api.openweathermap.org/data/2.5/forecast?q={query}&appid={OWM_KEY}&units=imperial", caller_context=f"owm_forecast_{slug}", timeout=10).json()
         now = datetime.now(TZ)
@@ -1275,7 +1278,7 @@ def run_sync():
                 continue # Skip calling sync_for_location for disabled pages
         
         sync_for_location(loc['slug'], loc['location'], loc['query'])
-        time.sleep(2) # Avoid aggressive rate-limiting from OpenWeather/Gemini
+        time.sleep(8) # Avoid aggressive RPM rate-limiting from Gemini Free Tier (15 RPM)
 
 def record_telemetry():
     try:
