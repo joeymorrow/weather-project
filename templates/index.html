@@ -170,7 +170,7 @@
         .arm { width: 12px; height: 32px; background: var(--buddy-blue); border-radius: 20px; position: absolute; top: 42px; box-shadow: inset 4px 6px 8px rgba(255,255,255,0.6), inset -4px -6px 8px rgba(0,0,0,0.3), 0 0 10px var(--accent); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .arm.left { left: 10px; transform: rotate(10deg); } .arm.right { right: 10px; transform: rotate(-10deg); display: flex; justify-content: center; align-items: flex-end; }
         .zzz-socket { position: absolute; top: -35px; left: 30px; font-size: 2.5rem; opacity: 0; pointer-events: none; }
-        .bubble { position: absolute; background: rgba(0,0,0,0.75); border: 1px solid var(--accent); padding: clamp(8px, 1vh, 12px) clamp(12px, 1vw, 20px); border-radius: 12px; color: var(--accent); font-size: clamp(0.85rem, 1vw, 1.2rem); bottom: 130%; left: 50%; transform: translateX(-50%); white-space: normal; width: max-content; max-width: clamp(220px, 20vw, 400px); text-align: center; font-weight: bold; z-index: 10; text-wrap: pretty; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); transition: max-width 0.3s ease, padding 0.3s ease, font-size 0.3s ease; }
+        .bubble { position: absolute; background: rgba(0,0,0,0.75); border: 1px solid var(--accent); padding: clamp(8px, 1vh, 12px) clamp(12px, 1vw, 20px); border-radius: 12px; color: var(--accent); font-size: clamp(0.85rem, 1vw, 1.2rem); bottom: 130%; left: 50%; transform: translateX(-50%) translateZ(0); backface-visibility: hidden; outline: 1px solid transparent; white-space: normal; width: max-content; max-width: clamp(220px, 20vw, 400px); text-align: center; font-weight: bold; z-index: 10; text-wrap: pretty; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 15px var(--shadow-color); transition: max-width 0.3s ease, padding 0.3s ease, font-size 0.3s ease; }
         .sleeping .eye { opacity: 0 !important; }
         .sleeping .mouth { display: block !important; animation: yawn 5s infinite !important; }
         .sleeping .bubble { display: none !important; }
@@ -968,7 +968,7 @@
             }
             
             bbl.style.setProperty('transform-origin', tOrigin, 'important');
-            bbl.style.setProperty('transform', `${tX} scale(1)`, 'important');
+            bbl.style.setProperty('transform', `${tX} scale(1) translateZ(0)`, 'important');
             
             // 3. Collision & Edge Detection
             if (targetX === undefined) {
@@ -978,7 +978,7 @@
                     scale = 0.85;
                 }
                 
-                bbl.style.setProperty('transform', `${tX} scale(${scale})`, 'important');
+                bbl.style.setProperty('transform', `${tX} scale(${scale}) translateZ(0)`, 'important');
                 const newRect = bbl.getBoundingClientRect();
                 
                 const importantElements = [
@@ -1008,7 +1008,7 @@
                     bbl.style.setProperty('z-index', '10', 'important');
                 }
                 
-                bbl.style.setProperty('transform', `${tX} scale(${scale})`, 'important');
+                bbl.style.setProperty('transform', `${tX} scale(${scale}) translateZ(0)`, 'important');
             }
         };
 
