@@ -24,11 +24,11 @@ def send_alert_email(subject, body, to_email="joseph@morrowedge.com"):
     try:
         msg = MIMEText(body)
         msg['Subject'] = subject
-        msg['From'] = os.environ.get("SMTP_USER", "buddy-alerts@morrowedge.com")
+        msg['From'] = os.environ.get("SMTP_USER") or "buddy-alerts@morrowedge.com"
         msg['To'] = to_email
         
-        smtp_server = os.environ.get("SMTP_SERVER", "localhost")
-        smtp_port = int(os.environ.get("SMTP_PORT", 587))
+        smtp_server = os.environ.get("SMTP_SERVER") or "localhost"
+        smtp_port = int(os.environ.get("SMTP_PORT") or 587)
         with smtplib.SMTP(smtp_server, smtp_port) as server:
             if os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASS"):
                 server.starttls()
@@ -64,8 +64,8 @@ manual_override = None
 override_expiry = 0
 state_lock = threading.Lock()
 slide_history = {}
-admin_username = os.environ.get("ADMIN_USERNAME", "admin")
-admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
+admin_username = os.environ.get("ADMIN_USERNAME") or "admin"
+admin_password = os.environ.get("ADMIN_PASSWORD") or "changeme"
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET")
 DENYLIST = ["profanity", "badword", "controversial", "inappropriate"]
 last_deep_search = {}
@@ -1301,7 +1301,7 @@ def sync_for_location(slug, loc_name, query, owm_cache=None):
             send_alert_email(
                 "[HIGH PRIORITY - BEACON BUDDY] API Integration Failure", 
                 f"An unexpected error occurred during the data sync for {slug}.\n\nError Details: {str(e)}\n\nThis usually means an external API (like OpenWeatherMap) changed its response format, omitting an expected parameter.\n\nThe dashboard has auto-healed to a safe fallback state, but please review app.py to iterate on the new API schema.",
-                os.environ.get("SMTP_USER", "joseph@morrowedge.com")
+                os.environ.get("SMTP_USER") or "joseph@morrowedge.com"
             )
             api_alerts["last_sent"] = current_time
 
@@ -2690,11 +2690,11 @@ def login_page():
                     except: pass
                     
                     if not last_login:
-                        send_alert_email("First Time Login", f"User {row[3]} logged in for the first time.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+                        send_alert_email("First Time Login", f"User {row[3]} logged in for the first time.", os.environ.get("SMTP_USER") or "joseph@morrowedge.com")
                     else:
                         ll_dt = datetime.strptime(last_login, '%Y-%m-%d %H:%M:%S')
                         if (datetime.now(TZ).replace(tzinfo=None) - ll_dt).days > 30:
-                            send_alert_email("Re-engagement Login", f"User {row[3]} logged in after more than 30 days.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+                            send_alert_email("Re-engagement Login", f"User {row[3]} logged in after more than 30 days.", os.environ.get("SMTP_USER") or "joseph@morrowedge.com")
                             
                     return redirect(next_url)
         except Exception as e:
@@ -2739,7 +2739,7 @@ def forgot_password():
     if request.method == 'POST':
         email = request.form.get('email')
         if email:
-            send_alert_email("Password Reset Requested", f"User {email} has requested a password reset. Please contact them.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+            send_alert_email("Password Reset Requested", f"User {email} has requested a password reset. Please contact them.", os.environ.get("SMTP_USER") or "joseph@morrowedge.com")
         return "<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><h3>If the email exists, a reset instruction has been sent to the administrator.</h3></body>"
     return "<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><form method='POST' style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px;'><h3 style='margin-top:0;'>Reset Password</h3><input type='email' name='email' placeholder='Enter your Account Email' required style='padding:10px; width:100%; box-sizing:border-box; margin-bottom:10px; background:#000; color:#0ff; border:1px solid #0ff;'/><button type='submit' style='padding:10px; width:100%; background:#00ffff; color:#000; font-weight:bold; border:none; cursor:pointer;'>Request Reset</button></form></body>"
 
@@ -2751,7 +2751,7 @@ def delete_account():
             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                 with conn:
                     conn.execute("DELETE FROM rbac_users WHERE username=?", (user,))
-            send_alert_email("Account Deleted", f"User {user} has deleted their native account.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+            send_alert_email("Account Deleted", f"User {user} has deleted their native account.", os.environ.get("SMTP_USER") or "joseph@morrowedge.com")
         except: pass
         session.clear()
     return redirect('/')

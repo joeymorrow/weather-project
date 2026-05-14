@@ -11,7 +11,7 @@ from gi.repository import GLib
 # with the WorkingDirectory and EnvironmentFile set correctly.
 load_dotenv()
 INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET", "").strip('"').strip("'")
-APP_PORT = os.environ.get("APP_PORT", 5000)
+APP_PORT = os.environ.get("APP_PORT") or 5000
 APP_URL = f"http://127.0.0.1:{APP_PORT}/api/internal/action"
 
 # D-Bus configuration

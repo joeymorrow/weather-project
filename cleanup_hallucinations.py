@@ -139,11 +139,11 @@ def get_best_models():
 def send_report_email(subject, body):
     msg = MIMEText(body)
     msg['Subject'] = subject
-    msg['From'] = os.environ.get("SMTP_USER", "buddy-alerts@morrowedge.com")
+    msg['From'] = os.environ.get("SMTP_USER") or "buddy-alerts@morrowedge.com"
     msg['To'] = "joseph@morrowedge.com"
 
-    smtp_server = os.environ.get("SMTP_SERVER", "localhost")
-    smtp_port = int(os.environ.get("SMTP_PORT", 587))
+    smtp_server = os.environ.get("SMTP_SERVER") or "localhost"
+    smtp_port = int(os.environ.get("SMTP_PORT") or 587)
     try:
         with smtplib.SMTP(smtp_server, smtp_port) as server:
             if os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASS"):
