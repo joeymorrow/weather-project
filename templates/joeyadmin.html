@@ -111,9 +111,34 @@
         ⚠️ WARNING: Core API Services are Currently Degraded (Gemini or OpenWeatherMap Limits Reached)
     </div>
     {% endif %}
+
+    <div style="position: sticky; top: 0; background: rgba(5, 5, 16, 0.95); z-index: 1000; padding: 10px; border-bottom: 1px solid #00ffff; border-radius: 0 0 8px 8px; margin-bottom: 20px; display: flex; gap: 10px; overflow-x: auto; backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,255,255,0.1);">
+        <span style="color: #00ffff; font-weight: bold; padding: 5px; display: flex; align-items: center;">🚀 QUICK JUMP:</span>
+        <a href="#section-onboarding" class="manage-btn" style="white-space: nowrap; background: rgba(0,255,0,0.2); border: 1px solid #00ff00; color: #00ff00;">👋 Welcome</a>
+        <a href="#section-api" class="manage-btn" style="white-space: nowrap;">⚡ APIs & Budgets</a>
+        <a href="#section-sites" class="manage-btn" style="white-space: nowrap;">🌐 Endpoints</a>
+        <a href="#section-eap" class="manage-btn" style="white-space: nowrap;">📡 Emergency (EAP)</a>
+        <a href="#section-sso" class="manage-btn" style="white-space: nowrap;">🔐 Access Control</a>
+        <a href="#section-content" class="manage-btn" style="white-space: nowrap;">📝 AI Content</a>
+        <a href="#section-ai" class="manage-btn" style="white-space: nowrap;">🧠 AI Tuning</a>
+        <a href="#section-diag" class="manage-btn" style="white-space: nowrap;">🛠️ Diagnostics</a>
+    </div>
+
     <div class="grid">
+        <!-- Admin Onboarding -->
+        <div id="section-onboarding" class="card" style="grid-column: 1 / -1; border-color: #00ff00; box-shadow: 0 0 15px rgba(0,255,0,0.2);">
+            <h2 style="color: #00ff00; border-bottom-color: #00ff00;">👋 Welcome to CoolAdmin (Admin Onboarding)</h2>
+            <p style="color: #ccc; font-size: 0.95rem; line-height: 1.5;">If you are a newly assigned administrator, this dashboard is the master "cockpit" for the BEACON ecosystem. It can look intimidating, but it is grouped logically. Hover over any yellow <span class="help-tip" title="Like this!">?</span> icon for a quick explanation of a feature.</p>
+            <ul style="color: #ccc; font-size: 0.95rem; line-height: 1.6; margin-bottom: 0;">
+                <li><strong style="color: #00ffff;">APIs & Budgets:</strong> BEACON uses external AIs. If the system stops generating text, check here to ensure you haven't hit your daily free limits.</li>
+                <li><strong style="color: #00ffff;">Endpoints & Sites:</strong> Manage and monitor the live dashboards displayed on your TVs or at specific schools.</li>
+                <li><strong style="color: #00ffff;">AI Content:</strong> The AI automatically scrapes and populates events. If it hallucinates or makes a mistake, you can manually delete or edit the event here to correct it.</li>
+                <li><strong style="color: #00ffff;">AI Tuning:</strong> You can give the AI "Custom Instructions" (Prompts) or feed it specific website URLs (Vetted Sources) to control exactly where it gets its news.</li>
+            </ul>
+        </div>
+
         <!-- API Circuit Breaker & Usage -->
-        <div class="card" style="grid-column: 1 / -1; border-color: #ff00ff; box-shadow: 0 0 15px rgba(255,0,255,0.2);">
+        <div id="section-api" class="card" style="grid-column: 1 / -1; border-color: #ff00ff; box-shadow: 0 0 15px rgba(255,0,255,0.2);">
             <h2 style="color: #ff00ff; border-bottom-color: #ff00ff;">⚡ API Circuit Breakers & Usage Tracking</h2>
 s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context to catch runaway loops and prevent budget burn.</p>
             
@@ -239,7 +264,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
         </div>
 
         <!-- Managed Sites -->
-        <div class="card">
+        <div id="section-sites" class="card">
             <h2>🌐 Active Endpoints & Sites</h2>
             <div class="site-link" style="flex-direction: column; align-items: stretch; gap: 10px;">
                 <div>
@@ -320,7 +345,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
         </div>
 
         <!-- EAP Integration & Dispatch -->
-        <div class="card">
+        <div id="section-eap" class="card">
             <h2 style="display: flex; align-items: center;">📡 EAP Integration & Dispatch <span class="help-tip" style="margin-left: 10px;" title="Emergency broadcast systems. Triggering these will override local displays with emergency colors and sirens safely.">?</span></h2>
             <p style="font-size: 0.9rem; color: #888;">Map local network multicast streams to synchronize alerts with fire panels or InformaCast. Broadcast outbound alerts via the PWA.</p>
             
@@ -365,7 +390,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
         </div>
 
         <!-- SSO Configuration -->
-        <div class="card" style="grid-column: 1 / -1;">
+        <div id="section-sso" class="card" style="grid-column: 1 / -1;">
             <h2>🔐 Single Sign-On (SSO) Configuration</h2>
             <p style="font-size: 0.9rem; color: #888;">Configure connections to external Identity Providers. The login page will display SSO buttons for any enabled providers.</p>
             
@@ -559,7 +584,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
         {% endif %}
 
         <!-- Pulse Management -->
-        <div class="card">
+        <div id="section-content" class="card" style="grid-column: 1 / -1;">
             <h2 style="display: flex; justify-content: space-between; align-items: center; margin-top: 0;">
                 <span style="display: flex; align-items: center;">📡 Pulse Archives & Management <span class="help-tip" style="margin-left: 10px;" title="You can safely delete old or bad events here. The AI uses this history to learn what NOT to repeat tomorrow!">?</span></span>
                 <span style="font-size: 0.9rem; color: #00ffff; background: rgba(0, 255, 255, 0.1); padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(0, 255, 255, 0.3);">Agenda Items: {{ agenda_item_count }}</span>
@@ -869,7 +894,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
         </div>
 
         <!-- Vetted Data Sources -->
-        <div class="card" style="grid-column: 1 / -1;">
+        <div id="section-ai" class="card" style="grid-column: 1 / -1;">
             <h2 style="display: flex; align-items: center;">📚 AI Vetted Data Sources <span class="help-tip" style="margin-left: 10px;" title="The AI prioritizes links mapped here. If it hallucinated a bad link, simply map it to the 'Blocked / Blacklist' topic here to ban it forever!">?</span></h2>
             <p style="font-size: 0.9rem; color: #888;">These sources are injected into the AI's search prompt so it knows exactly where to look for verified events, or which sources to avoid if blocked.</p>
             <form method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; background: rgba(0,255,255,0.05); padding: 10px; border-radius: 6px; align-items: flex-start;">
@@ -1046,7 +1071,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
         </div>
 
         <!-- API Health Status -->
-        <div class="card" style="grid-column: 1 / -1; border-color: #aa00ff; box-shadow: 0 0 15px rgba(170,0,255,0.2);">
+        <div id="section-diag" class="card" style="grid-column: 1 / -1; border-color: #aa00ff; box-shadow: 0 0 15px rgba(170,0,255,0.2);">
             <h2 style="color: #aa00ff; border-bottom-color: #aa00ff;">🌐 External API Health & Deprecation Checks</h2>
             
             <div id="api-health-container">
@@ -1108,7 +1133,51 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                     <p style="color: #aaa;">Fetching system logs...</p>
                 </div>
             </div>
+            <form method="POST" action="/cooladmin" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; align-items: center;">
+                <input type="hidden" name="action" value="export_logs">
+                <label style="color: #00ffff; font-size: 0.9rem;">Export Last:</label>
+                <select name="days" style="background-color: rgba(0,255,255,0.1); color: #00ffff; border: 1px solid rgba(0,255,255,0.3); padding: 5px 8px; border-radius: 4px; font-family: monospace; outline: none; width: auto;">
+                    <option value="1">1 Day</option>
+                    <option value="7">7 Days</option>
+                    <option value="30">30 Days</option>
+                </select>
+                <button type="submit" class="manage-btn" style="background: rgba(0,255,255,0.2); border: 1px solid #00ffff; color: #00ffff; padding: 5px 15px;">Download (TXT)</button>
+            </form>
         </div>
+
+        <!-- Admin Interactive Terminal -->
+        <div class="card" style="grid-column: 1 / -1; border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.2); background: #010105;">
+            <h2 style="color: #00ffff; border-bottom-color: #00ffff; margin-top: 0; padding-bottom: 10px; font-family: monospace;"><b>$ /bin/beacon_terminal</b></h2>
+            <div class="card-body" style="padding: 0;">
+                <div id="term-output" style="height: 250px; overflow-y: auto; color: #fff; font-family: monospace; font-size: 0.9rem; padding: 10px; border-bottom: 1px dashed rgba(255,255,255,0.2); white-space: pre-wrap;">Welcome to BEACON Diagnostics. Type 'help' to begin.</div>
+                <div style="display: flex; margin-top: 10px; padding: 10px;">
+                    <span style="color: #00ffff; font-family: monospace; padding: 8px;">&gt;</span>
+                    <input type="text" id="term-input" autocomplete="off" style="flex: 1; background: transparent; border: none; color: #fff; font-family: monospace; outline: none; font-size: 1rem;" placeholder="Enter command...">
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const termInput = document.getElementById('term-input');
+                const termOutput = document.getElementById('term-output');
+                termInput.addEventListener('keydown', async (e) => {
+                    if (e.key === 'Enter') {
+                        const cmd = termInput.value;
+                        termInput.value = '';
+                        termOutput.innerHTML += `\n<span style="color:#0ff;">&gt; ${cmd}</span>\n`;
+                        try {
+                            const res = await fetch('/api/internal/terminal', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({command: cmd}) });
+                            const data = await res.json();
+                            termOutput.innerHTML += data.output + '\n';
+                        } catch(err) {
+                            termOutput.innerHTML += `<span style="color:#f00;">Terminal Error: ${err.message}</span>\n`;
+                        }
+                        termOutput.scrollTop = termOutput.scrollHeight;
+                    }
+                });
+            });
+        </script>
 
         <!-- Nuclear Option -->
         <div class="card" style="border-color: #ff0000; box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);">
