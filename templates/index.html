@@ -1545,23 +1545,23 @@
                 let voteHtml = `<div style="display: flex; gap: 10px;"><button class="vote-btn-up-${safeId} agenda-vote-btn agenda-vote-btn-up" onclick="submitAgendaVote('${ev.label.replace(/['"\\]/g, '\\$&')}', 'up', this)">👍 <span class="up-count" style="margin-left: 5px;">${upvotes}</span></button><button class="vote-btn-down-${safeId} agenda-vote-btn agenda-vote-btn-down" onclick="submitAgendaVote('${ev.label.replace(/['"\\]/g, '\\$&')}', 'down', this)">👎 <span class="down-count" style="margin-left: 5px;">${downvotes}</span></button></div>`;
                 
                 let detailsHtml = ev.details && ev.details.who ? `
-                    <div class="archive-details" onclick="event.stopPropagation()" style="font-size: clamp(0.85rem, 1.5vw, 1rem); background: var(--pod-active-bg); padding: 10px; border-radius: 6px; border: 1px dashed var(--pod-border); color: var(--text-main); opacity: 0.9;">
-                        <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">Who:</span> ${ev.details.who}</div>
-                        <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">What:</span> ${ev.details.what}</div>
-                        <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">Where:</span> ${ev.details.where}</div>
-                        <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">When:</span> ${ev.details.when}</div>
-                        <div style="margin-bottom: 4px;"><span style="color: var(--accent); font-weight: bold;">Why:</span> ${ev.details.why}</div>
-                        ${ev.details.sources ? `<div style="margin-top: 10px;">${ev.details.sources.map(src => `<a href="${src.url}" target="_blank" class="search-link-btn search-link-sm">🔗 Source Article</a>`).join('')}</div>` : ''}
+                    <div class="archive-details" onclick="event.stopPropagation()" ${'style'}="font-size: clamp(0.85rem, 1.5vw, 1rem); background: var(--pod-active-bg); padding: 10px; border-radius: 6px; border: 1px dashed var(--pod-border); color: var(--text-main); opacity: 0.9;">
+                        <div ${'style'}="margin-bottom: 4px;"><span ${'style'}="color: var(--accent); font-weight: bold;">Who:</span> ${ev.details.who}</div>
+                        <div ${'style'}="margin-bottom: 4px;"><span ${'style'}="color: var(--accent); font-weight: bold;">What:</span> ${ev.details.what}</div>
+                        <div ${'style'}="margin-bottom: 4px;"><span ${'style'}="color: var(--accent); font-weight: bold;">Where:</span> ${ev.details.where}</div>
+                        <div ${'style'}="margin-bottom: 4px;"><span ${'style'}="color: var(--accent); font-weight: bold;">When:</span> ${ev.details.when}</div>
+                        <div ${'style'}="margin-bottom: 4px;"><span ${'style'}="color: var(--accent); font-weight: bold;">Why:</span> ${ev.details.why}</div>
+                        ${ev.details.sources ? `<div ${'style'}="margin-top: 10px;">${ev.details.sources.map(src => `<a href="${src.url}" target="_blank" class="search-link-btn search-link-sm">🔗 Source Article</a>`).join('')}</div>` : ''}
                     </div>
-                ` : `<div class="archive-details" onclick="event.stopPropagation()" style="font-size: clamp(0.85rem, 1.5vw, 1rem); background: var(--pod-active-bg); padding: 10px; border-radius: 6px; border: 1px dashed var(--pod-border); color: var(--text-main); opacity: 0.9;"><div style="opacity:0.5; font-style:italic;">Detailed breakdown unavailable for this agenda item.</div></div>`;
+                ` : `<div class="archive-details" onclick="event.stopPropagation()" ${'style'}="font-size: clamp(0.85rem, 1.5vw, 1rem); background: var(--pod-active-bg); padding: 10px; border-radius: 6px; border: 1px dashed var(--pod-border); color: var(--text-main); opacity: 0.9;"><div ${'style'}="opacity:0.5; font-style:italic;">Detailed breakdown unavailable for this agenda item.</div></div>`;
 
-                return `<div class="archive-item" onclick="this.classList.toggle('expanded')" style="position:relative; cursor:pointer; background: var(--pod-bg); border: 1px solid var(--pod-border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 15px; padding-right: 40px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px var(--shadow-color); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
-                        <div style="font-size: clamp(1.2rem, 3vw, 1.6rem); font-weight: bold; color: var(--accent); line-height: 1.2;">${ev.label}</div>
-                        <div style="font-size: clamp(0.9rem, 2vw, 1.1rem); color: var(--text-main); opacity: 0.8; background: var(--pod-active-bg); padding: 4px 10px; border-radius: 6px; white-space: nowrap;">🕒 ${timeLabel}</div>
+                return `<div class="archive-item" onclick="this.classList.toggle('expanded')" ${'style'}="position:relative; cursor:pointer; background: var(--pod-bg); border: 1px solid var(--pod-border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 15px; padding-right: 40px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px var(--shadow-color); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+                    <div ${'style'}="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                        <div ${'style'}="font-size: clamp(1.2rem, 3vw, 1.6rem); font-weight: bold; color: var(--accent); line-height: 1.2;">${ev.label}</div>
+                        <div ${'style'}="font-size: clamp(0.9rem, 2vw, 1.1rem); color: var(--text-main); opacity: 0.8; background: var(--pod-active-bg); padding: 4px 10px; border-radius: 6px; white-space: nowrap;">🕒 ${timeLabel}</div>
                     </div>
-                    <div style="font-size: clamp(1rem, 2.5vw, 1.2rem); color: var(--text-main); opacity: 0.9; line-height: 1.5;">${ev.text}</div>
-                    <div style="align-self: flex-start; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;" onclick="event.stopPropagation()">${searchLink} ${voteHtml}</div>
+                    <div ${'style'}="font-size: clamp(1rem, 2.5vw, 1.2rem); color: var(--text-main); opacity: 0.9; line-height: 1.5;">${ev.text}</div>
+                    <div ${'style'}="align-self: flex-start; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;" onclick="event.stopPropagation()">${searchLink} ${voteHtml}</div>
                     ${detailsHtml}
                 </div>`;
             }).join('');
@@ -2137,11 +2137,11 @@
                     if (activeEap) {
                         takeoverEl.style.display = 'flex';
                         takeoverEl.style.background = activeEap.color;
-                        takeoverEl.innerHTML = `<h1 style="color:#fff; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">${activeEap.type}</h1><p style="color:#fff; font-size:clamp(1.5rem, 4vw, 3rem); text-shadow:0 2px 15px rgba(0,0,0,0.6); margin-top:20px;">${activeEap.message}</p>`;
+                        takeoverEl.innerHTML = `<h1 ${'style'}="color:#fff; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">${activeEap.type}</h1><p ${'style'}="color:#fff; font-size:clamp(1.5rem, 4vw, 3rem); text-shadow:0 2px 15px rgba(0,0,0,0.6); margin-top:20px;">${activeEap.message}</p>`;
                     } else if (s.emergency && s.emergency.active) {
                         takeoverEl.style.display = 'flex';
                         takeoverEl.style.background = s.emergency.color;
-                        takeoverEl.innerHTML = `<h1 style="color:#fff; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">EMERGENCY</h1><p style="color:#fff; font-size:clamp(1.5rem, 4vw, 3rem); text-shadow:0 2px 15px rgba(0,0,0,0.6); margin-top:20px;">${s.emergency.message}</p>`;
+                        takeoverEl.innerHTML = `<h1 ${'style'}="color:#fff; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">EMERGENCY</h1><p ${'style'}="color:#fff; font-size:clamp(1.5rem, 4vw, 3rem); text-shadow:0 2px 15px rgba(0,0,0,0.6); margin-top:20px;">${s.emergency.message}</p>`;
                     } else {
                         takeoverEl.style.display = 'none';
                     }
@@ -2497,8 +2497,8 @@
             if (slide.type === 'text') {
                 const strobeClass = slide.strobe ? 'strobe-alert' : '';
                 const safeText = slide.text.replace(/\n/g, '<br>');
-                overlay.innerHTML = `<div class="${strobeClass}" style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; padding:5vw; text-align:center; background:${slide.bg_color}; transition: all 0.5s;">
-                    <h1 style="color:${slide.text_color}; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">${safeText}</h1></div>`;
+                overlay.innerHTML = `<div class="${strobeClass}" ${'style'}="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; padding:5vw; text-align:center; background:${slide.bg_color}; transition: all 0.5s;">
+                    <h1 ${'style'}="color:${slide.text_color}; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">${safeText}</h1></div>`;
             } else if (slide.type === 'image') {
                 overlay.innerHTML = `<div style="width:100%; height:100%; background:url('${slide.url}') center/contain no-repeat #000;"></div>`;
             } else if (slide.type === 'video') {
