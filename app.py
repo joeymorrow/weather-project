@@ -1780,6 +1780,9 @@ def internal_action():
     elif action == 'update_host_services':
         with state_lock:
             state['host_services'] = data.get('services', [])
+            try:
+                with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+            except: pass
         return jsonify(success=True, message="Host services updated.")
 
     return jsonify(success=False, error="Unknown action"), 400
