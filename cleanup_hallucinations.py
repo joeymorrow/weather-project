@@ -115,7 +115,7 @@ def check_and_log_api_usage(api_name, caller_context):
             if daily >= g_daily or hourly >= g_hourly:
                 return False
                 
-            conn.execute("INSERT INTO api_usage_log (api_name, caller_context) VALUES (?, ?)", (api_name, caller_context))
+            conn.execute("INSERT INTO api_usage_log (api_name, caller_context, status) VALUES (?, ?, 'in_progress')", (api_name, caller_context))
             conn.commit()
             return True
     except: return True
@@ -297,12 +297,16 @@ Evaluate if the following generated text is a hallucination or an intended respo
                 config=types.GenerateContentConfig(tools=[{"google_search": {}}])
             )
             
+            tokens = 0
             try:
                 if hasattr(response, 'usage_metadata') and response.usage_metadata and response.usage_metadata.total_token_count:
                     tokens = response.usage_metadata.total_token_count
-                    with sqlite3.connect(LOG_DB_FILE, timeout=10) as conn:
-                        conn.execute("UPDATE api_usage_log SET tokens_used = ? WHERE id = (SELECT MAX(id) FROM api_usage_log WHERE api_name='gemini' AND caller_context='cleanup_hallucinations')", (tokens,))
-                        conn.commit()
+            except Exception: pass
+
+            try:
+                with sqlite3.connect(LOG_DB_FILE, timeout=10) as conn:
+                    conn.execute("UPDATE api_usage_log SET status='completed', ended_at=datetime('now'), tokens_used=? WHERE id = (SELECT MAX(id) FROM api_usage_log WHERE api_name='gemini' AND caller_context='cleanup_hallucinations' AND status='in_progress')", (tokens,))
+                    conn.commit()
             except Exception: pass
 
             resp_text = response.text
@@ -314,6 +318,12 @@ Evaluate if the following generated text is a hallucination or an intended respo
             data = json.loads(json_str)
             return data.get("hallucinated", False), data.get("reason", "No reason provided")
         except Exception as e:
+            try:
+                with sqlite3.connect(LOG_DB_FILE, timeout=10) as conn:
+                    conn.execute("UPDATE api_usage_log SET status='failed', ended_at=datetime('now'), details=? WHERE id = (SELECT MAX(id) FROM api_usage_log WHERE api_name='gemini' AND caller_context='cleanup_hallucinations' AND status='in_progress')", (str(e)[:100],))
+                    conn.commit()
+            except Exception: pass
+            
             err_str = str(e).lower()
             if "429" in err_str or "exhausted" in err_str or "quota" in err_str:
                 print(f"[WARNING] 429 Rate Limit hit during cleanup. Skipping item for now. {e}", flush=True)

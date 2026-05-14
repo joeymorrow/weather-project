@@ -291,6 +291,18 @@ def init_db():
                                 caller_context TEXT,
                                 tokens_used INTEGER DEFAULT 0
                              )''')
+            try:
+                log_conn.execute("ALTER TABLE api_usage_log ADD COLUMN status TEXT DEFAULT 'completed'")
+                log_conn.execute("ALTER TABLE api_usage_log ADD COLUMN ended_at DATETIME")
+                log_conn.execute("ALTER TABLE api_usage_log ADD COLUMN details TEXT")
+            except sqlite3.OperationalError:
+                pass
+            
+            try:
+                log_conn.execute("ALTER TABLE job_queue ADD COLUMN priority INTEGER DEFAULT 5")
+            except sqlite3.OperationalError:
+                pass
+            
             log_conn.execute('''CREATE TABLE IF NOT EXISTS job_queue (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -448,6 +460,18 @@ def log_audit_event(user, action, details=""):
 class CircuitBreakerError(Exception):
     pass
 
+def close_api_log(api_name, caller_context, status="completed", tokens=0, details=""):
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            with conn:
+                conn.execute("""
+                    UPDATE api_usage_log 
+                    SET status = ?, ended_at = datetime('now'), tokens_used = ?, details = ? 
+                    WHERE id = (SELECT MAX(id) FROM api_usage_log WHERE api_name=? AND caller_context=? AND status='in_progress')
+                """, (status, tokens, details, api_name, caller_context))
+    except Exception as e:
+        print(f"[ERROR] Failed to close API log: {e}", flush=True)
+
 def check_and_log_api_usage(api_name, caller_context):
     try:
         with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
@@ -497,7 +521,7 @@ def check_and_log_api_usage(api_name, caller_context):
                     print(f"[CIRCUIT BREAKER] OWM Limit Hit by {caller_context} (Day: {daily_count}/{o_daily}, Hour: {hourly_count}/{o_hourly})", flush=True)
                     return False
                     
-            conn.execute("INSERT INTO api_usage_log (api_name, caller_context) VALUES (?, ?)", (api_name, caller_context))
+            conn.execute("INSERT INTO api_usage_log (api_name, caller_context, status) VALUES (?, ?, 'in_progress')", (api_name, caller_context))
             conn.commit()
             return True
     except Exception as e:
@@ -578,7 +602,13 @@ def safe_owm_get(url, caller_context="unknown", timeout=10):
                 
     if not check_and_log_api_usage('openweathermap', caller_context):
         raise CircuitBreakerError(f"OpenWeatherMap API Circuit Breaker Limit Reached by {caller_context}.")
-    return http_session.get(url, timeout=timeout)
+    try:
+        response = http_session.get(url, timeout=timeout)
+        close_api_log('openweathermap', caller_context, status="completed", details=f"HTTP {response.status_code}")
+        return response
+    except Exception as e:
+        close_api_log('openweathermap', caller_context, status="failed", details=str(e)[:100])
+        raise e
 
 def verify_events_batch(events_to_verify, is_manual=False):
     if not events_to_verify: return {}, ""
@@ -659,6 +689,7 @@ Return ONLY a valid JSON array of objects matching this exact structure:
             for item in check_data: verified_details[item["id"]] = item
             break
         except Exception as e:
+            close_api_log('gemini', f"verify_events_{'manual' if is_manual else 'auto'}", status="failed", details=str(e)[:100])
             if handle_gemini_error(e):
                 break
             print(f"Check failed with {m_check}: {e}", flush=True)
@@ -706,7 +737,12 @@ def get_best_models():
         if not check_and_log_api_usage('gemini', 'model_discovery'):
             return ["gemini-2.5-flash", "gemini-1.5-flash"]
         if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
-        all_m = list(gemini_client.models.list())
+        try:
+            all_m = list(gemini_client.models.list())
+            close_api_log('gemini', 'model_discovery', status="completed")
+        except Exception as e:
+            close_api_log('gemini', 'model_discovery', status="failed", details=str(e)[:100])
+            raise e
         ranked = []
         import re
         for m in all_m:
@@ -778,14 +814,13 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
     response = gemini_client.models.generate_content(model=model, contents=contents, config=config) if config else gemini_client.models.generate_content(model=model, contents=contents)
     
     # 2. Track Exact Token Usage (1 Million TPM limit)
+    tokens = 0
     try:
         if hasattr(response, 'usage_metadata') and response.usage_metadata and response.usage_metadata.total_token_count:
             tokens = response.usage_metadata.total_token_count
-            with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
-                with conn:
-                    conn.execute("UPDATE api_usage_log SET tokens_used = ? WHERE id = (SELECT MAX(id) FROM api_usage_log WHERE api_name='gemini' AND caller_context=?)", (tokens, caller_context))
     except Exception: pass
     
+    close_api_log('gemini', caller_context, status="completed", tokens=tokens)
     return response
 
 def handle_gemini_error(e):
@@ -869,7 +904,7 @@ def scrape_closings():
         print(f"[ERROR] Scrape closings failed: {e}", flush=True)
         return False, []
 
-def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False):
+def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False, is_retry=False):
     try:
         if owm_cache is not None and query in owm_cache:
             w = owm_cache[query]['weather']
@@ -1317,6 +1352,7 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False):
                     print(f"[API] Success via {m_id} for {slug}", flush=True)
                     success = True; break
                 except Exception as e:
+                    close_api_log('gemini', f"sync_pulse_{slug}", status="failed", details=str(e)[:100])
                     if handle_gemini_error(e):
                         gemini_disabled = True
                         break
@@ -1325,6 +1361,15 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False):
                     continue
         
         if not success:
+            if not skip_ai and not is_retry:
+                priority = 1 if slug == "main" else 2
+                try:
+                    with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as q_conn:
+                        with q_conn:
+                            q_conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
+                                ('retry_sync_pulse', json.dumps({'slug': slug, 'location': loc_name, 'query': query}), priority))
+                except Exception as eq: print(f"[QUEUE] Failed to enqueue retry: {eq}", flush=True)
+
             if gemini_disabled or skip_ai:
                 ai["bubble"] = "Conserving energy..."
                 ai["forecast"] = w['weather'][0]['description'].title()
@@ -1386,6 +1431,8 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False):
                 if slug not in state['tenants']: state['tenants'][slug] = {}
                 state['tenants'][slug].update(update_dict)
             save_state()
+            
+        return success
 
     except Exception as e: 
         print(f"[ERROR] sync_for_location {slug}: {e}", flush=True)
@@ -1413,6 +1460,8 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False):
                 if 'tenants' not in state: state['tenants'] = {}
                 if slug not in state['tenants']: state['tenants'][slug] = {}
                 state['tenants'][slug].update(err_dict)
+                
+        return False
 
 def run_sync():
     now_ts = time.time()
@@ -1608,6 +1657,7 @@ Return ONLY a valid JSON array of objects matching this exact structure:
                         success = True
                         break
                 except Exception as e:
+                    close_api_log('gemini', 'fetch_annual_calendar', status="failed", details=str(e)[:100])
                     if handle_gemini_error(e):
                         break
                     print(f"[ANNUAL TASK] Gemini processing failed with {m_id}: {e}", flush=True)
@@ -1710,6 +1760,7 @@ def monitor_loop():
                             baseline_snapshot = current_snapshot # Reset baseline ONLY after alerting!
                         break # AI evaluated successfully, break fallback loop
                     except Exception as e:
+                        close_api_log('gemini', 'monitor_leak_eval', status="failed", details=str(e)[:100])
                         if handle_gemini_error(e):
                             break
                         continue
@@ -1943,7 +1994,7 @@ def job_queue_loop():
                     FROM job_queue 
                     WHERE status IN ('pending', 'retrying')
                       AND (last_attempt IS NULL OR last_attempt <= datetime('now', '-1 minute'))
-                    ORDER BY id ASC LIMIT 1
+                    ORDER BY priority ASC, id ASC LIMIT 1
                 """)
                 job = c.fetchone()
                 
@@ -1960,7 +2011,18 @@ def job_queue_loop():
                 requeue = False
                 
                 try:
-                    if job_type == 'refresh_details':
+                    if job_type == 'retry_sync_pulse':
+                        q_slug = payload.get('slug')
+                        q_loc = payload.get('location')
+                        q_query = payload.get('query')
+                        
+                        ai_success = sync_for_location(q_slug, q_loc, q_query, skip_ai=False, is_retry=True)
+                        if ai_success:
+                            success = True
+                        else:
+                            error_msg = f"Retry failed to generate AI content for {q_slug}."
+                            
+                    elif job_type == 'refresh_details':
                         table = payload.get('table')
                         real_id = payload.get('real_id')
                         text = payload.get('text')
@@ -2377,6 +2439,7 @@ Current Base Prompt: "{current_prompt}"
                 suggested = resp.text.strip().strip('"').strip("'")
                 if suggested: return jsonify(success=True, suggested_prompt=suggested)
             except Exception as e:
+                close_api_log('gemini', 'api_suggest_prompt', status="failed", details=str(e)[:100])
                 if handle_gemini_error(e):
                     return jsonify(success=False, error="Gemini API Quota Exhausted")
                 continue
@@ -2433,32 +2496,68 @@ def api_health_endpoint():
         else:
             health["gemini"]["status"] = "Error"
             health["gemini"]["warnings"].append("No models returned")
+        close_api_log('gemini', 'health_check_gemini', status="completed")
             
     except Exception as e:
         health["gemini"]["status"] = "Offline"
+        close_api_log('gemini', 'health_check_gemini', status="failed", details=str(e)[:100])
         health["gemini"]["warnings"].append(str(e))
         
     _health_cache["data"] = health
     _health_cache["last_check"] = time.time()
     return jsonify(health)
 
-@app.route('/api/internal/api_usage')
-def api_usage_data():
+@app.route('/api/internal/api_history')
+def api_history_data():
     if not session.get("admin_auth") and session.get("role") != "Admin":
         return jsonify(success=False, error="Unauthorized"), 403
+    
+    service_filter = request.args.get('service', 'all').lower()
+    context_filter = request.args.get('context', 'all').lower()
+    
     try:
         with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
-            c.execute("""
-                SELECT strftime('%Y-%m-%d %H:00:00', timestamp) as hour, 
-                       api_name, caller_context, COUNT(*) as count 
-                FROM api_usage_log 
-                WHERE timestamp >= datetime('now', '-24 hours') 
-                GROUP BY hour, api_name, caller_context 
-                ORDER BY hour ASC
-            """)
-            rows = c.fetchall()
-            return jsonify([{"hour": r[0], "api": r[1], "context": r[2], "count": r[3]} for r in rows])
+            logs = []
+            
+            # Fetch API Usage
+            if service_filter in ['all', 'gemini', 'openweathermap']:
+                query = "SELECT id, timestamp, ended_at, api_name, caller_context, status, tokens_used, details FROM api_usage_log WHERE 1=1"
+                params = []
+                if service_filter != 'all':
+                    query += " AND LOWER(api_name) = ?"
+                    params.append(service_filter)
+                if context_filter != 'all':
+                    query += " AND LOWER(caller_context) LIKE ?"
+                    params.append(f"%{context_filter}%")
+                query += " ORDER BY id DESC LIMIT 100"
+                c.execute(query, params)
+                
+                for r in c.fetchall():
+                    logs.append({
+                        "id": f"api_{r[0]}", "started_at": r[1], "ended_at": r[2] or "--",
+                        "service": r[3], "context": r[4], "status": r[5], "tokens": r[6], "details": r[7] or ""
+                    })
+            
+            # Fetch Background Jobs (BEACON Core)
+            if service_filter in ['all', 'beacon core', 'app.py', 'local']:
+                q_jobs = "SELECT id, added_at, last_attempt, 'BEACON Core', job_type, status, error_msg FROM job_queue WHERE 1=1"
+                j_params = []
+                if context_filter != 'all':
+                    q_jobs += " AND LOWER(job_type) LIKE ?"
+                    j_params.append(f"%{context_filter}%")
+                q_jobs += " ORDER BY id DESC LIMIT 50"
+                c.execute(q_jobs, j_params)
+                
+                for r in c.fetchall():
+                    logs.append({
+                        "id": f"job_{r[0]}", "started_at": r[1], "ended_at": r[2] or "--",
+                        "service": r[3], "context": r[4], "status": r[5], "tokens": "--", "details": r[6] or ""
+                    })
+                    
+            # Sort combined descending
+            logs.sort(key=lambda x: x['started_at'], reverse=True)
+            return jsonify(logs[:100])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -3263,8 +3362,9 @@ def cooladmin():
             
             with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
                 with conn:
-                    conn.execute("INSERT INTO job_queue (job_type, payload) VALUES (?, ?)", 
-                        ('refresh_details', json.dumps({'table': table, 'real_id': real_id, 'text': text})))
+                    conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
+                        ('refresh_details', json.dumps({'table': table, 'real_id': real_id, 'text': text}), 3))
+            flash("Single item 5Ws refresh queued. Monitor the API & Job Queue for progress.", "success")
             
             return redirect('/cooladmin')
 
@@ -3280,8 +3380,9 @@ def cooladmin():
                     
                     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
                         with conn:
-                            conn.execute("INSERT INTO job_queue (job_type, payload) VALUES (?, ?)", 
-                                ('refresh_tower', json.dumps({'table': table, 'events': events_to_verify})))
+                            conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
+                                ('refresh_tower', json.dumps({'table': table, 'events': events_to_verify}), 4))
+                    flash(f"Full tower refresh queued for {table}. Monitor the API & Job Queue for progress.", "success")
                 except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
 
@@ -3551,22 +3652,25 @@ def cooladmin():
             try:
                 with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
                     with conn: conn.execute("DELETE FROM job_queue WHERE status='failed'")
+                flash("Purged all failed jobs from the queue.", "success")
             except: pass
             return redirect('/cooladmin')
 
         elif action == 'refresh_missing_details':
             with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
                 with conn:
-                    conn.execute("INSERT INTO job_queue (job_type, payload) VALUES (?, ?)", 
-                        ('refresh_missing_details', json.dumps({})))
+                    conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
+                        ('refresh_missing_details', json.dumps({}), 5))
             log_system_event("MAINTENANCE", "Admin queued background 5Ws backfill extraction.")
-            return "<script>alert('Background 5Ws extraction queued! You can monitor its progress in the Job Queue card.'); window.location.href='/cooladmin';</script>"
+            flash("Background 5Ws extraction queued! You can monitor its progress in the API & Job Queue.", "success")
+            return redirect('/cooladmin')
 
         elif action == 'clear_completed_jobs':
             try:
                 with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
                     with conn:
                         conn.execute("DELETE FROM job_queue WHERE status='completed'")
+                flash("Cleared all completed jobs from the queue.", "success")
             except: pass
             return redirect('/cooladmin')
         

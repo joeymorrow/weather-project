@@ -1124,51 +1124,154 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
             </div>
         </div>
 
-        <!-- Background Job Queue -->
+        <!-- API & Background Job Queue -->
         <div class="card" style="grid-column: 1 / -1; border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.2);">
             <h2 style="color: #00ffff; border-bottom-color: #00ffff; display: flex; align-items: center; justify-content: space-between;">
-                <span>⚙️ Background Job Queue <span class="help-tip" style="margin-left: 10px;" title="AI requests triggered by users are queued here to prevent API rate limits from blocking the web UI.">?</span></span>
-                <span style="font-size: 0.9rem; background: rgba(0, 255, 255, 0.1); padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(0, 255, 255, 0.3);">Pending/Retrying: {{ pending_jobs_count }}</span>
+                <span>⚙️ API & BACKGROUND JOB QUEUE <span class="help-tip" style="margin-left: 10px;" title="Unified tracker for external API calls and local background extraction jobs.">?</span></span>
+                <span style="font-size: 0.9rem; background: rgba(0, 255, 255, 0.1); padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(0, 255, 255, 0.3);">Local Jobs Pending: {{ pending_jobs_count }}</span>
             </h2>
-            <div style="max-height: 300px; overflow-y: auto;">
-                <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem;">
-                    <tr style="background: rgba(0,255,255,0.1); border-bottom: 2px solid #00ffff; position: sticky; top: 0;">
-                        <th style="padding: 8px; text-align: left; color: #00ffff;">Job ID</th>
-                        <th style="padding: 8px; text-align: left; color: #00ffff;">Added At</th>
-                        <th style="padding: 8px; text-align: left; color: #00ffff;">Job Type</th>
-                        <th style="padding: 8px; text-align: center; color: #00ffff;">Status</th>
-                        <th style="padding: 8px; text-align: center; color: #00ffff;">Attempts</th>
-                        <th style="padding: 8px; text-align: left; color: #00ffff;">Message</th>
-                    </tr>
-                    {% for job in job_queue_status %}
-                    <tr style="border-bottom: 1px solid rgba(0,255,255,0.2);">
-                        <td style="padding: 8px; color: #aaa;">#{{ job.id }}</td>
-                        <td style="padding: 8px; color: #fff; white-space: nowrap;">{{ job.added_at }}</td>
-                        <td style="padding: 8px; color: #00ffff; font-weight: bold;">{{ job.job_type }}</td>
-                        <td style="padding: 8px; text-align: center;">
-                            <span style="padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; 
-                                {% if job.status == 'completed' %}background: #00ff00; color: #000;
-                                {% elif job.status == 'failed' %}background: #ff4444; color: #fff;
-                                {% elif job.status == 'processing' %}background: #ffaa00; color: #000;
-                                {% else %}background: #aaaaaa; color: #000;{% endif %}">
-                                {{ job.status | upper }}
-                            </span>
-                        </td>
-                        <td style="padding: 8px; text-align: center; color: #aaa;">{{ job.attempts }}</td>
-                        <td style="padding: 8px; color: #ffaa00; word-break: break-word;">{{ job.error or '' }}</td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" style="padding: 10px; text-align: center; color: #666; font-style: italic;">No recent jobs found.</td>
-                    </tr>
-                    {% endfor %}
+            
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: center;">
+                <label style="color: #00ffff; font-size: 0.9rem;">Filter:</label>
+                <select id="api-service-filter" onchange="loadApiHistory()" style="background-color: rgba(0,255,255,0.1); color: #00ffff; border: 1px solid rgba(0,255,255,0.3); padding: 5px; border-radius: 4px; font-family: monospace; outline: none; width: auto;">
+                    <option value="all">All Services</option>
+                    <option value="gemini">Gemini AI</option>
+                    <option value="openweathermap">OpenWeatherMap</option>
+                    <option value="beacon core">BEACON Core (Local App)</option>
+                </select>
+                
+                <select id="api-context-filter" onchange="loadApiHistory()" style="background-color: rgba(0,255,255,0.1); color: #00ffff; border: 1px solid rgba(0,255,255,0.3); padding: 5px; border-radius: 4px; font-family: monospace; outline: none; width: auto;">
+                    <option value="all">All Contexts</option>
+                    <option value="sync_pulse">Pulse Syncs (Main & Dynamic)</option>
+                    <option value="cleanup_hallucinations">Hallucination Checks</option>
+                    <option value="health_check">Health Checks</option>
+                    <option value="verify_events">Verify Events</option>
+                    <option value="demo_zip">Demo Validation</option>
+                    <option value="fetch_annual_calendar">Annual Calendar Task</option>
+                    <option value="monitor_leak_eval">Memory Leak Evaluation</option>
+                    <option value="model_discovery">Model Discovery</option>
+                    <option value="refresh_">Background Extractions</option>
+                </select>
+                <button onclick="loadApiHistory()" class="manage-btn" style="padding: 5px 15px; background: rgba(0,255,255,0.2); border: 1px solid #00ffff; color: #00ffff;">↻ Refresh</button>
+            </div>
+
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 0; font-size: 0.85rem;">
+                    <thead style="background: rgba(0,255,255,0.1); border-bottom: 2px solid #00ffff; position: sticky; top: 0; z-index: 10;">
+                        <tr>
+                            <th style="padding: 8px; text-align: left; color: #00ffff;">Req ID</th>
+                            <th style="padding: 8px; text-align: left; color: #00ffff;">Service</th>
+                            <th style="padding: 8px; text-align: left; color: #00ffff;">Context / Source</th>
+                            <th style="padding: 8px; text-align: center; color: #00ffff;">Status</th>
+                            <th style="padding: 8px; text-align: left; color: #00ffff;">Started At</th>
+                            <th style="padding: 8px; text-align: left; color: #00ffff;">Ended At</th>
+                            <th style="padding: 8px; text-align: center; color: #00ffff;">Tokens</th>
+                            <th style="padding: 8px; text-align: left; color: #00ffff;">Details / Message</th>
+                        </tr>
+                    </thead>
+                    <tbody id="api-history-tbody">
+                        <tr>
+                            <td colspan="8" style="padding: 20px; text-align: center; color: #00ffff; font-style: italic;">Loading History...</td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
-            <form method="POST" style="margin-top: 15px; text-align: right;">
-                <input type="hidden" name="action" value="clear_completed_jobs">
-                <button type="submit" class="manage-btn" style="background: rgba(0,255,255,0.2); border: 1px solid #00ffff; color: #00ffff;">Clear Completed</button>
-            </form>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+                <form method="POST" style="margin: 0;">
+                    <input type="hidden" name="action" value="clear_completed_jobs">
+                    <button type="submit" class="manage-btn" style="background: rgba(0,255,255,0.2); border: 1px solid #00ffff; color: #00ffff;">Clear Completed Local Jobs</button>
+                </form>
+                <form method="POST" style="margin: 0;">
+                    <input type="hidden" name="action" value="clear_failed_jobs">
+                    <button type="submit" class="danger-btn">Purge Failed/Invalid</button>
+                </form>
+            </div>
         </div>
+
+        <script>
+        function loadApiHistory(isAutoRefresh = false) {
+            const service = document.getElementById('api-service-filter').value;
+            const context = document.getElementById('api-context-filter').value;
+            const tbody = document.getElementById('api-history-tbody');
+            
+            if (!isAutoRefresh) {
+                tbody.innerHTML = '<tr><td colspan="8" style="padding: 20px; text-align: center; color: #00ffff; font-style: italic;">Loading History...</td></tr>';
+            }
+            
+            fetch(`/api/internal/api_history?service=${service}&context=${context}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        tbody.innerHTML = `<tr><td colspan="8" style="padding: 20px; text-align: center; color: #ff4444;">Error: ${data.error}</td></tr>`;
+                        return;
+                    }
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="padding: 20px; text-align: center; color: #666; font-style: italic;">No records found matching these filters.</td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = '';
+                    data.forEach(log => {
+                        let bgColor = '#aaaaaa';
+                        let txtColor = '#000';
+                        const statusLower = log.status.toLowerCase();
+                        
+                        if (['failed', 'invalid', 'buggy', 'error'].includes(statusLower)) {
+                            bgColor = '#ff4444'; txtColor = '#fff';
+                        } else if (['in_progress', 'pending', 'retrying'].includes(statusLower)) {
+                            bgColor = '#ffaa00'; txtColor = '#000';
+                        } else if (statusLower === 'completed' || statusLower === 'processing') {
+                            bgColor = '#00ff00'; txtColor = '#000';
+                        }
+
+                        const formatTime = (ts) => {
+                            if (!ts || ts === '--') return '--';
+                            try {
+                                const d = new Date(ts.replace(' ', 'T') + 'Z');
+                                if (isNaN(d)) return ts;
+                                return d.toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit'});
+                            } catch(e) { return ts; }
+                        };
+                        
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = "1px solid rgba(0, 255, 255, 0.2)";
+                        tr.innerHTML = `
+                            <td style="padding: 8px; color: #aaa; white-space: nowrap;">${log.id}</td>
+                            <td style="padding: 8px; color: #fff; text-transform: uppercase; font-weight: bold;">${log.service}</td>
+                            <td style="padding: 8px; color: #00ffff;">${log.context}</td>
+                            <td style="padding: 8px; text-align: center;">
+                                <span style="padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; background: ${bgColor}; color: ${txtColor};">
+                                    ${log.status.toUpperCase()}
+                                </span>
+                            </td>
+                            <td style="padding: 8px; color: #aaa; white-space: nowrap;">${formatTime(log.started_at)}</td>
+                            <td style="padding: 8px; color: #aaa; white-space: nowrap;">${formatTime(log.ended_at)}</td>
+                            <td style="padding: 8px; text-align: center; color: #00ff00; font-weight: bold;">${log.tokens && log.tokens !== '--' && log.tokens > 0 ? log.tokens : '--'}</td>
+                            <td style="padding: 8px; color: #ffaa00; word-break: break-word; max-width: 250px;">${log.details || ''}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(err => {
+                    tbody.innerHTML = `<tr><td colspan="8" style="padding: 20px; text-align: center; color: #ff4444;">Failed to load API history: ${err}</td></tr>`;
+                });
+        }
+        window.loadApiHistory = loadApiHistory;
+        
+        // Smart Polling: Only refresh when the admin is actively looking at the tab!
+        let apiPollTimer = null;
+        function manageApiPolling() {
+            if (document.visibilityState === 'visible') {
+                loadApiHistory(apiPollTimer !== null); // Silent refresh if returning from another tab
+                if (!apiPollTimer) apiPollTimer = setInterval(() => loadApiHistory(true), 15000);
+            } else {
+                if (apiPollTimer) { clearInterval(apiPollTimer); apiPollTimer = null; }
+            }
+        }
+        document.addEventListener('visibilitychange', manageApiPolling);
+        document.addEventListener('DOMContentLoaded', manageApiPolling);
+        </script>
 
         <!-- System Event Logs -->
         <div class="card" style="grid-column: 1 / -1; border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.2);">
