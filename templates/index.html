@@ -614,6 +614,12 @@
 
     <div id="signage-overlay" style="display:none; position:fixed; inset:0; z-index:9000; background:#000; opacity:0; transition: opacity 1s ease;"></div>
     <div id="emergency-takeover" style="display:none; position:fixed; inset:0; z-index:10000; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:5vw; animation: strobe-bg 1s infinite alternate;"></div>
+    
+    <div id="nws-alert-banner" style="display: none; position: absolute; top: 18vh; left: 50%; transform: translateX(-50%); width: 80vw; max-width: 1000px; background: rgba(211, 47, 47, 0.9); border: 2px solid #ff4444; border-radius: 12px; padding: 15px; color: #fff; z-index: 100; box-shadow: 0 0 20px rgba(211, 47, 47, 0.6); backdrop-filter: blur(8px); text-align: center;">
+        <div style="font-weight: bold; font-size: clamp(1.2rem, 2vw, 2rem); text-transform: uppercase; margin-bottom: 5px; letter-spacing: 2px;" id="nws-event-name">ALERT</div>
+        <div style="font-size: clamp(0.9rem, 1.5vw, 1.2rem); opacity: 0.9;" id="nws-event-desc">Description</div>
+    </div>
+
     <div id="center-info">
         <div class="clock" id="ui-clock" aria-live="polite">--:-- --</div>
         <div style="display:flex; justify-content:center; align-items:center; gap: clamp(10px, 2vw, 20px); margin-bottom: 2px; flex-wrap: wrap;">
@@ -2158,6 +2164,27 @@
                 } else {
                     document.body.style.removeProperty('--flare-color');
                     if (document.body.style.animation === 'flare-pulse 1.5s infinite alternate') document.body.style.animation = '';
+                }
+
+                // Handle Localized Emergency Alerts
+                const nwsBanner = document.getElementById('nws-alert-banner');
+                if (s.nws_alerts && s.nws_alerts.length > 0) {
+                    // Find an alert that hasn't expired (Auto-Stop control)
+                    const activeAlert = s.nws_alerts.find(a => !a.expires || new Date(a.expires).getTime() > Date.now());
+                    if (activeAlert) {
+                        nwsBanner.style.display = 'block';
+                        document.getElementById('nws-event-name').innerText = "⚠️ " + activeAlert.event;
+                        document.getElementById('nws-event-desc').innerText = activeAlert.headline || "Check local news for details.";
+                        if (activeAlert.severity === 'Extreme') {
+                            nwsBanner.style.animation = 'strobe-bg 1s infinite alternate';
+                        } else {
+                            nwsBanner.style.animation = 'none';
+                        }
+                    } else {
+                        nwsBanner.style.display = 'none';
+                    }
+                } else {
+                    if (nwsBanner) nwsBanner.style.display = 'none';
                 }
 
                 // Handle EUP School Closings Marquee

@@ -236,6 +236,7 @@
         <a id="docs-trigger" href="/docs/school" target="_blank" title="School Documentation">?</a>
         <div class="banners">
             <div id="eap-banner" class="alert-banner" style="display:none;" onclick="clearEap(event)"></div>
+            <div id="nws-banner" class="alert-banner" style="display:none; background: #d84315;"></div>
         </div>
 
         {% if closings_source == '9and10' and school_closings and (school_closings.sault_closed or school_closings.other_closings) %}
@@ -479,6 +480,19 @@
                     takeoverEl.style.display = 'none';
                 }
                 
+                const nwsBanner = document.getElementById('nws-banner');
+                if (s.nws_alerts && s.nws_alerts.length > 0) {
+                    const activeAlert = s.nws_alerts.find(a => !a.expires || new Date(a.expires).getTime() > Date.now());
+                    if (activeAlert) {
+                        nwsBanner.style.display = 'block';
+                        nwsBanner.innerText = "⚠️ " + activeAlert.event + ": " + (activeAlert.headline || "");
+                    } else {
+                        nwsBanner.style.display = 'none';
+                    }
+                } else {
+                    if (nwsBanner) nwsBanner.style.display = 'none';
+                }
+
                 if (!activeSlideTimer) runSignageLoop();
             } catch(e) {}
             
