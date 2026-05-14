@@ -63,7 +63,6 @@ LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 manual_override = None
 override_expiry = 0
 state_lock = threading.Lock()
-backfill_running = False
 slide_history = {}
 admin_username = os.environ.get("ADMIN_USERNAME", "admin")
 admin_password = os.environ.get("ADMIN_PASSWORD", "changeme")
@@ -279,6 +278,16 @@ def init_db():
                                 api_name TEXT,
                                 caller_context TEXT,
                                 tokens_used INTEGER DEFAULT 0
+                             )''')
+            log_conn.execute('''CREATE TABLE IF NOT EXISTS job_queue (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                job_type TEXT,
+                                payload TEXT,
+                                status TEXT DEFAULT 'pending',
+                                last_attempt DATETIME,
+                                attempts INTEGER DEFAULT 0,
+                                error_msg TEXT
                              )''')
 init_db()
 
@@ -641,10 +650,11 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
 def handle_gemini_error(e):
     err_str = str(e).lower()
     if "429" in err_str or "exhausted" in err_str or "quota" in err_str or "circuit breaker" in err_str:
-        if "minute" in err_str or "rpm" in err_str:
-            print("[WARNING] Gemini RPM limit hit. Pausing briefly without disabling API.", flush=True)
+        if "circuit breaker" not in err_str:
+            print(f"[WARNING] Gemini Rate Limit hit: {e}. Pausing briefly without disabling API.", flush=True)
             time.sleep(15)
             return False
+            
         with state_lock:
             already_disabled = state.get("gemini_api_disabled", False)
             if not already_disabled:
@@ -653,7 +663,6 @@ def handle_gemini_error(e):
                     with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                 except: pass
         if not already_disabled:
-            # Canary check: How many calls did we ACTUALLY make today?
             daily_count = 0
             try:
                 with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
@@ -662,14 +671,8 @@ def handle_gemini_error(e):
                     daily_count = c.fetchone()[0]
             except: pass
 
-            if "circuit breaker" in err_str:
-                subject = "[CRITICAL - BEACON BUDDY] Internal API Governor Tripped"
-                msg = f"Our internal API Circuit Breaker tripped at {daily_count} calls today. AI generation has been disabled to safely stay within your budget constraints. View the CoolAdmin dashboard to investigate and re-enable."
-            else:
-                subject = "[WARNING - BEACON BUDDY] Service Degraded: External API Constraints"
-                msg = f"The Gemini API returned a Resource Exhausted / 429 error, but our internal tracker only counted {daily_count} calls today.\n\n"
-                msg += "This indicates either Google lowered their free-tier limits unexpectedly, or another application using this API key consumed the quota. AI generation disabled. Go to CoolAdmin to review your telemetry graphs."
-                
+            subject = "[CRITICAL - BEACON BUDDY] Internal API Governor Tripped"
+            msg = f"Our internal API Circuit Breaker tripped at {daily_count} calls today. AI generation has been disabled to safely stay within your budget constraints. View the CoolAdmin dashboard to investigate and re-enable."
             send_alert_email(subject, msg)
             
         return True
@@ -1723,6 +1726,157 @@ def eap_webhook():
     handle_eap_message(json.dumps({"type": msg_type, "message": message}))
     return jsonify(success=True)
 
+def job_queue_loop():
+    lock = filelock.FileLock(os.path.join(DATA_DIR, "job_queue.lock"))
+    try:
+        lock.acquire(timeout=0)
+    except filelock.Timeout:
+        return
+
+    while True:
+        # Prioritize UI: Keep a 15% API Quota buffer strictly for live dashboard tasks
+        try:
+            with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                c = conn.cursor()
+                c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 hour')")
+                hourly_count = c.fetchone()[0]
+                c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-24 hours')")
+                daily_count = c.fetchone()[0]
+            with state_lock:
+                g_daily = state.get("api_limits", {}).get("gemini_daily", 1400)
+                g_hourly = state.get("api_limits", {}).get("gemini_hourly", 100)
+                if state.get("api_limits", {}).get("auto_free_tier", True):
+                    g_daily = min(g_daily, 1400)
+            if hourly_count >= (g_hourly * 0.85) or daily_count >= (g_daily * 0.85):
+                time.sleep(30)
+                continue
+        except Exception: pass
+
+        try:
+            with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                c = conn.cursor()
+                c.execute("""
+                    SELECT id, job_type, payload, attempts 
+                    FROM job_queue 
+                    WHERE status IN ('pending', 'retrying')
+                      AND (last_attempt IS NULL OR last_attempt <= datetime('now', '-1 minute'))
+                    ORDER BY id ASC LIMIT 1
+                """)
+                job = c.fetchone()
+                
+            if job:
+                job_id, job_type, payload_str, attempts = job
+                payload = json.loads(payload_str)
+                
+                with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        conn.execute("UPDATE job_queue SET status='processing', last_attempt=datetime('now'), attempts=attempts+1 WHERE id=?", (job_id,))
+                
+                success = False
+                error_msg = ""
+                requeue = False
+                
+                try:
+                    if job_type == 'refresh_details':
+                        table = payload.get('table')
+                        real_id = payload.get('real_id')
+                        text = payload.get('text')
+                        v_res, p_used = verify_events_batch([{"id": real_id, "text": text}])
+                        if v_res and real_id in v_res:
+                            res = v_res[real_id]
+                            new_details = res.get("details", {})
+                            if not res.get("hallucinated"):
+                                with closing(sqlite3.connect(DB_FILE, timeout=10)) as db_conn:
+                                    with db_conn:
+                                        db_conn.execute("INSERT INTO ai_training_log (topic, original_text, new_details, action_type, gather_prompt) VALUES (?, ?, ?, ?, ?)", (table, text, json.dumps(new_details), "refresh_single", p_used))
+                                        db_conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), real_id))
+                            success = True
+                        else:
+                            error_msg = "Verification returned empty results (API limit or disabled)."
+                            
+                    elif job_type == 'refresh_tower':
+                        table = payload.get('table')
+                        events_to_verify = payload.get('events')
+                        v_res, p_used = verify_events_batch(events_to_verify)
+                        if v_res:
+                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as db_conn:
+                                with db_conn:
+                                    for ev in events_to_verify:
+                                        i_id = ev["id"]
+                                        if i_id in v_res and not v_res[i_id].get("hallucinated"):
+                                            db_conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(v_res[i_id].get("details", {})), i_id))
+                                    db_conn.execute("INSERT INTO ai_training_log (topic, action_type, gather_prompt) VALUES (?, ?, ?)", (table, "refresh_tower", p_used))
+                            success = True
+                        else:
+                            error_msg = "Verification returned empty results (API limit or disabled)."
+                            
+                    elif job_type == 'refresh_missing_details':
+                        tables = ['pulses', 'old_pulses', 'garage_sales', 'sault_tribe', 'sault_schools']
+                        processed_any = False
+                        with closing(sqlite3.connect(DB_FILE, timeout=10)) as db_conn:
+                            for table in tables:
+                                try:
+                                    c = db_conn.cursor()
+                                    c.execute(f"SELECT id, text FROM {table} WHERE details = '{{}}' OR details IS NULL OR details = '' LIMIT 10")
+                                    rows = c.fetchall()
+                                    if rows:
+                                        batch = [{"id": str(r[0]), "text": r[1]} for r in rows]
+                                        v_res, p_used = verify_events_batch(batch, is_manual=True)
+                                        if v_res:
+                                            with db_conn:
+                                                for item in batch:
+                                                    i_id = item["id"]
+                                                    if i_id in v_res:
+                                                        new_details = v_res[i_id].get("details", {})
+                                                        c.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), i_id))
+                                            processed_any = True
+                                        else:
+                                            error_msg = "Verification returned empty results."
+                                        break
+                                except Exception as e:
+                                    error_msg = str(e)
+                                    break
+                        if processed_any:
+                            more_exist = False
+                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as db_conn:
+                                for table in tables:
+                                    c = db_conn.cursor()
+                                    c.execute(f"SELECT 1 FROM {table} WHERE details = '{{}}' OR details IS NULL OR details = '' LIMIT 1")
+                                    if c.fetchone():
+                                        more_exist = True
+                                        break
+                            if more_exist:
+                                requeue = True
+                            else:
+                                success = True
+                        elif error_msg:
+                            success = False
+                        else:
+                            success = True
+                            
+                except Exception as e:
+                    error_msg = str(e)
+                    
+                with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        if requeue:
+                            conn.execute("UPDATE job_queue SET status='pending', attempts=0 WHERE id=?", (job_id,))
+                        elif success:
+                            conn.execute("UPDATE job_queue SET status='completed' WHERE id=?", (job_id,))
+                        else:
+                            if attempts >= 4:
+                                conn.execute("UPDATE job_queue SET status='failed', error_msg=? WHERE id=?", (error_msg, job_id))
+                            else:
+                                conn.execute("UPDATE job_queue SET status='retrying', error_msg=? WHERE id=?", (error_msg, job_id))
+                
+                time.sleep(2)
+            else:
+                time.sleep(10)
+                
+        except Exception as e:
+            print(f"[ERROR] Job Queue Loop: {e}", flush=True)
+            time.sleep(15)
+
 @app.route('/dispatch')
 @app.route('/<slug>/dispatch')
 @app.route('/schools/<slug>/dispatch')
@@ -2345,10 +2499,10 @@ def login_page():
         try:
             with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                 c = conn.cursor()
-                c.execute("SELECT role, password, last_login FROM rbac_users WHERE username=? AND provider='Local'", (username,))
+                c.execute("SELECT role, password, last_login, username FROM rbac_users WHERE (username=? OR username=?) AND provider='Local'", (username, f"{username}@local.invalid"))
                 row = c.fetchone()
                 if row and row[1] and check_password_hash(row[1], password):
-                    session['user'] = username
+                    session['user'] = row[3]
                     session['role'] = row[0]
                     if row[0] == 'Admin':
                         session['admin_auth'] = True
@@ -2357,15 +2511,15 @@ def login_page():
                     now_str = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
                     try:
                         with conn:
-                            conn.execute("UPDATE rbac_users SET last_login=? WHERE username=? AND provider='Local'", (now_str, username))
+                            conn.execute("UPDATE rbac_users SET last_login=? WHERE username=? AND provider='Local'", (now_str, row[3]))
                     except: pass
                     
                     if not last_login:
-                        send_alert_email("First Time Login", f"User {username} logged in for the first time.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+                        send_alert_email("First Time Login", f"User {row[3]} logged in for the first time.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
                     else:
                         ll_dt = datetime.strptime(last_login, '%Y-%m-%d %H:%M:%S')
                         if (datetime.now(TZ).replace(tzinfo=None) - ll_dt).days > 30:
-                            send_alert_email("Re-engagement Login", f"User {username} logged in after more than 30 days.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
+                            send_alert_email("Re-engagement Login", f"User {row[3]} logged in after more than 30 days.", os.environ.get("SMTP_USER", "joseph@morrowedge.com"))
                             
                     return redirect(next_url)
         except Exception as e:
@@ -2391,6 +2545,17 @@ def login_page():
         <button type="submit" style="width:100%; padding:10px; background:transparent; border:1px solid #00ffff; color:#00ffff; border-radius:4px; font-weight:bold; cursor:pointer;">Native Login</button>
         <div style="text-align:right; margin-top:5px;"><a href="/forgot_password" style="color:#aaa; font-size:0.8rem; text-decoration:none;">Forgot Password?</a></div>
     </form>
+    <script>
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName !== 'A') {
+                document.querySelector('form').submit();
+            }
+        });
+        setTimeout(function() {
+            var u = document.querySelector('input[name="username"]');
+            if (u) u.focus();
+        }, 50);
+    </script>
     """
     return f"<body style='background:#050510; color:#00ffff; font-family:monospace; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;'><div style='background:rgba(0,50,50,0.2); border:1px solid #00ffff; padding:30px; border-radius:8px; box-shadow:0 0 15px rgba(0,255,255,0.1); width:300px;'><h2 style='text-align:center; margin-top:0;'>BEACON LOGIN</h2>{error_msg}{buttons}{native_form}</div></body>"
 
@@ -2802,45 +2967,28 @@ def cooladmin():
             table = request.form.get('table')
             text = request.form.get('text')
             real_id = re.sub(r'^[a-z]+_', '', str(item_id)) if item_id else None
-            if table in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
-                v_res, p_used = verify_events_batch([{"id": real_id, "text": text}])
-                if real_id in v_res:
-                    res = v_res[real_id]
-                    new_details = res.get("details", {})
-                    if not res.get("hallucinated"):
-                        try:
-                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                                with conn:
-                                    conn.execute("INSERT INTO ai_training_log (topic, original_text, new_details, action_type, gather_prompt) VALUES (?, ?, ?, ?, ?)", (table, text, json.dumps(new_details), "refresh_single", p_used))
-                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), real_id))  # nosec B608
-                        except Exception as e: print(e, flush=True)
+            
+            with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("INSERT INTO job_queue (job_type, payload) VALUES (?, ?)", 
+                        ('refresh_details', json.dumps({'table': table, 'real_id': real_id, 'text': text})))
+            
             return redirect('/cooladmin')
 
         elif action == 'refresh_tower':
             table = request.form.get('table')
             if table in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
                 try:
-                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                        c = conn.cursor()
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as db_conn:
+                        c = db_conn.cursor()
                         c.execute(f"SELECT id, text FROM {table} ORDER BY id DESC LIMIT 20")  # nosec B608
                         rows = c.fetchall()
                     events_to_verify = [{"id": str(r[0]), "text": r[1]} for r in rows]
                     
-                    total_events = len(events_to_verify)
-                    log_system_event("MAINTENANCE", f"[TOWER REFRESH] Starting refresh for {table} ({total_events} items)...")
-                    print(f"[TOWER REFRESH] Starting refresh for {table} ({total_events} items)...", flush=True)
-                    
-                    v_res, p_used = verify_events_batch(events_to_verify)
-                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
                         with conn:
-                            for row in rows:
-                                i_id = str(row[0])
-                                if i_id in v_res and not v_res[i_id].get("hallucinated"):
-                                    conn.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(v_res[i_id].get("details", {})), i_id))  # nosec B608
-                            conn.execute("INSERT INTO ai_training_log (topic, action_type, gather_prompt) VALUES (?, ?, ?)", (table, "refresh_tower", p_used))
-                    
-                    log_system_event("MAINTENANCE", f"[TOWER REFRESH] Finished {table} ({total_events} items).")
-                    print(f"[TOWER REFRESH] Finished {table} ({total_events} items).", flush=True)
+                            conn.execute("INSERT INTO job_queue (job_type, payload) VALUES (?, ?)", 
+                                ('refresh_tower', json.dumps({'table': table, 'events': events_to_verify})))
                 except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
 
@@ -3061,63 +3209,20 @@ def cooladmin():
             return redirect('/cooladmin')
 
         elif action == 'refresh_missing_details':
-            global backfill_running
-            if backfill_running:
-                return "<script>alert('A background 5Ws extraction is already currently running!\\n\\nPlease wait for it to finish. You can monitor its progress in the System Event Logs.'); window.location.href='/cooladmin';</script>"
-                
-            backfill_running = True
-            def run_backfill():
-                global backfill_running
-                try:
-                    tables = ['pulses', 'old_pulses', 'garage_sales', 'sault_tribe', 'sault_schools']
-                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
-                        for table in tables:
-                            try:
-                                c = conn.cursor()
-                                c.execute(f"SELECT id, text FROM {table} WHERE details = '{{}}' OR details IS NULL OR details = ''")
-                                rows = c.fetchall()
-                                total_rows = len(rows)
-                                if total_rows == 0:
-                                    continue
-                                batch = []
-                                processed = 0
-                                for r in rows:
-                                    batch.append({"id": str(r[0]), "text": r[1]})
-                                    if len(batch) >= 10:
-                                        v_res, _ = verify_events_batch(batch, is_manual=True)
-                                        for item in batch:
-                                            i_id = item["id"]
-                                            if i_id in v_res:
-                                                new_details = v_res[i_id].get("details", {})
-                                                c.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), int(i_id)))
-                                        conn.commit()
-                                        processed += len(batch)
-                                        batch = []
-                                        log_system_event("MAINTENANCE", f"[BACKFILL] Processed batch for {table} ({processed} of {total_rows})...")
-                                        print(f"[BACKFILL] Processed batch for {table} ({processed} of {total_rows})...", flush=True)
-                                        time.sleep(5)  # 5-second sleep to safely respect API quotas
-                                if batch:
-                                    v_res, _ = verify_events_batch(batch, is_manual=True)
-                                    for item in batch:
-                                        i_id = item["id"]
-                                        if i_id in v_res:
-                                            new_details = v_res[i_id].get("details", {})
-                                            c.execute(f"UPDATE {table} SET details = ? WHERE id = ?", (json.dumps(new_details), int(i_id)))
-                                    conn.commit()
-                                    processed += len(batch)
-                                    log_system_event("MAINTENANCE", f"[BACKFILL] Finished {table} ({processed} of {total_rows}).")
-                                    print(f"[BACKFILL] Finished {table} ({processed} of {total_rows}).", flush=True)
-                            except Exception as e:
-                                log_system_event("MAINTENANCE_ERROR", f"[BACKFILL ERROR] {table}: {e}")
-                                print(f"[BACKFILL ERROR] {table}: {e}", flush=True)
-                    log_system_event("MAINTENANCE", "[BACKFILL] All tables completed.")
-                    print("[BACKFILL] All tables completed.", flush=True)
-                finally:
-                    backfill_running = False
-            
-            threading.Thread(target=run_backfill, daemon=True).start()
-            log_system_event("MAINTENANCE", "Admin initiated background 5Ws backfill extraction.")
-            return "<script>alert('Background 5Ws extraction started! You can continue using the dashboard while it processes.\\n\\nYou can view the extraction logs in the System Event Logs card.'); window.location.href='/cooladmin';</script>"
+            with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("INSERT INTO job_queue (job_type, payload) VALUES (?, ?)", 
+                        ('refresh_missing_details', json.dumps({})))
+            log_system_event("MAINTENANCE", "Admin queued background 5Ws backfill extraction.")
+            return "<script>alert('Background 5Ws extraction queued! You can monitor its progress in the Job Queue card.'); window.location.href='/cooladmin';</script>"
+
+        elif action == 'clear_completed_jobs':
+            try:
+                with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                    with conn:
+                        conn.execute("DELETE FROM job_queue WHERE status='completed'")
+            except: pass
+            return redirect('/cooladmin')
         
     with state_lock:
         service_status = state.get('host_services', [])
@@ -3156,14 +3261,21 @@ def cooladmin():
             o_day = c.fetchone()
             c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='openweathermap' AND timestamp >= datetime('now', 'start of month')")
             o_month = c.fetchone()
+            
+            c.execute("SELECT COUNT(*), SUM(tokens_used) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 hour')")
+            g_hour = c.fetchone()
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='openweathermap' AND timestamp >= datetime('now', '-1 hour')")
+            o_hour = c.fetchone()
             api_stats = {
+                "g_hour": g_hour[0] if g_hour else 0, "g_tokens_hour": g_hour[1] if g_hour and g_hour[1] else 0,
                 "g_day": g_day[0] if g_day else 0, "g_tokens_day": g_day[1] if g_day and g_day[1] else 0,
                 "g_month": g_month[0] if g_month else 0, "g_tokens_month": g_month[1] if g_month and g_month[1] else 0,
+                "o_hour": o_hour[0] if o_hour else 0,
                 "o_day": o_day[0] if o_day else 0, "o_month": o_month[0] if o_month else 0
             }
     except Exception as e:
         print(f"Error getting api stats: {e}", flush=True)
-        api_stats = {"g_day": 0, "g_tokens_day": 0, "g_month": 0, "g_tokens_month": 0, "o_day": 0, "o_month": 0}
+        api_stats = {"g_hour": 0, "g_tokens_hour": 0, "g_day": 0, "g_tokens_day": 0, "g_month": 0, "g_tokens_month": 0, "o_hour": 0, "o_day": 0, "o_month": 0}
 
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -3212,6 +3324,19 @@ def cooladmin():
                     seen_types.add(r[1])
     except:
         active_prompts = []
+        
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id, added_at, job_type, status, attempts, error_msg FROM job_queue ORDER BY id DESC LIMIT 15")
+            job_queue_status = [{"id": r[0], "added_at": to_local_time(r[1]), "job_type": r[2], "status": r[3], "attempts": r[4], "error": r[5]} for r in c.fetchall()]
+            
+            c.execute("SELECT COUNT(*) FROM job_queue WHERE status IN ('pending', 'retrying')")
+            pending_jobs_count = c.fetchone()[0]
+    except Exception as e:
+        print(f"Error fetching jobs: {e}", flush=True)
+        job_queue_status = []
+        pending_jobs_count = 0
         
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -3291,7 +3416,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded)
+    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded, job_queue_status=job_queue_status, pending_jobs_count=pending_jobs_count)
 
 @app.route('/portfolio')
 def portfolio():
@@ -3736,10 +3861,12 @@ if __name__ != '__main__':
     threading.Thread(target=monitor_loop, daemon=True).start()
     threading.Thread(target=hallucination_cleanup_loop, daemon=True).start()
     threading.Thread(target=eap_multicast_listener, daemon=True).start()
+    threading.Thread(target=job_queue_loop, daemon=True).start()
 
 if __name__ == '__main__':
     threading.Thread(target=sync_loop, daemon=True).start()
     threading.Thread(target=monitor_loop, daemon=True).start()
     threading.Thread(target=hallucination_cleanup_loop, daemon=True).start()
     threading.Thread(target=eap_multicast_listener, daemon=True).start()
+    threading.Thread(target=job_queue_loop, daemon=True).start()
     app.run(host='0.0.0.0', port=5000, debug=False)  # nosec B104

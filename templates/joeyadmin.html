@@ -122,6 +122,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                     <h3 style="margin-top: 0; color: #fff;">Gemini Subsystem</h3>
                     <p style="font-size: 0.85rem; color: #ccc; margin: 5px 0;">Hard Caps: {{ api_limits.gemini_hourly }}/hr | {{ api_limits.gemini_daily }}/day</p>
                     <p style="font-size: 0.85rem; color: #00ffff; margin: 5px 0; font-weight: bold;">
+                        Usage Past Hour: {{ api_stats.g_hour }} calls ({{ api_stats.g_tokens_hour }} tokens)<br>
                         Usage Today: {{ api_stats.g_day }} calls ({{ api_stats.g_tokens_day }} tokens)<br>
                         Usage Month: {{ api_stats.g_month }} calls ({{ api_stats.g_tokens_month }} tokens)
                     </p>
@@ -176,6 +177,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                     <h3 style="margin-top: 0; color: #fff;">OpenWeatherMap Subsystem</h3>
                     <p style="font-size: 0.85rem; color: #ccc; margin: 5px 0;">Hard Caps: {{ api_limits.owm_hourly }}/hr | {{ api_limits.owm_daily }}/day</p>
                     <p style="font-size: 0.85rem; color: #00ffff; margin: 5px 0; font-weight: bold;">
+                        Usage Past Hour: {{ api_stats.o_hour }} calls<br>
                         Usage Today: {{ api_stats.o_day }} calls<br>
                         Usage Month: {{ api_stats.o_month }} calls
                     </p>
@@ -198,8 +200,18 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                 </div>
             </div>
 
-            <div style="width: 100%; min-height: 300px;">
-                <canvas id="apiUsageChart"></canvas>
+            <div style="width: 100%; min-height: 400px; display: flex; flex-direction: column;">
+                <div style="text-align: right; margin-bottom: 10px;">
+                    <label style="color: #00ffff; margin-right: 5px; font-size: 0.9rem;">Filter:</label>
+                    <select id="apiChartFilter" onchange="fetchApiUsage()" style="background-color: rgba(0,255,255,0.1); color: #00ffff; border: 1px solid rgba(0,255,255,0.3); padding: 3px 8px; border-radius: 4px; font-family: monospace; outline: none; width: auto;">
+                        <option value="all">All APIs</option>
+                        <option value="gemini">Gemini Only</option>
+                        <option value="openweathermap">OWM Only</option>
+                    </select>
+                </div>
+                <div style="flex-grow: 1; position: relative;">
+                    <canvas id="apiUsageChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -316,7 +328,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                 <a href="/dispatch" target="_blank" class="manage-btn" style="background:#ff4444; color:#fff; border-color:#ff4444; font-size: 1rem; flex: 1; text-align: center;">📱 Open Dispatch PWA</a>
                 <form method="POST" style="flex: 2; display: flex; gap: 5px;">
                     <input type="hidden" name="action" value="update_eap_pin">
-                    <input type="password" name="eap_pin" value="{{ eap_pin }}" maxlength="6" pattern="\d{6}" placeholder="6-Digit PIN" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width: 100px;">
+                    <input type="password" name="eap_pin" value="{{ eap_pin }}" maxlength="6" pattern="\d{6}" placeholder="6-Digit PIN" autocomplete="new-password" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width: 100px;">
                     <button type="submit" class="manage-btn">Set PIN</button>
                 </form>
             </div>
@@ -394,7 +406,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                     <label style="font-size: 0.8rem; color: #aaa;">{{ pid_ph }}</label>
                     <input type="text" name="client_id" value="{{ p_conf.client_id }}" placeholder="{{ pid_ph }}" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
                     <label style="font-size: 0.8rem; color: #aaa;">{{ psec_ph }}</label>
-                    <input type="password" name="client_secret" value="{{ p_conf.client_secret }}" placeholder="{{ psec_ph }}" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
+                    <input type="password" name="client_secret" value="{{ p_conf.client_secret }}" placeholder="{{ psec_ph }}" autocomplete="new-password" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
                     <label style="font-size: 0.8rem; color: #aaa;">{{ pex_ph }}</label>
                     <input type="text" name="extra_info" value="{{ p_conf.extra_info }}" placeholder="{{ pex_ph }}" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom:10px; box-sizing:border-box;">
                     <button type="submit" class="manage-btn" style="width: 100%;">Save {{ provider }}</button>
@@ -419,7 +431,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                     <option value="User">User</option>
                     <option value="Group">Group / OU</option>
                 </select>
-                <input type="text" name="username" list="user_suggestions" required placeholder="User/Email or Group ID" style="flex:2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:200px;">
+                <input type="text" name="username" list="user_suggestions" required placeholder="User/Email or Group ID" autocomplete="off" style="flex:2; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:200px;">
                 <datalist id="user_suggestions">
                     <option value="admin">
                     <option value="sales">
@@ -438,7 +450,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                     <option value="ActiveDirectory">On-Prem AD</option>
                 </select>
                 
-                <input type="password" name="password" placeholder="Password (Native Only)" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:120px;" title="Leave blank to keep existing password">
+                <input type="password" name="password" placeholder="Password (Native Only)" autocomplete="new-password" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; min-width:120px;" title="Leave blank to keep existing password">
                 <label style="color: #00ffff; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; flex:1;" title="(Future Feature) If checked, this user's role will override any role assigned to their broader SSO group once AD Group Sync is implemented.">
                     <input type="checkbox" name="override_group" value="yes" style="margin: 0; width: auto;"> Override Group <span class="help-tip" style="margin-left:0;">?</span>
                 </label>
@@ -1042,6 +1054,52 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
             </div>
         </div>
 
+        <!-- Background Job Queue -->
+        <div class="card" style="grid-column: 1 / -1; border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.2);">
+            <h2 style="color: #00ffff; border-bottom-color: #00ffff; display: flex; align-items: center; justify-content: space-between;">
+                <span>⚙️ Background Job Queue <span class="help-tip" style="margin-left: 10px;" title="AI requests triggered by users are queued here to prevent API rate limits from blocking the web UI.">?</span></span>
+                <span style="font-size: 0.9rem; background: rgba(0, 255, 255, 0.1); padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(0, 255, 255, 0.3);">Pending/Retrying: {{ pending_jobs_count }}</span>
+            </h2>
+            <div style="max-height: 300px; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem;">
+                    <tr style="background: rgba(0,255,255,0.1); border-bottom: 2px solid #00ffff; position: sticky; top: 0;">
+                        <th style="padding: 8px; text-align: left; color: #00ffff;">Job ID</th>
+                        <th style="padding: 8px; text-align: left; color: #00ffff;">Added At</th>
+                        <th style="padding: 8px; text-align: left; color: #00ffff;">Job Type</th>
+                        <th style="padding: 8px; text-align: center; color: #00ffff;">Status</th>
+                        <th style="padding: 8px; text-align: center; color: #00ffff;">Attempts</th>
+                        <th style="padding: 8px; text-align: left; color: #00ffff;">Message</th>
+                    </tr>
+                    {% for job in job_queue_status %}
+                    <tr style="border-bottom: 1px solid rgba(0,255,255,0.2);">
+                        <td style="padding: 8px; color: #aaa;">#{{ job.id }}</td>
+                        <td style="padding: 8px; color: #fff; white-space: nowrap;">{{ job.added_at }}</td>
+                        <td style="padding: 8px; color: #00ffff; font-weight: bold;">{{ job.job_type }}</td>
+                        <td style="padding: 8px; text-align: center;">
+                            <span style="padding: 3px 6px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; 
+                                {% if job.status == 'completed' %}background: #00ff00; color: #000;
+                                {% elif job.status == 'failed' %}background: #ff4444; color: #fff;
+                                {% elif job.status == 'processing' %}background: #ffaa00; color: #000;
+                                {% else %}background: #aaaaaa; color: #000;{% endif %}">
+                                {{ job.status | upper }}
+                            </span>
+                        </td>
+                        <td style="padding: 8px; text-align: center; color: #aaa;">{{ job.attempts }}</td>
+                        <td style="padding: 8px; color: #ffaa00; word-break: break-word;">{{ job.error or '' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="padding: 10px; text-align: center; color: #666; font-style: italic;">No recent jobs found.</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            <form method="POST" style="margin-top: 15px; text-align: right;">
+                <input type="hidden" name="action" value="clear_completed_jobs">
+                <button type="submit" class="manage-btn" style="background: rgba(0,255,255,0.2); border: 1px solid #00ffff; color: #00ffff;">Clear Completed</button>
+            </form>
+        </div>
+
         <!-- System Event Logs -->
         <div class="card" style="grid-column: 1 / -1; border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.2);">
             <h2 style="color: #00ffff; border-bottom-color: #00ffff;">📝 System Event Logs</h2>
@@ -1060,11 +1118,11 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                 <input type="hidden" name="action" value="shutdown">
                 <div>
                     <label style="color: #ff4444;">Confirm Username:</label>
-                    <input type="text" name="username" required style="background: rgba(255,0,0,0.05); border-color: #ff4444; margin-bottom: 0;">
+                    <input type="text" name="username" required autocomplete="off" style="background: rgba(255,0,0,0.05); border-color: #ff4444; margin-bottom: 0;">
                 </div>
                 <div>
                     <label style="color: #ff4444;">Confirm Password:</label>
-                    <input type="password" name="password" required style="background: rgba(255,0,0,0.05); border-color: #ff4444; margin-bottom: 0;">
+                    <input type="password" name="password" required autocomplete="new-password" style="background: rgba(255,0,0,0.05); border-color: #ff4444; margin-bottom: 0;">
                 </div>
                 <button type="submit" class="danger-btn" style="margin-top: 10px; padding: 10px; font-size: 1rem; border-width: 2px;">SHUT DOWN SERVER</button>
             </form>
@@ -1300,12 +1358,18 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
             });
         }
 
+        let apiUsageChartInstance = null;
         async function fetchApiUsage() {
             try {
                 const res = await fetch('/api/internal/api_usage');
-                const data = await res.json();
+                let data = await res.json();
                 if (data.error) return;
                 
+                const filter = document.getElementById('apiChartFilter') ? document.getElementById('apiChartFilter').value : 'all';
+                if (filter !== 'all') {
+                    data = data.filter(d => d.api === filter);
+                }
+
                 const hours = [...new Set(data.map(d => d.hour))].sort();
                 const contexts = [...new Set(data.map(d => `${d.api}: ${d.context}`))];
                 const neonColors = ['#00ffff', '#ff00ff', '#ffff00', '#00ff00', '#ffaa00', '#ff4444', '#aa00ff', '#00aaff', '#ffffff'];
@@ -1320,12 +1384,16 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                     };
                 });
                 
-                new Chart(document.getElementById('apiUsageChart'), {
+                if (apiUsageChartInstance) {
+                    apiUsageChartInstance.destroy();
+                }
+                
+                apiUsageChartInstance = new Chart(document.getElementById('apiUsageChart'), {
                     type: 'bar',
                     data: { labels: hours.map(h => new Date(h + " UTC").toLocaleTimeString([], {hour: '2-digit'})), datasets: datasets },
                     options: { responsive: true, maintainAspectRatio: false,
                         scales: { x: { stacked: true, grid: { color: 'rgba(0,255,255,0.1)' } }, y: { stacked: true, grid: { color: 'rgba(0,255,255,0.1)' }, beginAtZero: true } },
-                        plugins: { legend: { position: 'right', labels: { color: '#00ffff' } } }
+                        plugins: { legend: { position: 'bottom', labels: { color: '#00ffff', boxWidth: 12, padding: 15 } } }
                     }
                 });
             } catch (e) { console.error("Failed to load API usage chart", e); }
@@ -1459,8 +1527,8 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
         <form method="POST" action="/cooladmin" style="padding: 20px; border: 1px solid #ff4444; background: rgba(255,0,0,0.1); border-radius: 8px; text-align: center;">
             <input type="hidden" name="action" value="refresh_missing_details">
             <h3 style="color: #ff4444; margin-top: 0; font-family: monospace;">[ MAINTENANCE: BACKFILL MISSING 5Ws ]</h3>
-            <p style="color: #aaa; font-family: monospace;">This runs a background job to scan all tables (including archives) for missing 5Ws. It bypasses Google Search to conserve your API quota (meaning it cannot retrieve missing URLs). To find a source for a specific item, use the purple 'AI Refresh' button next to it.</p>
-            <button type="submit" style="background: #ff4444; color: #fff; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">Start Background Extraction</button>
+            <p style="color: #aaa; font-family: monospace;">This queues a background job to scan all tables (including archives) for missing 5Ws. You can track its progress up top in the Job Queue.</p>
+            <button type="submit" style="background: #ff4444; color: #fff; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">Queue Background Extraction</button>
         </form>
     </div>
 </body>
