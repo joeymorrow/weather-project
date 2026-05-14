@@ -373,7 +373,9 @@
             if (slide.type === 'text') {
                 const strobeClass = slide.strobe ? 'strobe-alert' : '';
                 const safeText = slide.text.replace(/\n/g, '<br>');
-                overlay.innerHTML = `<div class="${strobeClass}" 
+                overlay.innerHTML = `<div class="${strobeClass}" ${'style'}="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; padding:5vw; text-align:center; background:${slide.bg_color}; transition: all 0.5s;">
+                    <h1 ${'style'}="color:${slide.text_color}; font-size:clamp(3rem, 8vw, 10rem); margin:0; text-transform:uppercase; text-shadow:0 4px 30px rgba(0,0,0,0.6); font-weight:900; letter-spacing:4px;">${safeText}</h1></div>`;
+            } else if (slide.type === 'image') {
                 overlay.innerHTML = `<div style="width:100%; height:100%; background:url('${slide.url}') center/contain no-repeat #000;"></div>`;
             } else if (slide.type === 'video') {
                 if (slide.pip) {
@@ -397,44 +399,28 @@
                 }
                 
                 // Per-Slide Canva Sub-Loop Routine
-                    if (slide.url.includes('canva.com') && slide.canva_total_slides > 1) {
+                if (slide.url.includes('canva.com') && slide.canva_total_slides > 1) {
                     let currentCanvaSlide = 1;
                     let baseUrl = slide.url.split('#')[0];
                     
-                    const initCb = `&cb=${new Date().getTime()}`;
-                    if (baseUrl.includes('&cb=')) {
-                        baseUrl = baseUrl.replace(/&cb=\d+/, initCb);
-                    } else {
-                        baseUrl = baseUrl.includes('?') ? `${baseUrl}${initCb}` : `${baseUrl}?${initCb}`;
-                    }
-                    
                     const iframeEl = overlay.querySelector('iframe');
-                    if (iframeEl) iframeEl.src = `${baseUrl}#page=1`;
+                    if (iframeEl) {
+                        iframeEl.src = `${baseUrl}#page=1`;
+                    }
                     
                     canvaAutoplayTimer = setInterval(() => {
                         currentCanvaSlide++;
-                        let shouldReset = false;
-                        if (currentCanvaSlide > slide.canva_total_slides) {
-                            currentCanvaSlide = 1;
-                            shouldReset = true;
-                        }
                         
                         const iframeEl = overlay.querySelector('iframe');
                         if (!iframeEl) return;
                         
-                        if (shouldReset) {
-                            const loopCb = `&cb=${new Date().getTime()}`;
-                            baseUrl = baseUrl.replace(/&cb=\d+/, loopCb);
-                            iframeEl.src = baseUrl + '#page=1';
+                        if (currentCanvaSlide > slide.canva_total_slides) {
+                            currentCanvaSlide = 1;
+                            // Force Canva's internal router to recognize the reset without a harsh iframe reload
+                            iframeEl.src = `${baseUrl}#page=1&reset=${Date.now()}`;
                         } else {
-                            try {
-                                const nextBtn = iframeEl.contentDocument.querySelector('button[aria-label="Next page"]');
-                                if (nextBtn) nextBtn.click();
-                                else throw new Error("CORS Blocked");
-                            } catch (e) {
-                                iframeEl.contentWindow.postMessage(JSON.stringify({ type: 'keydown', code: 'ArrowRight' }), '*');
-                                iframeEl.src = baseUrl + '#page=' + currentCanvaSlide;
-                            }
+                            // Seamlessly advance the slide using the URL fragment
+                            iframeEl.src = `${baseUrl}#page=${currentCanvaSlide}`;
                         }
                     }, slide.canva_slide_duration * 1000);
                 }
