@@ -39,11 +39,19 @@ if os.environ.get("HOST_DATA_DIR") and not os.path.exists("/.dockerenv"):
 DB_FILE = os.path.join(DATA_DIR, "pulse_history.db")
 LOG_DB_FILE = os.path.join(DATA_DIR, "system_logs.db")
 STATE_FILE = os.path.join(DATA_DIR, "buddy_state.json")
-G_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-if not G_KEY:
-    print("Error: GEMINI_API_KEY not found in your environment/ .env file.")
-    exit(1)
+def get_gemini_key():
+    try:
+        secrets_file = os.path.join(DATA_DIR, "secrets.json")
+        if os.path.exists(secrets_file):
+            with open(secrets_file, 'r') as f:
+                secrets = json.load(f)
+                if secrets.get("GEMINI_API_KEY"):
+                    return secrets.get("GEMINI_API_KEY")
+    except: pass
+    return os.environ.get("GEMINI_API_KEY", "")
+
+G_KEY = get_gemini_key()
 
 client = genai.Client(api_key=G_KEY)
 
@@ -73,12 +81,14 @@ def check_and_log_api_usage(api_name, caller_context):
     try:
         g_daily = 1400
         g_hourly = 100
+        reset_at_midnight = False
         if os.path.exists(STATE_FILE):
             with open(STATE_FILE, 'r') as f:
                 st = json.load(f)
                 limits = st.get("api_limits", {})
                 g_daily = limits.get("gemini_daily", 1400)
                 g_hourly = limits.get("gemini_hourly", 100)
+                reset_at_midnight = limits.get("reset_at_midnight", False)
                 if limits.get("auto_free_tier", True):
                     g_daily = min(g_daily, 1400)
 
@@ -86,7 +96,11 @@ def check_and_log_api_usage(api_name, caller_context):
             c = conn.cursor()
             c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-1 hour')", (api_name,))
             hourly = c.fetchone()[0]
-            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-24 hours')", (api_name,))
+            
+            if reset_at_midnight:
+                c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= date('now')", (api_name,))
+            else:
+                c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-24 hours')", (api_name,))
             daily = c.fetchone()[0]
             
             if daily >= g_daily or hourly >= g_hourly:

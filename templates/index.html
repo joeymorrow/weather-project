@@ -60,7 +60,8 @@
         
         body { background: var(--bg); color: var(--dim); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; height: 100dvh; width: 100%; max-width: 100%; padding: 3vh 4vw; box-sizing: border-box; position: relative; transition: --bg 120s ease, --accent 120s ease, --dim 120s ease, --buddy-blue 120s ease, --text-main 120s ease, --pod-border 120s ease, --pod-bg 120s ease, --pod-hover-glow 120s ease, --pod-active-bg 120s ease, --shadow-color 120s ease, background 120s ease, color 120s ease; }
         #header-container { display: flex; flex-direction: column; align-items: center; width: fit-content; max-width: 100%; margin: 0 auto; z-index: 20; pointer-events: none; }
-        #header { font-size: clamp(1rem, 1.8vw, 3.5rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.65; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); }
+        @keyframes header-shimmer { 0%, 100% { opacity: 0.65; text-shadow: 0 2px 15px var(--shadow-color); } 50% { opacity: 1; text-shadow: 0 0 25px var(--accent); } }
+        #header { font-size: clamp(1rem, 1.8vw, 3.5rem); letter-spacing: 4px; font-weight: bold; color: var(--accent); opacity: 0.65; text-transform: uppercase; text-align: center; user-select: none; -webkit-user-select: none; text-shadow: 0 2px 15px var(--shadow-color); animation: header-shimmer 3s 1; }
         #location { font-size: clamp(1rem, 1.5vw, 3rem); opacity: 0.35; letter-spacing: 2px; margin-bottom: 1vh; text-align: center; text-shadow: 0 2px 10px var(--shadow-color); }
         #lore-trigger { position: absolute; top: 20px; left: 20px; font-size: 0.9rem; opacity: 0.4; border: 1px solid var(--accent); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: help; color: var(--accent); transition: transform 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
         .lore-box { position: absolute; top: 55px; left: 20px; width: clamp(220px, 60vw, 280px); max-width: 90vw; background: rgba(0,0,0,0.98); border: 1px solid var(--accent); padding: clamp(12px, 2vh, 18px); border-radius: 18px; font-size: clamp(0.8rem, 1.5vh, 0.9rem); color: var(--accent); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 3500; line-height: 1.4; box-sizing: border-box; }
@@ -715,6 +716,7 @@
     <script>
         let currentStation = "{{ station }}";
         let lastPulse = JSON.parse(decodeURIComponent("{{ pulse | tojson | urlencode }}")) || "";
+        let lastPulseDate = "{{ pulse_date | default('LIVE') }}";
         let lastInteraction = 0;
         let keyBuffer = "";
         let pulseHistory = JSON.parse(decodeURIComponent("{{ pulse_history | default([]) | tojson | urlencode }}")) || [];
@@ -1388,7 +1390,7 @@
             
             let displayHistory = [];
             if (lastPulse && lastPulse !== "Anchoring Sault Pulse...") {
-                displayHistory.push({ date: "CURRENT PULSE", text: lastPulse, isCurrent: true });
+                displayHistory.push({ date: lastPulseDate + " (CURRENT)", text: lastPulse, isCurrent: true });
             }
             pulseHistory.forEach(p => {
                 if (p.text !== lastPulse) displayHistory.push(p);
@@ -2319,6 +2321,7 @@
                     softUpdate('ui-sugg', s.suggestion && s.suggestion.includes('Initializing') ? s.suggestion : `🧥 Suggested Attire: ${s.suggestion}`);
                     softUpdate('ui-pulse', s.pulse);
                     
+                    lastPulseDate = s.pulse_date || 'LIVE';
                     const bbl = document.getElementById('ui-bbl');
                     
                     let displayBubble = s.bubble;

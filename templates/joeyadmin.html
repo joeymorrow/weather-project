@@ -115,6 +115,7 @@
     <div style="position: sticky; top: 0; background: rgba(5, 5, 16, 0.95); z-index: 1000; padding: 10px; border-bottom: 1px solid #00ffff; border-radius: 0 0 8px 8px; margin-bottom: 20px; display: flex; gap: 10px; overflow-x: auto; backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,255,255,0.1);">
         <span style="color: #00ffff; font-weight: bold; padding: 5px; display: flex; align-items: center;">🚀 QUICK JUMP:</span>
         <a href="#section-onboarding" class="manage-btn" style="white-space: nowrap; background: rgba(0,255,0,0.2); border: 1px solid #00ff00; color: #00ff00;">👋 Welcome</a>
+        <a href="#section-insights" class="manage-btn" style="white-space: nowrap; background: rgba(255,170,0,0.2); border: 1px solid #ffaa00; color: #ffaa00;">💡 Insights</a>
         <a href="#section-api" class="manage-btn" style="white-space: nowrap;">⚡ APIs & Budgets</a>
         <a href="#section-sites" class="manage-btn" style="white-space: nowrap;">🌐 Endpoints</a>
         <a href="#section-eap" class="manage-btn" style="white-space: nowrap;">📡 Emergency (EAP)</a>
@@ -135,6 +136,31 @@
                 <li><strong style="color: #00ffff;">AI Content:</strong> The AI automatically scrapes and populates events. If it hallucinates or makes a mistake, you can manually delete or edit the event here to correct it.</li>
                 <li><strong style="color: #00ffff;">AI Tuning:</strong> You can give the AI "Custom Instructions" (Prompts) or feed it specific website URLs (Vetted Sources) to control exactly where it gets its news.</li>
             </ul>
+        </div>
+
+        <!-- System Insights & Heuristics -->
+        <div id="section-insights" class="card" style="grid-column: 1 / -1; border-color: #ffaa00; box-shadow: 0 0 15px rgba(255,170,0,0.2);">
+            <h2 style="color: #ffaa00; border-bottom-color: #ffaa00;">💡 System Insights & Heuristics</h2>
+            <p style="font-size: 0.9rem; color: #aaa;">The Heuristic Engine constantly analyzes your API logs and traffic to suggest optimizations and catch runaway costs.</p>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
+                {% for item in heuristics %}
+                <div style="background: rgba(0,0,0,0.4); border-left: 4px solid {% if item.type == 'critical' %}#ff4444{% elif item.type == 'warning' %}#ffaa00{% else %}#00ff00{% endif %}; padding: 15px; border-radius: 6px; flex: 1; min-width: 300px;">
+                    <h3 style="margin-top: 0; color: {% if item.type == 'critical' %}#ff4444{% elif item.type == 'warning' %}#ffaa00{% else %}#00ff00{% endif %}; font-size: 1.1rem;">{{ item.title }}</h3>
+                    <p style="font-size: 0.9rem; color: #ccc; line-height: 1.5;">{{ item.desc }}</p>
+                    {% if item.action %}
+                        {% if item.action == 'show_key_modal' %}
+                            <button class="manage-btn" style="background: #00ffff; color: #000;" onclick="document.getElementById('key-update-modal').style.display='flex'">{{ item.action_label }}</button>
+                        {% elif item.action == 'disable_page' %}
+                            <form method="POST" style="margin:0;"><input type="hidden" name="action" value="toggle_page"><input type="hidden" name="page_route" value="{{ item.action_payload }}"><button type="submit" class="danger-btn">{{ item.action_label }}</button></form>
+                        {% elif item.action == 'clear_failed_jobs' %}
+                            <form method="POST" style="margin:0;"><input type="hidden" name="action" value="clear_failed_jobs"><button type="submit" class="manage-btn" style="background: transparent; color: #ffaa00; border: 1px solid #ffaa00;">{{ item.action_label }}</button></form>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                {% else %}
+                <div style="color: #00ff00; padding: 15px;">System Nominal. No issues detected.</div>
+                {% endfor %}
+            </div>
         </div>
 
         <!-- API Circuit Breaker & Usage -->
@@ -178,6 +204,11 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                             Auto-Adjust to stay within Free Tier Limits (Clamps max to 1400)
                         </label>
                         
+                        <label style="color: #00ffff; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; margin-bottom: 15px; border-bottom: 1px solid rgba(0,255,255,0.2); padding-bottom: 10px; cursor: pointer;">
+                            <input type="checkbox" name="reset_at_midnight" value="yes" {% if api_limits.get('reset_at_midnight', False) %}checked{% endif %} style="width: auto; margin: 0;">
+                            Reset Daily Limits at Midnight UTC (vs Rolling 24-hours)
+                        </label>
+                        
                         <label style="color: #aaa; font-size: 0.85rem;">Gemini Daily Limit: <span id="g_daily_val" style="color:#fff; font-weight:bold;">{{ api_limits.gemini_daily }}</span> calls</label>
                         <input type="range" name="gemini_daily" id="gemini_daily_slider" class="governor" min="500" max="5000" step="50" value="{{ api_limits.gemini_daily }}" oninput="updateLimitEstimates()">
                         <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #aaa; margin-top: 5px;">
@@ -190,6 +221,14 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                         <label style="color: #aaa; font-size: 0.85rem; margin-top: 20px; display: block;">Gemini Hourly Limit: <span id="g_hourly_val" style="color:#fff; font-weight:bold;">{{ api_limits.gemini_hourly }}</span> calls</label>
                         <input type="range" name="gemini_hourly" id="gemini_hourly_slider" class="governor" min="20" max="500" step="10" value="{{ api_limits.gemini_hourly }}" oninput="document.getElementById('g_hourly_val').innerText = this.value;">
                         
+                        <h4 style="margin-top: 25px; margin-bottom: 10px; color: #ffaa00; border-top: 1px dashed rgba(255,170,0,0.3); padding-top: 15px;">Heuristic Alerts (Insights)</h4>
+                        
+                        <label style="color: #aaa; font-size: 0.85rem; display: block;">Rogue Endpoint Threshold (Calls/24h): <span id="rogue_val" style="color:#fff; font-weight:bold;">{{ api_limits.get('rogue_endpoint_threshold', 300) }}</span> calls</label>
+                        <input type="range" name="rogue_endpoint_threshold" class="governor" min="50" max="1000" step="50" value="{{ api_limits.get('rogue_endpoint_threshold', 300) }}" oninput="document.getElementById('rogue_val').innerText = this.value;">
+                        
+                        <label style="color: #aaa; font-size: 0.85rem; margin-top: 20px; display: block;">Failed Background Jobs Threshold: <span id="failed_val" style="color:#fff; font-weight:bold;">{{ api_limits.get('failed_job_threshold', 5) }}</span> jobs</label>
+                        <input type="range" name="failed_job_threshold" class="governor" min="1" max="50" step="1" value="{{ api_limits.get('failed_job_threshold', 5) }}" oninput="document.getElementById('failed_val').innerText = this.value;">
+
                         <div id="cost_estimate" style="margin-top: 15px; font-size: 0.9rem; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 4px; border-left: 3px solid #00ff00;">
                             Estimated cost per day: $0.00 (Within Free Tier)
                         </div>
@@ -213,6 +252,11 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                     <form method="POST" style="margin-top: 20px; background: rgba(255,170,0,0.05); padding: 15px; border-radius: 6px; border: 1px solid rgba(255,170,0,0.2);">
                         <input type="hidden" name="action" value="update_owm_limits">
                         <h4 style="margin-top: 0; color: #ffaa00;">OWM Governor Limits</h4>
+                    
+                    <label style="color: #ffaa00; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; margin-bottom: 15px; border-bottom: 1px solid rgba(255,170,0,0.2); padding-bottom: 10px; cursor: pointer;">
+                        <input type="checkbox" name="reset_at_midnight" value="yes" {% if api_limits.get('reset_at_midnight', False) %}checked{% endif %} style="width: auto; margin: 0;">
+                        Reset Daily Limits at Midnight UTC (vs Rolling 24-hours)
+                    </label>
                         
                         <label style="color: #aaa; font-size: 0.85rem;">OWM Daily Limit: <span id="o_daily_val" style="color:#fff; font-weight:bold;">{{ api_limits.owm_daily }}</span> calls</label>
                         <input type="range" name="owm_daily" class="governor" min="500" max="2000" step="100" value="{{ api_limits.owm_daily }}" oninput="document.getElementById('o_daily_val').innerText = this.value;">
@@ -609,6 +653,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                 {% if current_pulse %}
                 <div class="site-link" style="align-items: flex-start;">
                     <div style="font-size: 0.85rem; max-width: 80%; line-height: 1.4;">
+                        <div style="color: var(--accent); font-size: 0.8rem; margin-bottom: 5px; opacity: 0.8; text-transform: uppercase; font-weight: bold;">{{ current_pulse_date | default('LIVE') }}</div>
                         {{ current_pulse | safe }}
                         <div style="margin-top: 5px; display: flex; gap: 10px; align-items: center;">
                             <label style="font-size:0.7rem; display:flex; align-items:center; gap:3px;"><input type="checkbox" class="bad-item-cb" data-topic="main_pulse" data-text="{{ current_pulse | escape }}"> Bad Prompt?</label>
@@ -1286,6 +1331,23 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
         </div>
     </div>
 
+    <!-- Update Gemini Key Modal -->
+    <div id="key-update-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; align-items: center; justify-content: center;">
+        <div style="background: #002222; padding: 25px; border: 1px solid #00ffff; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 0 30px rgba(0,255,255,0.2);">
+            <h2 style="margin-top:0; color:#00ffff; border-bottom: 1px solid rgba(0,255,255,0.3); padding-bottom: 10px;">Update Gemini API Key</h2>
+            <p style="font-size: 0.9rem; color:#aaa; line-height: 1.5;">Supplying a new key here will instantly save it securely to persistent volume storage (<strong>data/secrets.json</strong>) and reload the AI. This value persists across Docker rebuilds and overrides the default GitHub Actions <code>.env</code> secret. Submit a blank field to revert back to your original GitHub secret.</p>
+            <form method="POST" style="margin-top: 20px;">
+                <input type="hidden" name="action" value="update_gemini_key">
+                <label style="color:#00ffff; font-size:0.8rem; font-weight:bold;">New Gemini API Key (Encrypted over HTTPS):</label>
+                <input type="password" name="new_gemini_key" placeholder="Leave blank to clear override" style="width:100%; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:12px; border-radius:4px; margin-top:8px; margin-bottom:20px; box-sizing:border-box; font-family:monospace;">
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button type="button" class="danger-btn" onclick="document.getElementById('key-update-modal').style.display='none'">Cancel</button>
+                    <button type="submit" class="manage-btn" style="background:#00ff00; color:#000;">Apply Key</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script id="metrics-data" type="application/json">
         {{ metrics | tojson | safe }}
     </script>
@@ -1589,7 +1651,48 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                 costBox.innerHTML = `<strong>Status: Above Free Tier (Pay-As-You-Go)</strong><br>Overage: ${overage} calls/day.<br>Estimated Cost: <span style="color:#ff4444;">~$${est}/day (~$${estMonth}/month)</span>.`;
             }
         }
-        document.addEventListener('DOMContentLoaded', updateLimitEstimates);
+        
+        document.addEventListener('submit', function(e) {
+            sessionStorage.setItem('scrollpos', window.scrollY);
+            sessionStorage.setItem('form_submitted', 'true');
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateLimitEstimates();
+            var scrollpos = sessionStorage.getItem('scrollpos');
+            if (scrollpos) { window.scrollTo({top: parseInt(scrollpos), behavior: 'instant'}); sessionStorage.removeItem('scrollpos'); }
+            
+            const serverMsgs = {{ get_flashed_messages(with_categories=true) | tojson }};
+            let hasError = false;
+            
+            if (serverMsgs && serverMsgs.length > 0) {
+                serverMsgs.forEach(([category, msg], index) => {
+                    if (category === 'error') hasError = true;
+                    setTimeout(() => {
+                        const toast = document.createElement('div');
+                        const bgColor = category === 'error' ? '#ff4444' : '#00ffff';
+                        const textColor = category === 'error' ? '#fff' : '#000';
+                        toast.style.cssText = `position: fixed; bottom: ${30 + (index * 70)}px; right: 30px; background: ${bgColor}; color: ${textColor}; padding: 15px 25px; border-radius: 8px; font-weight: bold; box-shadow: 0 0 15px ${bgColor}80; z-index: 10000; opacity: 0; transition: opacity 0.3s; font-size: 1.1rem;`;
+                        toast.innerText = (category === 'error' ? '❌ ' : '✅ ') + msg;
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.style.opacity = '1', 10);
+                        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
+                    }, index * 500);
+                });
+            }
+            
+            if (sessionStorage.getItem('form_submitted') === 'true') {
+                sessionStorage.removeItem('form_submitted');
+                if (!hasError && serverMsgs.length === 0) {
+                    const toast = document.createElement('div');
+                    toast.style.cssText = 'position: fixed; bottom: 30px; right: 30px; background: #00ffff; color: #000; padding: 15px 25px; border-radius: 8px; font-weight: bold; box-shadow: 0 0 15px rgba(0,255,255,0.5); z-index: 10000; opacity: 0; transition: opacity 0.3s; font-size: 1.1rem;';
+                    toast.innerText = '✅ Update successful.';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.style.opacity = '1', 10);
+                    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+                }
+            }
+        });
     </script>
 
     <div style="margin: 40px auto; max-width: 800px;">

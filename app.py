@@ -6,7 +6,7 @@ import filelock
 import psutil
 import copy
 from contextlib import closing
-from flask import Flask, render_template, jsonify, request, redirect, send_from_directory, session, url_for
+from flask import Flask, render_template, jsonify, request, redirect, send_from_directory, session, url_for, flash
 from datetime import datetime, timedelta
 import html
 import smtplib
@@ -56,6 +56,7 @@ if os.environ.get("HOST_DATA_DIR") and not os.path.exists("/.dockerenv"):
 os.makedirs(DATA_DIR, exist_ok=True)
 STATE_FILE = os.path.join(DATA_DIR, "buddy_state.json")
 STATE_LOCK_FILE = os.path.join(DATA_DIR, "buddy_state.lock")
+SECRETS_FILE = os.path.join(DATA_DIR, "secrets.json")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 DB_FILE = os.path.join(DATA_DIR, "pulse_history.db")
@@ -71,6 +72,16 @@ DENYLIST = ["profanity", "badword", "controversial", "inappropriate"]
 last_deep_search = {}
 _best_models_cache = []
 _health_cache = {"data": None, "last_check": 0}
+
+def get_gemini_key():
+    try:
+        if os.path.exists(SECRETS_FILE):
+            with open(SECRETS_FILE, 'r') as f:
+                secrets = json.load(f)
+                if secrets.get("GEMINI_API_KEY"):
+                    return secrets.get("GEMINI_API_KEY")
+    except: pass
+    return os.environ.get("GEMINI_API_KEY", "")
 
 app.secret_key = INTERNAL_API_SECRET or os.urandom(24)
 
@@ -443,7 +454,14 @@ def check_and_log_api_usage(api_name, caller_context):
             c = conn.cursor()
             c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-1 hour')", (api_name,))
             hourly_count = c.fetchone()[0]
-            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-24 hours')", (api_name,))
+            
+            with state_lock:
+                reset_at_midnight = state.get("api_limits", {}).get("reset_at_midnight", False)
+                
+            if reset_at_midnight:
+                c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= date('now')", (api_name,))
+            else:
+                c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name=? AND timestamp >= datetime('now', '-24 hours')", (api_name,))
             daily_count = c.fetchone()[0]
 
             if api_name == 'gemini':
@@ -473,6 +491,59 @@ def check_and_log_api_usage(api_name, caller_context):
     except Exception as e:
         print(f"[ERROR] API Tracking DB Error: {e}", flush=True)
         return True # Fail open to prevent DB locks from freezing the app
+
+def get_system_heuristics():
+    suggestions = []
+    with state_lock:
+        api_disabled = state.get("gemini_api_disabled", False)
+        auto_free = state.get("api_limits", {}).get("auto_free_tier", True)
+        disabled_pages = state.get("disabled_pages", [])
+    
+    # 1. API Quota Exhaustion
+    if api_disabled and auto_free:
+        suggestions.append({
+            "type": "critical",
+            "title": "Gemini API Quota Exhausted",
+            "desc": "AI generation is currently halted to stay within your free tier budget. If you have a secondary Google account, you can supply a new API key to instantly resume service.",
+            "action": "show_key_modal",
+            "action_label": "Update Gemini Key"
+        })
+
+    # 2. Rogue API Calls from specific pages
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT caller_context, COUNT(*) as cnt FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-24 hours') AND caller_context LIKE 'sync_pulse_%' GROUP BY caller_context ORDER BY cnt DESC LIMIT 1")
+            top_consumer = c.fetchone()
+            if top_consumer:
+                caller = top_consumer[0]
+                calls = top_consumer[1]
+                rogue_threshold = state.get("api_limits", {}).get("rogue_endpoint_threshold", 300)
+                if calls >= rogue_threshold: # Threshold for excessive calls on a single endpoint
+                    slug = caller.replace('sync_pulse_', '')
+                    route = f"/schools/{slug}" if slug not in ['main', 'sault-schools', 'pickford-schools'] else (f"/{slug}" if slug != 'main' else "/")
+                    if route not in disabled_pages and slug != 'main':
+                        suggestions.append({
+                            "type": "warning",
+                            "title": f"High API Consumption: {slug.replace('-', ' ').title()}",
+                            "desc": f"This endpoint consumed {calls} AI calls in the last 24 hours. Temporarily disable it to conserve global quota.",
+                            "action": "disable_page",
+                            "action_label": f"Disable Endpoint",
+                            "action_payload": route
+                        })
+    except: pass
+
+    # 3. Failing Background Jobs
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM job_queue WHERE status='failed'")
+            failed_jobs = c.fetchone()[0]
+            failed_threshold = state.get("api_limits", {}).get("failed_job_threshold", 5)
+            if failed_jobs >= failed_threshold:
+                suggestions.append({"type": "warning", "title": "Failed Background Jobs Accumulating", "desc": f"There are {failed_jobs} permanently failed tasks in the job queue. View the queue logs below and clear them if necessary.", "action": "clear_failed_jobs", "action_label": "Clear Failed Jobs"})
+    except: pass
+    return suggestions
 
 def safe_owm_get(url, caller_context="unknown", timeout=10):
     # 1. Strict RPM Throttle (OWM Free tier: 60 Requests Per Minute)
@@ -690,7 +761,7 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
             raise CircuitBreakerError("Gemini API Circuit Breaker Limit Reached.")
         
     global gemini_client
-    if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+    if not gemini_client: gemini_client = genai.Client(api_key=get_gemini_key())
     
     response = gemini_client.models.generate_content(model=model, contents=contents, config=config) if config else gemini_client.models.generate_content(model=model, contents=contents)
     
@@ -725,7 +796,12 @@ def handle_gemini_error(e):
             try:
                 with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
                     c = conn.cursor()
-                    c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-24 hours')")
+                    with state_lock:
+                        reset_at_midnight = state.get("api_limits", {}).get("reset_at_midnight", False)
+                    if reset_at_midnight:
+                        c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= date('now')")
+                    else:
+                        c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-24 hours')")
                     daily_count = c.fetchone()[0]
             except: pass
 
@@ -781,7 +857,7 @@ def scrape_closings():
         print(f"[ERROR] Scrape closings failed: {e}", flush=True)
         return False, []
 
-def sync_for_location(slug, loc_name, query, owm_cache=None):
+def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False):
     try:
         if owm_cache is not None and query in owm_cache:
             w = owm_cache[query]['weather']
@@ -966,7 +1042,7 @@ def sync_for_location(slug, loc_name, query, owm_cache=None):
                 manual_override = None
 
         global gemini_client
-        if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+        if not gemini_client: gemini_client = genai.Client(api_key=get_gemini_key())
         forecast_context = ", ".join([f"{i['dt_txt'].split(' ')[1][:5]} {i['weather'][0]['description']} {int(i['main']['temp'])}F" for i in f['list'][:8]])
         time_str = now.strftime('%I:%M %p')
         date_str = now.strftime('%B %d')
@@ -1069,7 +1145,7 @@ def sync_for_location(slug, loc_name, query, owm_cache=None):
         with state_lock:
             gemini_disabled = state.get("gemini_api_disabled", False)
             
-        if not gemini_disabled:
+        if not gemini_disabled and not skip_ai:
             for m_id in get_best_models():
                 try:
                     resp = safe_gemini_generate_content(model=m_id, contents=prompt, config=tools_config, caller_context=f"sync_pulse_{slug}")
@@ -1087,6 +1163,9 @@ def sync_for_location(slug, loc_name, query, owm_cache=None):
                     ai_garage_sales = ai.get("garage_sales", [])
                     ai_sault_tribe = ai.get("sault_tribe", [])
                     ai_sault_schools = ai.get("sault_schools", [])
+                    
+                    full_date_str = now.strftime('%B %d, %I:%M %p')
+                    ai["pulse_date"] = full_date_str
                     
                     events_to_verify = []
                     if is_news and new_pulse and "Anchoring" not in new_pulse:
@@ -1234,18 +1313,19 @@ def sync_for_location(slug, loc_name, query, owm_cache=None):
                     continue
         
         if not success:
-            if gemini_disabled:
+            if gemini_disabled or skip_ai:
                 ai["bubble"] = "Conserving energy..."
                 ai["forecast"] = w['weather'][0]['description'].title()
                 ai["weekly_summary"] = "Weekly pattern steady."
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         c = conn.cursor()
-                        c.execute("SELECT text, location FROM pulses ORDER BY id DESC LIMIT 1")
+                        c.execute("SELECT date, text, location FROM pulses ORDER BY id DESC LIMIT 1")
                         row = c.fetchone()
                         if row:
-                            new_pulse = row[0]
-                            ai["location"] = row[1] if row[1] else ""
+                            ai["pulse_date"] = row[0]
+                            new_pulse = row[1]
+                            ai["location"] = row[2] if len(row) > 2 and row[2] else ""
                 except: pass
             else:
                 ai["bubble"] = "Optimizing antenna..."
@@ -1275,7 +1355,8 @@ def sync_for_location(slug, loc_name, query, owm_cache=None):
                 "sunrise": sunrise_str, "sunset": sunset_str,
                 "weekly_list": weekly_list,
                 "suggestion": ai.get("tip") or "Stay safe.", "bubble": ai.get("say") or ai.get("bubble") or "...", 
-                "pulse": new_pulse, "acc_css": "zzz" if is_sleep else (ai.get("acc") or "none"),
+                "pulse": new_pulse, "pulse_date": ai.get("pulse_date", now.strftime('%B %d, %I:%M %p')),
+                "acc_css": "zzz" if is_sleep else (ai.get("acc") or "none"),
                 "forecast": ai.get("forecast") or "Weather data processing...", 
                 "weekly_summary": ai.get("weekly_summary") or "Weekly pattern steady.",
                 "pulse_history": hist,
@@ -1365,7 +1446,8 @@ def run_sync():
                 print(f"[SYNC] Skipping disabled page: {loc['slug']}", flush=True)
                 continue # Skip calling sync_for_location for disabled pages
         
-        sync_for_location(loc['slug'], loc['location'], loc['query'], owm_cache)
+        is_demo = loc['slug'].startswith('demo-')
+        sync_for_location(loc['slug'], loc['location'], loc['query'], owm_cache, skip_ai=is_demo)
         time.sleep(8) # Avoid aggressive RPM rate-limiting from Gemini Free Tier (15 RPM)
 
 def record_telemetry():
@@ -1446,7 +1528,7 @@ def fetch_annual_school_calendar():
                 print("[ANNUAL TASK] No PDF link found on the calendar page.", flush=True)
                 return
 
-            if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+            if not gemini_client: gemini_client = genai.Client(api_key=get_gemini_key())
             
             print(f"[ANNUAL TASK] Found PDF: {pdf_url}. Processing with Gemini...", flush=True)
             # Depending on Gemini SDK context, from_uri prefers Google Cloud URLs or File API URIs.
@@ -1594,7 +1676,7 @@ def monitor_loop():
                     continue
                     
                 global gemini_client
-                if not gemini_client: gemini_client = genai.Client(api_key=G_KEY) # AI client initialized
+                if not gemini_client: gemini_client = genai.Client(api_key=get_gemini_key()) # AI client initialized
                 prompt = (
                     f"A Python memory leak was detected. Top 5 allocations: {leak_details}. "
                     "Evaluate if this is a severe, compounding leak or normal background caching. "
@@ -1822,13 +1904,20 @@ def job_queue_loop():
                 c = conn.cursor()
                 c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 hour')")
                 hourly_count = c.fetchone()[0]
-                c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-24 hours')")
+                
+                with state_lock:
+                    reset_at_midnight = state.get("api_limits", {}).get("reset_at_midnight", False)
+                    g_daily = state.get("api_limits", {}).get("gemini_daily", 1400)
+                    g_hourly = state.get("api_limits", {}).get("gemini_hourly", 100)
+                    if state.get("api_limits", {}).get("auto_free_tier", True):
+                        g_daily = min(g_daily, 1400)
+
+                if reset_at_midnight:
+                    c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= date('now')")
+                else:
+                    c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-24 hours')")
                 daily_count = c.fetchone()[0]
-            with state_lock:
-                g_daily = state.get("api_limits", {}).get("gemini_daily", 1400)
-                g_hourly = state.get("api_limits", {}).get("gemini_hourly", 100)
-                if state.get("api_limits", {}).get("auto_free_tier", True):
-                    g_daily = min(g_daily, 1400)
+                
             if hourly_count >= (g_hourly * 0.85) or daily_count >= (g_daily * 0.85):
                 time.sleep(30)
                 continue
@@ -2262,7 +2351,7 @@ Current Base Prompt: "{current_prompt}"
 
     try:
         global gemini_client
-        if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+        if not gemini_client: gemini_client = genai.Client(api_key=get_gemini_key())
         for m_id in get_best_models():
             try:
                 resp = safe_gemini_generate_content(model=m_id, contents=prompt, caller_context="api_suggest_prompt")
@@ -2314,7 +2403,7 @@ def api_health_endpoint():
         if not check_and_log_api_usage('gemini', 'health_check_gemini'):
             raise Exception("Governor Disabled API Check")
         global gemini_client
-        if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
+        if not gemini_client: gemini_client = genai.Client(api_key=get_gemini_key())
         
         m_list = list(gemini_client.models.list())
         elapsed = round((time.time() - start) * 1000)
@@ -2935,7 +3024,11 @@ def cooladmin():
                         with conn:
                             conn.execute("INSERT INTO beacon_pages (slug, title, zipcode) VALUES (?, ?, ?)", (slug, title, zipcode))
                 except sqlite3.IntegrityError:
-                    pass
+                    flash(f"Error: The slug '{slug}' is already in use.", "error")
+                except Exception as e:
+                    flash(f"Database error: {str(e)}", "error")
+            else:
+                flash("Error: Missing required fields for Beacon Page.", "error")
             return redirect('/cooladmin')
         elif action == 'delete_beacon_page':
             page_id = request.form.get('page_id')
@@ -2991,6 +3084,8 @@ def cooladmin():
                     try:
                         with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
                     except: pass
+            else:
+                flash("Error: EAP PIN must be exactly 6 digits.", "error")
             return redirect('/cooladmin')
 
         elif action == 'update_sso':
@@ -3066,7 +3161,10 @@ def cooladmin():
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn: conn.execute("INSERT INTO vetted_sources (topic, source_name, source_url) VALUES (?, ?, ?)", (topic, name, url))
-                except: pass
+                except Exception as e:
+                    flash(f"Database Error: {str(e)}", "error")
+            else:
+                flash("Error: Missing Topic or URL.", "error")
             return redirect('/cooladmin')
             
         elif action == 'delete_vetted_source':
@@ -3376,12 +3474,20 @@ def cooladmin():
             with state_lock:
                 if 'api_limits' not in state:
                     state['api_limits'] = {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 300, "auto_free_tier": True}
-                state['api_limits']['gemini_daily'] = int(request.form.get('gemini_daily', 1400))
-                state['api_limits']['gemini_hourly'] = int(request.form.get('gemini_hourly', 100))
-                state['api_limits']['auto_free_tier'] = request.form.get('auto_free_tier') == 'yes'
-                if state['api_limits'].get('owm_hourly', 0) <= 60: state['api_limits']['owm_hourly'] = 300
-                save_state()
-            log_system_event("API_LIMITS_UPDATED", f"Admin updated API limits to Daily: {state['api_limits']['gemini_daily']}")
+                g_daily = int(request.form.get('gemini_daily', 1400))
+                g_hourly = int(request.form.get('gemini_hourly', 100))
+                if g_daily < 0 or g_hourly < 0:
+                    flash("Error: API Limits cannot be negative.", "error")
+                else:
+                    state['api_limits']['gemini_daily'] = g_daily
+                    state['api_limits']['gemini_hourly'] = g_hourly
+                    state['api_limits']['auto_free_tier'] = request.form.get('auto_free_tier') == 'yes'
+                    state['api_limits']['reset_at_midnight'] = request.form.get('reset_at_midnight') == 'yes'
+                    state['api_limits']['rogue_endpoint_threshold'] = int(request.form.get('rogue_endpoint_threshold', 300))
+                    state['api_limits']['failed_job_threshold'] = int(request.form.get('failed_job_threshold', 5))
+                    if state['api_limits'].get('owm_hourly', 0) <= 60: state['api_limits']['owm_hourly'] = 300
+                    save_state()
+                    log_system_event("API_LIMITS_UPDATED", f"Admin updated API limits to Daily: {state['api_limits']['gemini_daily']}")
             return redirect('/cooladmin')
 
         elif action == 'update_owm_limits':
@@ -3390,8 +3496,43 @@ def cooladmin():
                     state['api_limits'] = {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 300, "auto_free_tier": True}
                 state['api_limits']['owm_daily'] = int(request.form.get('owm_daily', 900))
                 state['api_limits']['owm_hourly'] = int(request.form.get('owm_hourly', 300))
+                state['api_limits']['reset_at_midnight'] = request.form.get('reset_at_midnight') == 'yes'
             save_state()
             log_system_event("OWM_LIMITS_UPDATED", f"Admin updated OWM limits to Daily: {state['api_limits']['owm_daily']}")
+            return redirect('/cooladmin')
+
+        elif action == 'update_gemini_key':
+            new_key = request.form.get('new_gemini_key', '').strip()
+            try:
+                secrets = {}
+                if os.path.exists(SECRETS_FILE):
+                    with open(SECRETS_FILE, 'r') as f: secrets = json.load(f)
+                
+                if new_key:
+                    secrets['GEMINI_API_KEY'] = new_key
+                    flash("Gemini API Key successfully updated and AI re-enabled.", "success")
+                else:
+                    if 'GEMINI_API_KEY' in secrets: del secrets['GEMINI_API_KEY']
+                    flash("Custom Gemini API Key removed. Reverting to GitHub Actions Environment Variable.", "success")
+                    
+                with open(SECRETS_FILE, 'w') as f: json.dump(secrets, f)
+                global gemini_client, _best_models_cache
+                gemini_client = None # Force re-init on next call
+                _best_models_cache = []
+                
+                with state_lock:
+                    state["gemini_api_disabled"] = False
+                    save_state()
+                log_system_event("API_KEY_UPDATED", "Admin updated Gemini API Key via UI and re-enabled API.")
+            except Exception as e:
+                flash(f"Error saving key: {str(e)}", "error")
+            return redirect('/cooladmin')
+
+        elif action == 'clear_failed_jobs':
+            try:
+                with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                    with conn: conn.execute("DELETE FROM job_queue WHERE status='failed'")
+            except: pass
             return redirect('/cooladmin')
 
         elif action == 'refresh_missing_details':
@@ -3425,6 +3566,7 @@ def cooladmin():
         
     with state_lock:
         current_pulse = state.get('pulse') or ''
+        current_pulse_date = state.get('pulse_date') or ''
         pulse_history = state.get('pulse_history') or []
         disabled_pages = state.get('disabled_pages') or []
         eap_pin = state.get('eap_pin', '123456')
@@ -3602,7 +3744,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded, job_queue_status=job_queue_status, pending_jobs_count=pending_jobs_count)
+    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, current_pulse_date=current_pulse_date, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded, job_queue_status=job_queue_status, pending_jobs_count=pending_jobs_count, heuristics=get_system_heuristics())
 
 @app.route('/portfolio')
 def portfolio():
