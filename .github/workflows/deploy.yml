@@ -11,14 +11,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  qa:
-    name: Quality Assurance
+  lint:
+    name: Linting & Syntax Validation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,32 +24,17 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Install QA Dependencies
+      - name: Install Linting Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yamllint flake8 bandit pip-audit Jinja2
-          pip install -r requirements.txt || pip install flask requests google-genai pytz python-dotenv msal markdown filelock psutil
+          pip install yamllint flake8 Jinja2
 
       - name: YAML Linter (yamllint)
         run: |
           yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable, trailing-spaces: disable, empty-lines: disable}}" .
 
       - name: Python Linter (Flake8)
-        # F821 catches undefined variables in Python!
         run: flake8 . --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Cybersecurity Analysis (SAST - Bandit)
-        # Run Bandit to scan for SQLi, XSS, Path Traversal, and Hardcoded Secrets
-        run: bandit -r . -ll --exclude venv,data || echo "Bandit found potential security issues. Review logs."
-
-      - name: Dependency Vulnerability Analysis (SCA)
-        # Scans the environment against the PyPI advisory database for known CVEs
-        run: pip-audit || echo "pip-audit found vulnerable packages. Review logs."
-
-      - name: Secret Leak Detection (TruffleHog)
-        uses: trufflesecurity/trufflehog@main
-        with:
-          extra_args: --results=verified,unknown
 
       - name: Python Basic Syntax Check
         run: |
@@ -66,6 +49,58 @@ jobs:
               print(f'Parsing {template}...')
               env.get_template(template)
           "
+
+      - name: Validate Docker Compose config
+        run: docker compose -f docker-compose.yml config
+
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install Security Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit pip-audit
+
+      - name: Cybersecurity Analysis (SAST - Bandit)
+        run: bandit -r . -ll --exclude venv,data || echo "Bandit found potential security issues. Review logs."
+
+      - name: Dependency Vulnerability Analysis (SCA)
+        run: pip-audit || echo "pip-audit found vulnerable packages. Review logs."
+
+      - name: Secret Leak Detection (TruffleHog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --results=verified,unknown
+
+  e2e:
+    name: E2E Browser Testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          
+      - name: Install App Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || pip install flask requests google-genai pytz python-dotenv msal markdown filelock psutil
 
       - name: Validate required GitHub secrets
         env:
@@ -86,6 +121,9 @@ jobs:
         with:
           path: ~/.cache/puppeteer
           key: ${{ runner.os }}-puppeteer
+
+      - name: Create Error Screenshots Directory
+        run: mkdir -p qa_screenshots
 
       - name: Headless Browser JS Check (Puppeteer)
         env:
@@ -114,14 +152,20 @@ jobs:
             const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
             const page = await browser.newPage();
             let errors = 0;
+            let errorLogs = [];
+            const logError = (msg) => { console.error(msg); errorLogs.push(msg); errors++; };
             await page.setViewport({ width: 1280, height: 720 });
             page.on('dialog', async dialog => { await dialog.accept(); });
-            page.on('pageerror', error => { console.error('[PAGE ERROR]', error.message); errors++; });
+            page.on('pageerror', error => { logError('[PAGE ERROR] ' + error.message); });
             page.on('console', msg => {
               if (msg.type() === 'error' && !msg.text().includes('Failed to load resource')) {
-                console.error('[CONSOLE ERROR]', msg.text()); errors++;
+                logError('[CONSOLE ERROR] ' + msg.text());
               }
             });
+            
+            const takeErrorScreenshot = async (name) => {
+              try { await page.screenshot({ path: 'qa_screenshots/' + name + '.png' }); } catch (e) { console.error('Failed to take screenshot:', e); }
+            };
             
             // 1. Dashboard Load
             try {
@@ -129,7 +173,8 @@ jobs:
               await page.goto('http://127.0.0.1:5000/', {waitUntil: 'domcontentloaded', timeout: 15000});
               await new Promise(r => setTimeout(r, 2000));
             } catch (e) {
-              console.error('[QA PAGE ERROR] Dashboard load failed:', e.message); errors++;
+              logError('[QA PAGE ERROR] Dashboard load failed: ' + e.message);
+              await takeErrorScreenshot('dashboard_load_failed');
             }
 
             // 2. Clash Checks
@@ -166,9 +211,10 @@ jobs:
                   }
                   return issues;
                 }, scenario);
-                layoutErrors.forEach(err => { console.error('[QA ERROR]', err); errors++; });
+                layoutErrors.forEach(err => { logError('[QA ERROR] ' + err); });
+              if (layoutErrors.length > 0) await takeErrorScreenshot(scenario.replace(/ /g, '_') + '_clash');
               } catch(e) {
-                console.error('[QA SCENARIO ERROR] Clash check crashed:', e.message); errors++;
+                logError('[QA SCENARIO ERROR] Clash check crashed: ' + e.message);
               }
             };
 
@@ -188,7 +234,8 @@ jobs:
               await new Promise(r => setTimeout(r, 2000)); // Wait for flight animation
               await runClashCheck('Active Day');
             } catch (e) {
-              console.error('[QA SCENARIO ERROR] Time travel failed:', e.message); errors++;
+              logError('[QA SCENARIO ERROR] Time travel failed: ' + e.message);
+              await takeErrorScreenshot('time_travel_failed');
             }
 
               console.log('Testing Modalities & Holistic Interactions...');
@@ -207,7 +254,7 @@ jobs:
                       const el = document.getElementById(m);
                       return el && (el.style.display === 'flex' || el.style.display === 'block');
                   }, mt.modal);
-                  if (!isOpen) { console.error('[QA MODAL ERROR] ' + mt.modal + ' failed to open via ' + mt.trigger + '!'); errors++; }
+                  if (!isOpen) { logError('[QA MODAL ERROR] ' + mt.modal + ' failed to open via ' + mt.trigger + '!'); }
                   
                   await page.evaluate((m) => {
                       const closeBtn = Array.from(document.querySelectorAll('#' + m + ' .egg-btn')).find(btn => btn.innerText.includes('Close'));
@@ -216,7 +263,8 @@ jobs:
                   }, mt.modal);
                   await new Promise(r => setTimeout(r, 200));
                 } catch (e) {
-                  console.error('[QA MODAL ERROR] Interaction failed for ' + mt.trigger + ':', e.message); errors++;
+                  logError('[QA MODAL ERROR] Interaction failed for ' + mt.trigger + ': ' + e.message);
+                  await takeErrorScreenshot('modal_failed_' + mt.modal);
                 }
               }
               
@@ -248,7 +296,8 @@ jobs:
               // Revert Viewport
               await page.setViewport({ width: 1280, height: 720 });
             } catch (e) {
-              console.error('[QA PAGE ERROR] Sault Schools load failed:', e.message); errors++;
+              logError('[QA PAGE ERROR] Sault Schools load failed: ' + e.message);
+              await takeErrorScreenshot('sault_schools_failed');
             }
 
             try {
@@ -257,7 +306,8 @@ jobs:
               await new Promise(r => setTimeout(r, 1000));
               await runClashCheck('Pickford Schools 16:9');
             } catch (e) {
-              console.error('[QA PAGE ERROR] Pickford Schools load failed:', e.message); errors++;
+              logError('[QA PAGE ERROR] Pickford Schools load failed: ' + e.message);
+              await takeErrorScreenshot('pickford_schools_failed');
             }
 
             // EAP Featureset & Dispatch QA Test
@@ -271,7 +321,7 @@ jobs:
               await page.click('.auth-btn');
               await new Promise(r => setTimeout(r, 1000));
               const dispatchUnlocked = await page.evaluate(() => document.getElementById('dispatch-screen').style.display === 'flex');
-              if (!dispatchUnlocked) { console.error('[QA EAP ERROR] Default PIN failed to unlock dispatch PWA!'); errors++; }
+              if (!dispatchUnlocked) { logError('[QA EAP ERROR] Default PIN failed to unlock dispatch PWA!'); }
 
               // SRO Persona: Initiate Lockdown via UI
               console.log('SRO Persona: Initiating Lockdown via UI...');
@@ -292,10 +342,11 @@ jobs:
               // 3. Verify State was updated globally
               const eapState = await page.evaluate(async () => { const res = await fetch('/api/state'); return await res.json(); });
               if (!eapState.school_alerts || !eapState.school_alerts['sault-schools'] || eapState.school_alerts['sault-schools'].type !== 'LOCKDOWN') {
-                console.error('[QA EAP ERROR] Webhook failed to update global state!'); errors++;
+                logError('[QA EAP ERROR] Webhook failed to update global state!');
               } else { console.log('✅ EAP Webhook correctly registered LOCKDOWN across tenants.'); }
             } catch (e) {
-              console.error('[QA EAP ERROR] EAP test block failed:', e.message); errors++;
+              logError('[QA EAP ERROR] EAP test block failed: ' + e.message);
+              await takeErrorScreenshot('eap_test_failed');
             }
 
           // --- CYBERSECURITY & FUZZING SUITE ---
@@ -306,7 +357,7 @@ jobs:
             const ptRes = await page.goto('http://127.0.0.1:5000/docs/%2E%2E%2Fapp.py', {waitUntil: 'domcontentloaded'});
             const ptText = await page.evaluate(() => document.body ? document.body.innerText : '');
             if (ptText.includes('Flask') && ptText.includes('import')) {
-              console.error('[QA SECURITY ERROR] Path traversal vulnerability detected on /docs!'); errors++;
+              logError('[QA SECURITY ERROR] Path traversal vulnerability detected on /docs!');
             }
 
             console.log('Testing SQLi Auth Bypass (/login)...');
@@ -318,9 +369,9 @@ jobs:
               page.evaluate(() => document.querySelector('form[action=\"/login\"]').submit())
             ]);
             if (page.url().includes('cooladmin')) {
-              console.error('[QA SECURITY ERROR] SQL Injection Authentication bypass succeeded!'); errors++;
+              logError('[QA SECURITY ERROR] SQL Injection Authentication bypass succeeded!');
             }
-          } catch (e) { console.error('[QA SECURITY ERROR] DAST suite crashed:', e.message); errors++; }
+          } catch (e) { logError('[QA SECURITY ERROR] DAST suite crashed: ' + e.message); }
 
           try {
             console.log('Testing /cooladmin ...');
@@ -343,8 +394,7 @@ jobs:
             });
             for (const [service, info] of Object.entries(healthRes)) {
                 if (info.status !== 'OK') {
-                    console.error(`[QA API ERROR] ${service} is reporting status ${info.status}: ${info.warnings.join(', ')}`);
-                    errors++;
+                    logError(`[QA API ERROR] ${service} is reporting status ${info.status}: ${info.warnings.join(', ')}`);
                 } else if (info.warnings && info.warnings.length > 0) {
                     console.warn(`[QA API WARNING] ${service} returned warnings: ${info.warnings.join(', ')}`);
                 }
@@ -371,20 +421,20 @@ jobs:
 
             console.log('Testing /schools/qa-test ...');
             let res = await page.goto('http://127.0.0.1:5000/schools/qa-test', {waitUntil: 'domcontentloaded'});
-            if (!res.ok()) { console.error('[QA PAGE ERROR] Dynamic site failed to load!'); errors++; }
+            if (!res.ok()) { logError('[QA PAGE ERROR] Dynamic site failed to load!'); }
             
             const isXssExecuted = await page.evaluate(() => window.XSS_VULN === true);
             if (isXssExecuted) {
-              console.error('[QA SECURITY ERROR] Stored XSS vulnerability detected in Dynamic Beacon Title!'); errors++;
+              logError('[QA SECURITY ERROR] Stored XSS vulnerability detected in Dynamic Beacon Title!');
             }
 
             console.log('Testing /schools/qa-test/admin ...');
             res = await page.goto('http://127.0.0.1:5000/schools/qa-test/admin', {waitUntil: 'domcontentloaded'});
-            if (!res.ok()) { console.error('[QA PAGE ERROR] Dynamic site admin failed to load!'); errors++; }
+            if (!res.ok()) { logError('[QA PAGE ERROR] Dynamic site admin failed to load!'); }
             
             console.log('Testing /schools/qa-test/dispatch ...');
             res = await page.goto('http://127.0.0.1:5000/schools/qa-test/dispatch', {waitUntil: 'domcontentloaded'});
-            if (!res.ok()) { console.error('[QA PAGE ERROR] Dynamic site dispatch failed to load!'); errors++; }
+            if (!res.ok()) { logError('[QA PAGE ERROR] Dynamic site dispatch failed to load!'); }
 
             console.log('Cleaning up dynamic site...');
             await page.goto('http://127.0.0.1:5000/cooladmin', {waitUntil: 'domcontentloaded'});
@@ -402,7 +452,8 @@ jobs:
             ]);
             console.log('✅ Deleted dynamic site.');
           } catch (e) {
-            console.error('[QA PAGE ERROR] CoolAdmin/Dynamic Site flow failed:', e.message); errors++;
+            logError('[QA PAGE ERROR] CoolAdmin/Dynamic Site flow failed: ' + e.message);
+            await takeErrorScreenshot('admin_flow_failed');
           }
 
           try {
@@ -423,25 +474,25 @@ jobs:
             for (const link of uniqueLinks) {
               console.log('Spidering route: ' + link);
               const res = await page.goto(link, {waitUntil: 'domcontentloaded', timeout: 10000});
-              if (res && !res.ok()) { console.error('[QA HTTP ERROR] ' + link + ' returned ' + res.status()); errors++; }
+              if (res && !res.ok()) { logError('[QA HTTP ERROR] ' + link + ' returned ' + res.status()); }
 
               const pageText = await page.evaluate(() => document.body ? document.body.innerText : '');
               if (pageText && (pageText.includes('Internal Server Error') || pageText.includes('The server encountered an internal error'))) {
-                console.error('[QA HTTP 500] Flask crash text detected on ' + link); errors++;
+                logError('[QA HTTP 500] Flask crash text detected on ' + link);
               }
               if (pageText && (pageText.includes('{{') || pageText.includes('{%'))) {
-                console.error('[QA RENDER ERROR] Raw Jinja tags leaked on ' + link); errors++;
+                logError('[QA RENDER ERROR] Raw Jinja tags leaked on ' + link);
               }
 
               const brokenImages = await page.evaluate(() => {
                 return Array.from(document.images).filter(img => img.complete && img.naturalWidth === 0).map(img => img.src);
               });
               if (brokenImages.length > 0) {
-                console.error('[QA ASSET ERROR] Broken images on ' + link + ': ' + brokenImages.join(', ')); errors++;
+                logError('[QA ASSET ERROR] Broken images on ' + link + ': ' + brokenImages.join(', '));
               }
             }
           } catch (e) {
-            console.error('[QA SPIDER ERROR] ' + e.message); errors++;
+            logError('[QA SPIDER ERROR] ' + e.message);
           }
 
           try {
@@ -455,7 +506,8 @@ jobs:
             ]);
             console.log('✅ Principal added a text slide.');
           } catch (e) {
-            console.error('[QA PAGE ERROR] Admin load/slide addition failed:', e.message); errors++;
+            logError('[QA PAGE ERROR] Admin load/slide addition failed: ' + e.message);
+            await takeErrorScreenshot('slide_addition_failed');
           }
 
             try {
@@ -470,11 +522,16 @@ jobs:
               await new Promise(r => setTimeout(r, 1000));
               console.log('✅ Office worker successfully played RPG.');
             } catch (e) {
-              console.error('[QA PAGE ERROR] RPG load failed:', e.message); errors++;
+              logError('[QA PAGE ERROR] RPG load failed: ' + e.message);
+              await takeErrorScreenshot('rpg_load_failed');
             }
             await browser.close();
             if (errors > 0) {
-              console.error('❌ QA FAILED: Found ' + errors + ' JS console errors!');
+              console.error('\n========================================');
+              console.error('❌ QA FAILED: SUMMARY OF ALL ERRORS:');
+              console.error('========================================');
+              errorLogs.forEach((err, idx) => console.error(`${idx + 1}. ${err}`));
+              console.error('========================================\n');
               process.exit(1);
             }
             console.log('✅ QA PASSED: No JS errors detected.');
@@ -482,11 +539,16 @@ jobs:
           "
           kill $APP_PID
 
-      - name: Validate Docker Compose config
-        run: docker compose -f docker-compose.yml config
+      - name: Upload Error Screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-error-screenshots
+          path: qa_screenshots/
+          retention-days: 7
 
   deploy:
-    needs: qa
+    needs: [lint, security, e2e]
     runs-on: [self-hosted, Linux]
     steps:
       - name: Clean up workspace permissions

@@ -115,6 +115,10 @@
                 <div style="background: rgba(170,0,255,0.1); border: 1px solid rgba(170,0,255,0.3); padding: 15px; border-radius: 6px; flex: 1;">
                     <h3 style="margin-top: 0; color: #fff;">Gemini Subsystem</h3>
                     <p style="font-size: 0.85rem; color: #ccc; margin: 5px 0;">Hard Caps: {{ api_limits.gemini_hourly }}/hr | {{ api_limits.gemini_daily }}/day</p>
+                    <p style="font-size: 0.85rem; color: #00ffff; margin: 5px 0; font-weight: bold;">
+                        Usage Today: {{ api_stats.g_day }} calls ({{ api_stats.g_tokens_day }} tokens)<br>
+                        Usage Month: {{ api_stats.g_month }} calls ({{ api_stats.g_tokens_month }} tokens)
+                    </p>
                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
                         <span style="color: {% if gemini_api_disabled %}#ff4444{% else %}#00ff00{% endif %}; font-weight: bold;">
                             Status: {% if gemini_api_disabled %}DISABLED (CIRCUIT OPEN){% else %}ACTIVE (CIRCUIT CLOSED){% endif %}
@@ -165,6 +169,10 @@
                 <div style="background: rgba(255,170,0,0.1); border: 1px solid rgba(255,170,0,0.3); padding: 15px; border-radius: 6px; flex: 1;">
                     <h3 style="margin-top: 0; color: #fff;">OpenWeatherMap Subsystem</h3>
                     <p style="font-size: 0.85rem; color: #ccc; margin: 5px 0;">Hard Caps: {{ api_limits.owm_hourly }}/hr | {{ api_limits.owm_daily }}/day</p>
+                    <p style="font-size: 0.85rem; color: #00ffff; margin: 5px 0; font-weight: bold;">
+                        Usage Today: {{ api_stats.o_day }} calls<br>
+                        Usage Month: {{ api_stats.o_month }} calls
+                    </p>
                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
                         <span style="color: #00ff00; font-weight: bold;">Status: ACTIVE (CIRCUIT CLOSED)</span>
                     </div>

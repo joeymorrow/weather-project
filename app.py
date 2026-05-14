@@ -2541,6 +2541,7 @@ def cooladmin():
         if action == 'delete_pulse':
             pulse_text = request.form.get('pulse_text')
             if pulse_text:
+                log_system_event("DATA_DELETION", f"Admin deleted pulse: {pulse_text[:50]}...")
                 trigger_sync = False
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -2592,6 +2593,7 @@ def cooladmin():
             return redirect('/cooladmin')
         elif action == 'delete_beacon_page':
             page_id = request.form.get('page_id')
+            log_system_event("DATA_DELETION", f"Admin deleted beacon page ID: {page_id}")
             try:
                 with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                     c = conn.cursor()
@@ -2964,6 +2966,7 @@ def cooladmin():
 
         elif action == 'delete_responses':
             target = request.form.get('target')
+            log_system_event("DATA_DELETION", f"Admin purged AI responses for {target}")
             try:
                 with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                     with conn:
@@ -2973,6 +2976,7 @@ def cooladmin():
 
         elif action == 'delete_tower':
             target = request.form.get('target')
+            log_system_event("DATA_DELETION", f"Admin nuked entire AI tower for {target}")
             try:
                 with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                     with conn:
@@ -3087,7 +3091,8 @@ def cooladmin():
                 print("[BACKFILL] All tables completed.", flush=True)
             
             threading.Thread(target=run_backfill, daemon=True).start()
-            return redirect('/cooladmin')
+            log_system_event("MAINTENANCE", "Admin initiated background 5Ws backfill extraction.")
+            return "<script>alert('Background 5Ws extraction started! You can continue using the dashboard while it processes.\\n\\nYou can view the extraction logs in the System Event Logs card.'); window.location.href='/cooladmin';</script>"
         
     with state_lock:
         service_status = state.get('host_services', [])
@@ -3113,6 +3118,26 @@ def cooladmin():
         if api_limits.get("owm_hourly", 0) <= 60:
             api_limits["owm_hourly"] = 300
     vetted_sources = get_vetted_sources()
+
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*), SUM(tokens_used) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', 'start of day')")
+            g_day = c.fetchone()
+            c.execute("SELECT COUNT(*), SUM(tokens_used) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', 'start of month')")
+            g_month = c.fetchone()
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='openweathermap' AND timestamp >= datetime('now', 'start of day')")
+            o_day = c.fetchone()
+            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='openweathermap' AND timestamp >= datetime('now', 'start of month')")
+            o_month = c.fetchone()
+            api_stats = {
+                "g_day": g_day[0] if g_day else 0, "g_tokens_day": g_day[1] if g_day and g_day[1] else 0,
+                "g_month": g_month[0] if g_month else 0, "g_tokens_month": g_month[1] if g_month and g_month[1] else 0,
+                "o_day": o_day[0] if o_day else 0, "o_month": o_month[0] if o_month else 0
+            }
+    except Exception as e:
+        print(f"Error getting api stats: {e}", flush=True)
+        api_stats = {"g_day": 0, "g_tokens_day": 0, "g_month": 0, "g_tokens_month": 0, "o_day": 0, "o_month": 0}
 
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -3240,7 +3265,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits)
+    return render_template('joeyadmin.html', services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats)
 
 @app.route('/portfolio')
 def portfolio():
