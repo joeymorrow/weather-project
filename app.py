@@ -453,8 +453,8 @@ def check_and_log_api_usage(api_name, caller_context):
                     if state.get("api_limits", {}).get("auto_free_tier", True):
                         g_daily = min(g_daily, 1400)
                 if daily_count >= g_daily or hourly_count >= g_hourly:
-                    log_system_event("CIRCUIT_BREAKER", f"Gemini API limit reached! Daily: {daily_count}, Hourly: {hourly_count}. Caller: {caller_context}")
-                    print(f"[CIRCUIT BREAKER] Gemini Limit Hit by {caller_context}", flush=True)
+                    log_system_event("CIRCUIT_BREAKER", f"Gemini API limit reached! Daily: {daily_count}/{g_daily}, Hourly: {hourly_count}/{g_hourly}. Caller: {caller_context}")
+                    print(f"[CIRCUIT BREAKER] Gemini Limit Hit by {caller_context} (Day: {daily_count}/{g_daily}, Hour: {hourly_count}/{g_hourly})", flush=True)
                     return False
             elif api_name == 'openweathermap':
                 with state_lock:
@@ -463,8 +463,8 @@ def check_and_log_api_usage(api_name, caller_context):
                     if o_hourly <= 60: # Fix legacy confusion between 60/min and 60/hr
                         o_hourly = 300
                 if daily_count >= o_daily or hourly_count >= o_hourly:
-                    log_system_event("CIRCUIT_BREAKER", f"OWM API limit reached! Daily: {daily_count}, Hourly: {hourly_count}. Caller: {caller_context}")
-                    print(f"[CIRCUIT BREAKER] OWM Limit Hit by {caller_context}", flush=True)
+                    log_system_event("CIRCUIT_BREAKER", f"OWM API limit reached! Daily: {daily_count}/{o_daily}, Hourly: {hourly_count}/{o_hourly}. Caller: {caller_context}")
+                    print(f"[CIRCUIT BREAKER] OWM Limit Hit by {caller_context} (Day: {daily_count}/{o_daily}, Hour: {hourly_count}/{o_hourly})", flush=True)
                     return False
                     
             conn.execute("INSERT INTO api_usage_log (api_name, caller_context) VALUES (?, ?)", (api_name, caller_context))
@@ -475,6 +475,24 @@ def check_and_log_api_usage(api_name, caller_context):
         return True # Fail open to prevent DB locks from freezing the app
 
 def safe_owm_get(url, caller_context="unknown", timeout=10):
+    # 1. Strict RPM Throttle (OWM Free tier: 60 Requests Per Minute)
+    throttle_lock = filelock.FileLock(os.path.join(DATA_DIR, "owm_rpm.lock"))
+    with throttle_lock:
+        while True:
+            try:
+                with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='openweathermap' AND timestamp >= datetime('now', '-1 minute')")
+                    recent_calls = c.fetchone()[0]
+                    # Cap at 50 to leave a comfortable safe margin below 60
+                    if recent_calls >= 50:
+                        print(f"[THROTTLE] OWM RPM is at {recent_calls}/60. Sleeping 2s before retry (Context: {caller_context})...", flush=True)
+                        time.sleep(2)
+                    else:
+                        break # Safe to proceed
+            except Exception: 
+                break
+                
     if not check_and_log_api_usage('openweathermap', caller_context):
         raise CircuitBreakerError(f"OpenWeatherMap API Circuit Breaker Limit Reached by {caller_context}.")
     return http_session.get(url, timeout=timeout)
@@ -643,25 +661,33 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
         if state.get("gemini_api_disabled", False):
             raise CircuitBreakerError("Gemini API is manually disabled.")
             
-    # 1. RPM Soft Throttle (Free Tier limit: 15 Requests Per Minute)
-    try:
-        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
-            c = conn.cursor()
-            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 minute')")
-            if c.fetchone()[0] >= 14:
-                print(f"[THROTTLE] Approaching Gemini 15 RPM limit (Context: {caller_context}). Sleeping 10s...", flush=True)
-                time.sleep(10)
-    except Exception: pass
+    # 1. RPM Strict Throttle (Free Tier limit: 15 Requests Per Minute)
+    # FileLock ensures multiple Gunicorn workers don't concurrently pass the 14 limit
+    throttle_lock = filelock.FileLock(os.path.join(DATA_DIR, "gemini_rpm.lock"))
+    with throttle_lock:
+        while True:
+            try:
+                with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 minute')")
+                    recent_calls = c.fetchone()[0]
+                    if recent_calls >= 14:
+                        print(f"[THROTTLE] Gemini RPM is at {recent_calls}/15. Sleeping 5s before retry (Context: {caller_context})...", flush=True)
+                        time.sleep(5)
+                    else:
+                        break # Safe to proceed
+            except Exception: 
+                break
 
-    if not check_and_log_api_usage('gemini', caller_context):
-        with state_lock:
-            if not state.get("gemini_api_disabled", False):
-                state["gemini_api_disabled"] = True
-                try:
-                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
-                except: pass
-        send_alert_email("[CRITICAL - BEACON BUDDY] API Circuit Breaker Tripped", f"Gemini API exceeded limits (Caller: {caller_context}). It has been disabled to prevent runaway costs. View the CoolAdmin dashboard to investigate and re-enable.")
-        raise CircuitBreakerError("Gemini API Circuit Breaker Limit Reached.")
+        if not check_and_log_api_usage('gemini', caller_context):
+            with state_lock:
+                if not state.get("gemini_api_disabled", False):
+                    state["gemini_api_disabled"] = True
+                    try:
+                        with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                    except: pass
+            send_alert_email("[CRITICAL - BEACON BUDDY] API Circuit Breaker Tripped", f"Gemini API exceeded limits (Caller: {caller_context}). It has been disabled to prevent runaway costs. View the CoolAdmin dashboard to investigate and re-enable.")
+            raise CircuitBreakerError("Gemini API Circuit Breaker Limit Reached.")
         
     global gemini_client
     if not gemini_client: gemini_client = genai.Client(api_key=G_KEY)
@@ -755,15 +781,23 @@ def scrape_closings():
         print(f"[ERROR] Scrape closings failed: {e}", flush=True)
         return False, []
 
-def sync_for_location(slug, loc_name, query):
+def sync_for_location(slug, loc_name, query, owm_cache=None):
     try:
-        w = safe_owm_get(f"https://api.openweathermap.org/data/2.5/weather?q={query}&appid={OWM_KEY}&units=imperial", caller_context=f"owm_weather_{slug}", timeout=10).json()
-        
-        # We intentionally DO NOT override loc_name with OWM's returned city name here.
-        # OWM sometimes resolves zip codes to tiny unincorporated communities (e.g. "Dick, MI")
-        # instead of the primary city, which confuses the AI and users.
+        if owm_cache is not None and query in owm_cache:
+            w = owm_cache[query]['weather']
+            f = owm_cache[query]['forecast']
+            # print(f"[SYNC] Used cached OWM data for {slug} ({query})", flush=True)
+        else:
+            w = safe_owm_get(f"https://api.openweathermap.org/data/2.5/weather?q={query}&appid={OWM_KEY}&units=imperial", caller_context=f"owm_weather_{slug}", timeout=10).json()
             
-        f = safe_owm_get(f"https://api.openweathermap.org/data/2.5/forecast?q={query}&appid={OWM_KEY}&units=imperial", caller_context=f"owm_forecast_{slug}", timeout=10).json()
+            # We intentionally DO NOT override loc_name with OWM's returned city name here.
+            # OWM sometimes resolves zip codes to tiny unincorporated communities (e.g. "Dick, MI")
+            # instead of the primary city, which confuses the AI and users.
+                
+            f = safe_owm_get(f"https://api.openweathermap.org/data/2.5/forecast?q={query}&appid={OWM_KEY}&units=imperial", caller_context=f"owm_forecast_{slug}", timeout=10).json()
+            if owm_cache is not None:
+                owm_cache[query] = {'weather': w, 'forecast': f}
+
         now = datetime.now(TZ)
         h = now.hour
         is_sleep = (h >= 22 or h < 6)
@@ -1324,13 +1358,14 @@ def run_sync():
     for p in get_beacon_pages():
         locations.append({"slug": p["slug"], "location": p["title"], "query": p["zipcode"]})
         
+    owm_cache = {} # Short-lived cache across all tenants for this specific sync loop tick
     for loc in locations:
         with state_lock: # Acquire lock to safely read disabled_pages
             if loc['slug'] in state.get('disabled_pages', []):
                 print(f"[SYNC] Skipping disabled page: {loc['slug']}", flush=True)
                 continue # Skip calling sync_for_location for disabled pages
         
-        sync_for_location(loc['slug'], loc['location'], loc['query'])
+        sync_for_location(loc['slug'], loc['location'], loc['query'], owm_cache)
         time.sleep(8) # Avoid aggressive RPM rate-limiting from Gemini Free Tier (15 RPM)
 
 def record_telemetry():
@@ -1587,7 +1622,14 @@ def monitor_loop():
             except Exception as e:
                 print(f"[ERROR] AI Leak eval/email failed: {e}", flush=True)
 
-        # 4. Cleanup expired demos
+        # 4. Cleanup old system logs (keep last 30 days) to prevent db bloat
+        try:
+            with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("DELETE FROM logs WHERE timestamp < datetime('now', '-30 days')")
+        except: pass
+
+        # 5. Cleanup expired demos
         try:
             now_str = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
             expired_slugs = []
@@ -1923,6 +1965,91 @@ def job_queue_loop():
 @app.route('/demo/<slug>/dispatch')
 def dispatch_pwa(slug="main"):
     return render_template('dispatch.html', slug=slug)
+
+@app.route('/api/internal/export_logs')
+def export_logs():
+    if not session.get("admin_auth") and session.get("role") != "Admin":
+        return jsonify(success=False, error="Unauthorized"), 403
+        
+    days = request.args.get('days', 1, type=int)
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT timestamp, log_type, message, details FROM logs WHERE timestamp >= datetime('now', ?) ORDER BY timestamp DESC", (f"-{days} days",))
+            rows = c.fetchall()
+            
+            from flask import Response
+            output = f"--- BEACON SYSTEM LOGS (Last {days} Days) ---\n\n"
+            for r in rows:
+                output += f"[{r[0]}] [{r[1]}] {r[2]} | {r[3]}\n"
+                
+            return Response(output, mimetype="text/plain", headers={"Content-Disposition": f"attachment;filename=beacon_logs_{days}_days.txt"})
+    except Exception as e:
+        return str(e), 500
+
+@app.route('/api/internal/terminal', methods=['POST'])
+def admin_terminal():
+    if not session.get("admin_auth") and session.get("role") != "Admin":
+        return jsonify(success=False, output="Unauthorized"), 403
+        
+    cmd = request.json.get('command', '').strip()
+    output = []
+    try:
+        if cmd == 'help':
+            output.append("BEACON Admin Terminal - Available Commands:")
+            output.append("  help          - Show this message")
+            output.append("  ping          - Trigger immediate API Health Check")
+            output.append("  clear cache   - Clear global AI/API state caches")
+            output.append("  db stats      - Show table row counts for both DBs")
+            output.append("  sync now      - Force background sync loop immediately")
+            output.append("  logs [n]      - Show last n system logs (default 10)")
+            output.append("  query <sql>   - Execute a SELECT statement on main DB (read-only)")
+        elif cmd == 'ping':
+            output.append("Fetching API Health...")
+            output.append(json.dumps(_health_cache.get("data", "No cache yet. Try hitting /api/internal/api_health"), indent=2))
+        elif cmd == 'clear cache':
+            global _best_models_cache
+            _best_models_cache = []
+            output.append("Internal caches cleared successfully.")
+        elif cmd == 'sync now':
+            threading.Thread(target=run_sync, daemon=True).start()
+            output.append("Background Sync Loop triggered.")
+        elif cmd == 'db stats':
+            tables = ['pulses', 'old_pulses', 'garage_sales', 'sault_tribe', 'sault_schools', 'beacon_pages']
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                c = conn.cursor()
+                for t in tables:
+                    try:
+                        c.execute(f"SELECT COUNT(*) FROM {t}")
+                        output.append(f"{t}: {c.fetchone()[0]} rows")
+                    except Exception as e: output.append(f"{t}: Error - {e}")
+        elif cmd.startswith('logs'):
+            parts = cmd.split(' ')
+            limit = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 10
+            with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+                c = conn.cursor()
+                c.execute("SELECT timestamp, log_type, message FROM logs ORDER BY id DESC LIMIT ?", (limit,))
+                for r in c.fetchall():
+                    output.append(f"[{r[0]}] {r[1]}: {r[2]}")
+        elif cmd.startswith('query '):
+            sql = cmd[6:].strip()
+            if not sql.lower().startswith('select'):
+                output.append("Error: Only SELECT queries are permitted for safety.")
+            else:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    c = conn.cursor()
+                    c.execute(sql)
+                    cols = [desc[0] for desc in c.description]
+                    output.append(" | ".join(cols))
+                    output.append("-" * 40)
+                    for r in c.fetchall()[:50]: # Limit to 50 rows to prevent overwhelming the browser
+                        output.append(" | ".join(str(val) for val in r))
+        else:
+            output.append(f"Command not found: {cmd}. Type 'help' for available commands.")
+    except Exception as e:
+        output.append(f"Error executing command: {str(e)}")
+        
+    return jsonify(success=True, output="\n".join(output))
 
 @app.route('/sw.js')
 def service_worker():
@@ -3211,6 +3338,10 @@ def cooladmin():
                 return "<body style='background:#010103; color:#ff0000; font-family:monospace; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0;'><h2>[ SYSTEM OFFLINE ]</h2><p style='color:#fff; opacity:0.5;'>The server is shutting down.</p></body>", 200
             else:
                 return "Invalid credentials.", 403
+                
+        elif action == 'export_logs':
+            days = request.form.get('days', 1)
+            return redirect(url_for('export_logs', days=days))
                 
         elif action == 'run_cleanup':
             import subprocess

@@ -13,15 +13,16 @@ try:
     import google.genai as genai
     from google.genai import types
     import pytz
+    import filelock
 except ImportError:
     import subprocess
     import sys
     import os
-    print("-> Missing required packages. Installing python-dotenv, google-genai, and pytz...", flush=True)
+    print("-> Missing required packages. Installing python-dotenv, google-genai, filelock, and pytz...", flush=True)
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "python-dotenv", "google-genai", "pytz"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "python-dotenv", "google-genai", "filelock", "pytz"])
     except subprocess.CalledProcessError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "python-dotenv", "google-genai", "pytz", "--break-system-packages"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "python-dotenv", "google-genai", "filelock", "pytz", "--break-system-packages"])
 
     print("-> Packages installed! Restarting script to load them...", flush=True)
     os.execv(sys.executable, [sys.executable] + sys.argv)
@@ -243,14 +244,21 @@ Evaluate if the following generated text is a hallucination or an intended respo
     for m_id in models_to_try:
         try:
             # 1. RPM THROTTLE
-            try:
-                with sqlite3.connect(LOG_DB_FILE, timeout=10) as conn:
-                    c = conn.cursor()
-                    c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 minute')")
-                    if c.fetchone()[0] >= 14:
-                        print("[THROTTLE] Approaching Gemini 15 RPM limit. Sleeping 10s...", flush=True)
-                        time.sleep(10)
-            except Exception: pass
+            import filelock
+            throttle_lock = filelock.FileLock(os.path.join(DATA_DIR, "gemini_rpm.lock"))
+            with throttle_lock:
+                while True:
+                    try:
+                        with sqlite3.connect(LOG_DB_FILE, timeout=10) as conn:
+                            c = conn.cursor()
+                            c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 minute')")
+                            if c.fetchone()[0] >= 14:
+                                print("[THROTTLE] Approaching Gemini 15 RPM limit. Sleeping 5s...", flush=True)
+                                time.sleep(5)
+                            else:
+                                break
+                    except Exception: 
+                        break
 
             if not check_and_log_api_usage('gemini', 'cleanup_hallucinations'):
                 if set_gemini_disabled():
@@ -285,12 +293,9 @@ Evaluate if the following generated text is a hallucination or an intended respo
         except Exception as e:
             err_str = str(e).lower()
             if "429" in err_str or "exhausted" in err_str or "quota" in err_str:
-                if set_gemini_disabled():
-                    send_report_email(
-                        "[CRITICAL - BEACON BUDDY] Gemini API Quota Exhausted",
-                        "The Gemini API has returned a Resource Exhausted / 429 error during hallucination cleanup. AI generation has been disabled. Re-enable it in CoolAdmin."
-                    )
-                return None, "Gemini API Quota Exhausted" # Return None to indicate API failure, NOT "valid"
+                print(f"[WARNING] 429 Rate Limit hit during cleanup. Skipping item for now. {e}", flush=True)
+                time.sleep(15)
+                return None, "Gemini API 429 Rate Limit Hit"
             if "404" in err_str or "not found" in err_str:
                 last_error = e
                 continue
