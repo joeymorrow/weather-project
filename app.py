@@ -930,7 +930,7 @@ def sync_for_location(slug, loc_name, query):
         
         block_extra = f" CRITICAL: DO NOT use or search these blocked sources: {', '.join(blocked_src)}." if blocked_src else ""
 
-        gs_default = f"SEARCH for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario) UNLESS it is a massive flea market. The 'location' must contain a valid street/road name."
+        gs_default = f"SEARCH exclusively for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan (Zip code 49783) or Chippewa County scheduled in the NEXT 7 DAYS. STRICT RULE: You MUST EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario). If you cannot find any publicly indexed sales in Michigan, return an empty array []. DO NOT substitute with Canadian sales. The 'location' must contain a valid Michigan street/road name."
         gs_prompt = custom_prompts.get("garage_sales", gs_default)
 
         st_default = f"SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS."
@@ -1915,7 +1915,7 @@ def api_suggest_prompt():
                     if topic == 'main_pulse':
                         current_prompt = "Adopt the persona of an inspiring community leader. SEARCH for recent local news, community successes, or acts of kindness happening TODAY. Provide a 2-sentence update weaving the current weather seamlessly. DO NOT use first-person pronouns (I, me, my). Wrap specific locations in <i> tags."
                     elif topic == 'garage_sales':
-                        current_prompt = "SEARCH for real Garage/Yard/Estate Sales scheduled in the NEXT 7 DAYS. EXCLUDE Canadian garage sales UNLESS it is a massive flea market."
+                        current_prompt = "SEARCH exclusively for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan (Zip code 49783) scheduled in the NEXT 7 DAYS. STRICT RULE: EXCLUDE Canadian garage sales."
                     elif topic == 'sault_tribe':
                         current_prompt = "SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS."
                     elif topic == 'sault_schools':

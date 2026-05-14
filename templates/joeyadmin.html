@@ -1459,7 +1459,7 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
         <form method="POST" action="/cooladmin" style="padding: 20px; border: 1px solid #ff4444; background: rgba(255,0,0,0.1); border-radius: 8px; text-align: center;">
             <input type="hidden" name="action" value="refresh_missing_details">
             <h3 style="color: #ff4444; margin-top: 0; font-family: monospace;">[ MAINTENANCE: BACKFILL MISSING 5Ws ]</h3>
-            <p style="color: #aaa; font-family: monospace;">This runs a background job to scan all tables (including archives) for missing 5Ws. It bypasses Google Search to conserve your API quota.</p>
+            <p style="color: #aaa; font-family: monospace;">This runs a background job to scan all tables (including archives) for missing 5Ws. It bypasses Google Search to conserve your API quota (meaning it cannot retrieve missing URLs). To find a source for a specific item, use the purple 'AI Refresh' button next to it.</p>
             <button type="submit" style="background: #ff4444; color: #fff; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 4px; font-family: monospace;">Start Background Extraction</button>
         </form>
     </div>
