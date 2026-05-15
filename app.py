@@ -311,7 +311,8 @@ def init_db():
                                 status TEXT DEFAULT 'pending',
                                 last_attempt DATETIME,
                                 attempts INTEGER DEFAULT 0,
-                                error_msg TEXT
+                                error_msg TEXT,
+                                priority INTEGER DEFAULT 5
                              )''')
 init_db()
 

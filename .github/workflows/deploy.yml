@@ -362,6 +362,12 @@ jobs:
 
             console.log('Testing SQLi Auth Bypass (/login)...');
             await page.goto('http://127.0.0.1:5000/login', {waitUntil: 'domcontentloaded'});
+            await page.evaluate(() => {
+              const u = document.querySelector('input[name=\"username\"]');
+              const p = document.querySelector('input[name=\"password\"]');
+              if (u) u.value = '';
+              if (p) p.value = '';
+            });
             await page.type('input[name=\"username\"]', \"' OR '1'='1\");
             await page.type('input[name=\"password\"]', \"' OR '1'='1\");
             await Promise.all([
@@ -378,6 +384,12 @@ jobs:
             const adminUser = process.env.ADMIN_USERNAME || 'admin';
             const adminPass = process.env.ADMIN_PASSWORD || 'changeme';
             await page.goto('http://127.0.0.1:5000/login', {waitUntil: 'domcontentloaded', timeout: 15000});
+            await page.evaluate(() => {
+              const u = document.querySelector('input[name=\"username\"]');
+              const p = document.querySelector('input[name=\"password\"]');
+              if (u) u.value = '';
+              if (p) p.value = '';
+            });
             await page.type('input[name=\"username\"]', adminUser);
             await page.type('input[name=\"password\"]', adminPass);
             await Promise.all([
