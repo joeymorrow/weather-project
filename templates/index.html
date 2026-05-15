@@ -452,7 +452,7 @@
     <div id="school-trigger" class="ambient-hide" role="button" tabindex="0" onclick="document.getElementById('school-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('school-modal').style.display='flex'" title="Sault Schools Archive">🏫</div>
     {% endif %}
     <div id="route-trigger" class="ambient-hide" role="button" tabindex="0" onclick="launchRoute()" onkeydown="if(event.key==='Enter')launchRoute()" title="Build Route">🛣️</div>
-    <div id="travel-trigger" class="ambient-hide" role="button" tabindex="0" onclick="toggleTravelMode()" onkeydown="if(event.key==='Enter')toggleTravelMode()" title="Travel Mode">🚗</div>
+    <div id="travel-trigger" class="ambient-hide" role="button" tabindex="0" onclick="handleTravelTrigger(event)" onkeydown="if(event.key==='Enter')handleTravelTrigger(event)" title="Travel Mode">🚗</div>
     <div id="mobile-nav-btn" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="View Hourly Graph">▶</div>
     <div id="fs-toggle-main" class="ambient-hide" role="button" tabindex="0" onclick="toggleFullscreen()" onkeydown="if(event.key==='Enter')toggleFullscreen()" title="Toggle Fullscreen">⛶</div>
     <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
@@ -760,7 +760,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('travel') === 'true') {
-                setTimeout(() => toggleTravelMode(true), 100);
+                setTimeout(() => enterTravelMode(), 100);
             }
 
             const dragBuddyContainer = document.getElementById('buddy-container');
@@ -2112,30 +2112,50 @@
 
         let isTravelMode = false;
         let travelTimer = null;
+        let travelClickTimer = null;
+        let isPeekingHome = false;
+        let peekTimeout = null;
 
-        async function toggleTravelMode(force = false) {
-            if (!force && !isTravelMode && window.location.pathname !== '/' && window.location.pathname !== '/index') {
-                const buddy = document.getElementById('buddy-container');
-                if (buddy) {
-                    buddy.style.transition = 'all 0.5s';
-                    buddy.style.transform = 'scale(0)';
+        function handleTravelTrigger(e) {
+            if (e) e.preventDefault();
+            if (!isTravelMode) {
+                if (window.location.pathname !== '/' && window.location.pathname !== '/index') {
+                    const buddy = document.getElementById('buddy-container');
+                    if (buddy) {
+                        buddy.style.transition = 'all 0.5s';
+                        buddy.style.transform = 'scale(0)';
+                    }
+                    
+                    const car = document.createElement('div');
+                    car.innerHTML = '🚘';
+                    const startLeft = buddy ? buddy.getBoundingClientRect().left : window.innerWidth/2;
+                    const startTop = buddy ? buddy.getBoundingClientRect().top : window.innerHeight/2;
+                    car.style.cssText = `position:absolute; font-size:100px; z-index:4000; left:${startLeft}px; top:${startTop}px; transition:all 1.2s ease-in-out; filter:drop-shadow(0 5px 15px rgba(0,0,0,0.5));`;
+                    document.body.appendChild(car);
+                    
+                    setTimeout(() => { car.style.left = (window.innerWidth + 200) + 'px'; }, 100);
+                    setTimeout(() => { document.body.style.opacity = '0'; document.body.style.transition = 'opacity 1s'; }, 600);
+                    setTimeout(() => { window.location.href = '/?travel=true'; }, 1600);
+                    return;
                 }
-                
-                const car = document.createElement('div');
-                car.innerHTML = '🚘';
-                const startLeft = buddy ? buddy.getBoundingClientRect().left : window.innerWidth/2;
-                const startTop = buddy ? buddy.getBoundingClientRect().top : window.innerHeight/2;
-                car.style.cssText = `position:absolute; font-size:100px; z-index:4000; left:${startLeft}px; top:${startTop}px; transition:all 1.2s ease-in-out; filter:drop-shadow(0 5px 15px rgba(0,0,0,0.5));`;
-                document.body.appendChild(car);
-                
-                setTimeout(() => { car.style.left = (window.innerWidth + 200) + 'px'; }, 100);
-                setTimeout(() => { document.body.style.opacity = '0'; document.body.style.transition = 'opacity 1s'; }, 600);
-                setTimeout(() => { window.location.href = '/?travel=true'; }, 1600);
-                return;
+                enterTravelMode();
+            } else {
+                if (travelClickTimer) {
+                    clearTimeout(travelClickTimer);
+                    travelClickTimer = null;
+                    exitTravelMode();
+                } else {
+                    travelClickTimer = setTimeout(() => {
+                        travelClickTimer = null;
+                        if (!isPeekingHome) peekHome();
+                        else returnToTravel();
+                    }, 300);
+                }
             }
+        }
 
-            isTravelMode = force === true ? true : !isTravelMode;
-            const btn = document.getElementById('travel-trigger');
+        function toggleHomeElements(show) {
+            const display = show ? '' : 'none';
             const locEl = document.getElementById('location');
             const tEl = document.getElementById('ui-desc-tomorrow');
             const fEl = document.getElementById('ui-forecast');
@@ -2143,83 +2163,226 @@
             const nwsBanner = document.getElementById('nws-alert-banner');
             const closings = document.getElementById('school-closings-container');
 
-            if (isTravelMode) {
-                if (btn) {
-                    btn.innerText = '🏠';
-                    btn.title = "Return Home";
-                    btn.style.background = 'var(--accent)';
-                    btn.style.color = '#000';
-                }
-                if (locEl) locEl.style.display = 'none';
-                if (tEl) tEl.style.display = 'none';
-                if (fEl) fEl.style.display = 'none';
-                if (sugg) sugg.style.display = 'none';
-                if (nwsBanner) nwsBanner.style.display = 'none';
-                if (closings) closings.style.display = 'none';
-                
-                clearTimeout(stateTimer);
-                
-                document.querySelectorAll('.pod').forEach(p => p.style.display = 'none');
-                const bedPod = document.getElementById('pos-bed');
-                if (bedPod) bedPod.style.display = 'none';
-
-                const buddy = document.getElementById('buddy-container');
-                if (buddy) buddy.style.display = 'none';
-                
-                if (!document.getElementById('travel-car-active')) {
-                    const car = document.createElement('div');
-                    car.id = 'travel-car-active';
-                    car.innerHTML = '🚘';
-                    car.style.cssText = `position:absolute; font-size:120px; z-index:3600; left:50%; top:65%; transform:translate(-50%, -50%); filter:drop-shadow(0 10px 20px rgba(0,0,0,0.8)); animation: float 3s ease-in-out infinite; cursor: pointer;`;
-                    
-                    const bbl = document.getElementById('ui-bbl');
-                    if (bbl) {
-                        car.appendChild(bbl);
-                        bbl.style.bottom = '100%';
-                        bbl.style.left = '50%';
-                        bbl.style.transform = 'translateX(-50%)';
-                    }
-                    document.body.appendChild(car);
-                }
-
-                setBubbleText("Navigating...");
-                fetchTravelData();
-            } else {
-                if (btn) {
-                    btn.innerText = '🚗';
-                    btn.title = "Travel Mode";
-                    btn.style.background = 'rgba(0,0,0,0.5)';
-                    btn.style.color = 'var(--accent)';
-                }
-                if (locEl) locEl.style.display = '';
-                if (fEl) fEl.style.display = '';
-                if (sugg) sugg.style.display = 'inline-block';
-                
-                clearTimeout(travelTimer);
-                
-                document.querySelectorAll('.pod').forEach(p => p.style.display = '');
-                const bedPod = document.getElementById('pos-bed');
-                if (bedPod) bedPod.style.display = '';
-                
-                const car = document.getElementById('travel-car-active');
-                if (car) {
-                    const bbl = document.getElementById('ui-bbl');
-                    if (bbl) {
-                        const buddyFloat = document.getElementById('buddy-float');
-                        if (buddyFloat) buddyFloat.appendChild(bbl);
-                        window.fitBubble();
-                    }
-                    car.remove();
-                }
-                const buddy = document.getElementById('buddy-container');
-                if (buddy) {
-                    buddy.style.display = '';
-                    buddy.style.transform = 'scale(1)';
-                    syncBuddy();
-                }
-                
-                fetchState(true);
+            if (locEl) locEl.style.display = display;
+            if (tEl) tEl.style.display = display;
+            if (fEl) fEl.style.display = display;
+            if (sugg) sugg.style.display = show ? 'inline-block' : 'none';
+            if (nwsBanner) {
+                if (!show) nwsBanner.style.display = 'none';
+                else if (nwsBanner.innerText.includes('⚠️')) nwsBanner.style.display = 'block';
             }
+            if (closings) {
+                if (!show) closings.style.display = 'none';
+                else if (closings.innerText.trim() !== '') closings.style.display = 'block';
+            }
+        }
+
+        async function enterTravelMode() {
+            isTravelMode = true;
+            isPeekingHome = false;
+            clearTimeout(stateTimer);
+
+            const btn = document.getElementById('travel-trigger');
+            if (btn) {
+                btn.innerText = '🏠';
+                btn.title = "See Home (Double-tap to lock)";
+                btn.style.background = 'var(--accent)';
+                btn.style.color = '#000';
+            }
+
+            toggleHomeElements(false);
+
+            document.querySelectorAll('.pod').forEach(p => p.style.display = 'none');
+            const bedPod = document.getElementById('pos-bed');
+            if (bedPod) bedPod.style.display = 'none';
+
+            const buddy = document.getElementById('buddy-container');
+            if (buddy) buddy.style.display = 'none';
+
+            let car = document.getElementById('travel-car-active');
+            if (!car) {
+                car = document.createElement('div');
+                car.id = 'travel-car-active';
+                car.innerHTML = '🚘';
+                car.style.cssText = `position:absolute; font-size:120px; z-index:3600; left:50%; top:65%; transform:translate(-50%, -50%); filter:drop-shadow(0 10px 20px rgba(0,0,0,0.8)); animation: float 3s ease-in-out infinite; cursor: pointer; display:none;`;
+                
+                const bbl = document.getElementById('ui-bbl');
+                if (bbl) {
+                    car.appendChild(bbl);
+                    bbl.style.bottom = '100%';
+                    bbl.style.left = '50%';
+                    bbl.style.transform = 'translateX(-50%)';
+                }
+                document.body.appendChild(car);
+            }
+
+            let disclaimer = document.getElementById('travel-disclaimer');
+            if (!disclaimer) {
+                disclaimer = document.createElement('div');
+                disclaimer.id = 'travel-disclaimer';
+                disclaimer.style.cssText = `position:absolute; top: max(75px, calc(env(safe-area-inset-top) + 60px)); left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.6); color:var(--accent); border:1px solid var(--accent); padding:5px 15px; border-radius:20px; font-size:0.8rem; font-weight:bold; letter-spacing:2px; z-index:3500; pointer-events:none; text-shadow:0 0 5px var(--accent);`;
+                disclaimer.innerText = 'TRAVEL MODE';
+                document.body.appendChild(disclaimer);
+            }
+            disclaimer.style.display = 'block';
+
+            let loadingOverlay = document.getElementById('travel-loading');
+            if (!loadingOverlay) {
+                loadingOverlay = document.createElement('div');
+                loadingOverlay.id = 'travel-loading';
+                loadingOverlay.style.cssText = `position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9000; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity 0.5s; backdrop-filter: blur(8px);`;
+                loadingOverlay.innerHTML = `
+                    <div style="font-size: 80px; animation: bounceCar 1s infinite alternate, driftRight 3s infinite linear;">🚘</div>
+                    <div style="color:var(--accent); font-family:monospace; margin-top: 20px; font-size: 1.2rem; font-weight: bold; letter-spacing: 2px;">CALCULATING ROUTE...</div>
+                    <style>
+                        @keyframes bounceCar { 0% { transform: translateY(0); } 100% { transform: translateY(-20px); } }
+                        @keyframes driftRight { 0% { transform: translateX(-50px); } 100% { transform: translateX(50px); } }
+                    </style>
+                `;
+                document.body.appendChild(loadingOverlay);
+            }
+
+            setBubbleText("Navigating...");
+            
+            await fetchTravelData();
+
+            if (loadingOverlay) {
+                loadingOverlay.style.opacity = '0';
+                setTimeout(() => loadingOverlay.remove(), 500);
+            }
+            if (car) car.style.display = 'block';
+        }
+
+        function peekHome() {
+            isPeekingHome = true;
+            toggleHomeElements(true);
+            
+            const btn = document.getElementById('travel-trigger');
+            if (btn) {
+                btn.innerText = '🚗';
+                btn.title = "Return to Travel (Double-tap to lock Home)";
+                btn.style.background = 'rgba(0,0,0,0.5)';
+                btn.style.color = 'var(--accent)';
+            }
+            
+            document.querySelectorAll('.pod').forEach(p => p.style.display = '');
+            const bedPod = document.getElementById('pos-bed');
+            if (bedPod) bedPod.style.display = '';
+            
+            const car = document.getElementById('travel-car-active');
+            if (car) car.style.display = 'none';
+            
+            const buddy = document.getElementById('buddy-container');
+            if (buddy) {
+                buddy.style.display = '';
+                buddy.style.transform = 'scale(1)';
+                
+                const bbl = document.getElementById('ui-bbl');
+                const buddyFloat = document.getElementById('buddy-float');
+                if (bbl && buddyFloat) {
+                    buddyFloat.appendChild(bbl);
+                    window.fitBubble();
+                }
+                syncBuddy();
+            }
+
+            const disclaimer = document.getElementById('travel-disclaimer');
+            if (disclaimer) disclaimer.style.display = 'none';
+            
+            fetchState(true);
+
+            clearTimeout(peekTimeout);
+            peekTimeout = setTimeout(() => {
+                if (isPeekingHome && isTravelMode) returnToTravel();
+            }, 60000);
+        }
+
+        function returnToTravel() {
+            isPeekingHome = false;
+            clearTimeout(peekTimeout); peekTimeout = null;
+            clearTimeout(stateTimer);
+            
+            toggleHomeElements(false);
+            
+            const btn = document.getElementById('travel-trigger');
+            if (btn) {
+                btn.innerText = '🏠';
+                btn.title = "See Home (Double-tap to lock)";
+                btn.style.background = 'var(--accent)';
+                btn.style.color = '#000';
+            }
+
+            document.querySelectorAll('.pod').forEach(p => p.style.display = 'none');
+            const bedPod = document.getElementById('pos-bed');
+            if (bedPod) bedPod.style.display = 'none';
+            
+            const buddy = document.getElementById('buddy-container');
+            if (buddy) buddy.style.display = 'none';
+            
+            const car = document.getElementById('travel-car-active');
+            if (car) {
+                car.style.display = 'block';
+                const bbl = document.getElementById('ui-bbl');
+                if (bbl) {
+                    car.appendChild(bbl);
+                    bbl.style.bottom = '100%';
+                    bbl.style.left = '50%';
+                    bbl.style.transform = 'translateX(-50%)';
+                }
+            }
+
+            const disclaimer = document.getElementById('travel-disclaimer');
+            if (disclaimer) disclaimer.style.display = 'block';
+
+            fetchTravelData();
+        }
+
+        function exitTravelMode() {
+            isTravelMode = false;
+            isPeekingHome = false;
+            clearTimeout(peekTimeout); peekTimeout = null;
+            clearTimeout(travelTimer); travelTimer = null;
+            clearTimeout(travelClickTimer); travelClickTimer = null;
+
+            toggleHomeElements(true);
+
+            const btn = document.getElementById('travel-trigger');
+            if (btn) {
+                btn.innerText = '🚗';
+                btn.title = "Travel Mode";
+                btn.style.background = 'rgba(0,0,0,0.5)';
+                btn.style.color = 'var(--accent)';
+            }
+
+            document.querySelectorAll('.pod').forEach(p => p.style.display = '');
+            const bedPod = document.getElementById('pos-bed');
+            if (bedPod) bedPod.style.display = '';
+
+            const car = document.getElementById('travel-car-active');
+            if (car) {
+                const bbl = document.getElementById('ui-bbl');
+                const buddyFloat = document.getElementById('buddy-float');
+                if (bbl && buddyFloat) {
+                    buddyFloat.appendChild(bbl);
+                    window.fitBubble();
+                }
+                car.remove();
+            }
+
+            const buddy = document.getElementById('buddy-container');
+            if (buddy) {
+                buddy.style.display = '';
+                buddy.style.transform = 'scale(1)';
+                syncBuddy();
+            }
+
+            const disclaimer = document.getElementById('travel-disclaimer');
+            if (disclaimer) disclaimer.remove();
+            
+            const loadingOverlay = document.getElementById('travel-loading');
+            if (loadingOverlay) loadingOverlay.remove();
+
+            fetchState(true);
         }
 
         async function fetchTravelData() {
@@ -2228,7 +2391,7 @@
                 const res = await fetch('/api/travel_mode');
                 const data = await res.json();
                 
-                if (data.success) {
+                if (data.success && !isPeekingHome) {
                     softUpdate('ui-temp', data.temp);
                     softUpdate('ui-desc', data.desc);
                     if (data.icon) softUpdate('ui-icon', `https://openweathermap.org/img/wn/${data.icon}@4x.png`, true);
@@ -2240,11 +2403,11 @@
                     setBubbleText(data.bubble);
                     
                     softUpdate('ui-hl-desc', `Traveling through ${data.region}`);
-                } else {
+                } else if (!data.success && !isPeekingHome) {
                     setBubbleText("Lost signal...");
                 }
             } catch (e) {
-                setBubbleText("Lost GPS signal...");
+                if (!isPeekingHome) setBubbleText("Lost GPS signal...");
             }
             travelTimer = setTimeout(fetchTravelData, 600000); // 10 minutes
         }
