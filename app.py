@@ -2289,6 +2289,69 @@ def internal_action():
 
     return jsonify(success=False, error="Unknown action"), 400
 
+@app.route('/api/travel_mode')
+def api_travel_mode():
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+    if client_ip in ['127.0.0.1', '::1', 'localhost']:
+        client_ip = '8.8.8.8' # Fallback for local testing
+        
+    try:
+        geo_req = requests.get(f"http://ip-api.com/json/{client_ip}", timeout=5)
+        geo_data = geo_req.json()
+        if geo_data.get("status") != "success":
+            return jsonify(success=False, error="Geolocation failed."), 400
+            
+        city = geo_data.get("city", "Unknown")
+        region = geo_data.get("region", "")
+        lat = geo_data.get("lat")
+        lon = geo_data.get("lon")
+        
+        w_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OWM_KEY}&units=imperial"
+        w_res = safe_owm_get(w_url, caller_context="travel_mode", timeout=5).json()
+        
+        temp = int(w_res['main']['temp'])
+        desc = w_res['weather'][0]['description'].title()
+        icon = w_res['weather'][0]['icon']
+        
+        # Calculate the local time by applying OWM's timezone offset
+        tz_offset = w_res.get('timezone', 0)
+        utc_now = datetime.now(pytz.utc).replace(tzinfo=None)
+        local_dt = utc_now + timedelta(seconds=tz_offset)
+        time_str = local_dt.strftime('%I:%M %p').lstrip('0')
+        
+        prompt = f"Adopt the persona of a helpful, ambient travel companion. The user is currently traveling near {city}, {region}. The weather is {temp}F and {desc}. Provide a short 1-2 sentence ambient observation or safe travels message weaving in the scenery or weather. Keep it grounded. Wrap the city name in <i> tags. Do not use first-person pronouns."
+        
+        pulse_text = f"Traveling near <i>{city}</i>."
+        bubble_text = "Navigating..."
+        
+        with state_lock:
+            gemini_disabled = state.get("gemini_api_disabled", False)
+            
+        if not gemini_disabled:
+            for m_id in get_best_models():
+                try:
+                    resp = safe_gemini_generate_content(model=m_id, contents=prompt, caller_context="travel_mode")
+                    pulse_text = resp.text.strip().replace('**', '')
+                    bubble_text = "Eyes on the road."
+                    break
+                except Exception as e:
+                    if handle_gemini_error(e): break
+                    continue
+                    
+        return jsonify({
+            "success": True,
+            "city": city,
+            "region": region,
+            "temp": temp,
+            "desc": desc,
+            "icon": icon,
+            "time": time_str,
+            "pulse": pulse_text,
+            "bubble": bubble_text
+        })
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
+
 @app.route('/api/submit_event', methods=['POST'])
 def api_submit_event():
     data = request.json
