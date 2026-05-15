@@ -758,6 +758,11 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('travel') === 'true') {
+                setTimeout(() => toggleTravelMode(true), 100);
+            }
+
             const dragBuddyContainer = document.getElementById('buddy-container');
 
             dragBuddyContainer.addEventListener('mousedown', startDrag);
@@ -2108,8 +2113,28 @@
         let isTravelMode = false;
         let travelTimer = null;
 
-        async function toggleTravelMode() {
-            isTravelMode = !isTravelMode;
+        async function toggleTravelMode(force = false) {
+            if (!force && !isTravelMode && window.location.pathname !== '/' && window.location.pathname !== '/index') {
+                const buddy = document.getElementById('buddy-container');
+                if (buddy) {
+                    buddy.style.transition = 'all 0.5s';
+                    buddy.style.transform = 'scale(0)';
+                }
+                
+                const car = document.createElement('div');
+                car.innerHTML = '🚘';
+                const startLeft = buddy ? buddy.getBoundingClientRect().left : window.innerWidth/2;
+                const startTop = buddy ? buddy.getBoundingClientRect().top : window.innerHeight/2;
+                car.style.cssText = `position:absolute; font-size:100px; z-index:4000; left:${startLeft}px; top:${startTop}px; transition:all 1.2s ease-in-out; filter:drop-shadow(0 5px 15px rgba(0,0,0,0.5));`;
+                document.body.appendChild(car);
+                
+                setTimeout(() => { car.style.left = (window.innerWidth + 200) + 'px'; }, 100);
+                setTimeout(() => { document.body.style.opacity = '0'; document.body.style.transition = 'opacity 1s'; }, 600);
+                setTimeout(() => { window.location.href = '/?travel=true'; }, 1600);
+                return;
+            }
+
+            isTravelMode = force === true ? true : !isTravelMode;
             const btn = document.getElementById('travel-trigger');
             const locEl = document.getElementById('location');
             const tEl = document.getElementById('ui-desc-tomorrow');
@@ -2119,10 +2144,12 @@
             const closings = document.getElementById('school-closings-container');
 
             if (isTravelMode) {
-                btn.innerText = '🏠';
-                btn.title = "Return Home";
-                btn.style.background = 'var(--accent)';
-                btn.style.color = '#000';
+                if (btn) {
+                    btn.innerText = '🏠';
+                    btn.title = "Return Home";
+                    btn.style.background = 'var(--accent)';
+                    btn.style.color = '#000';
+                }
                 if (locEl) locEl.style.display = 'none';
                 if (tEl) tEl.style.display = 'none';
                 if (fEl) fEl.style.display = 'none';
@@ -2136,13 +2163,34 @@
                 const bedPod = document.getElementById('pos-bed');
                 if (bedPod) bedPod.style.display = 'none';
 
+                const buddy = document.getElementById('buddy-container');
+                if (buddy) buddy.style.display = 'none';
+                
+                if (!document.getElementById('travel-car-active')) {
+                    const car = document.createElement('div');
+                    car.id = 'travel-car-active';
+                    car.innerHTML = '🚘';
+                    car.style.cssText = `position:absolute; font-size:120px; z-index:3600; left:50%; top:65%; transform:translate(-50%, -50%); filter:drop-shadow(0 10px 20px rgba(0,0,0,0.8)); animation: float 3s ease-in-out infinite; cursor: pointer;`;
+                    
+                    const bbl = document.getElementById('ui-bbl');
+                    if (bbl) {
+                        car.appendChild(bbl);
+                        bbl.style.bottom = '100%';
+                        bbl.style.left = '50%';
+                        bbl.style.transform = 'translateX(-50%)';
+                    }
+                    document.body.appendChild(car);
+                }
+
                 setBubbleText("Navigating...");
                 fetchTravelData();
             } else {
-                btn.innerText = '🚗';
-                btn.title = "Travel Mode";
-                btn.style.background = 'rgba(0,0,0,0.5)';
-                btn.style.color = 'var(--accent)';
+                if (btn) {
+                    btn.innerText = '🚗';
+                    btn.title = "Travel Mode";
+                    btn.style.background = 'rgba(0,0,0,0.5)';
+                    btn.style.color = 'var(--accent)';
+                }
                 if (locEl) locEl.style.display = '';
                 if (fEl) fEl.style.display = '';
                 if (sugg) sugg.style.display = 'inline-block';
@@ -2152,6 +2200,23 @@
                 document.querySelectorAll('.pod').forEach(p => p.style.display = '');
                 const bedPod = document.getElementById('pos-bed');
                 if (bedPod) bedPod.style.display = '';
+                
+                const car = document.getElementById('travel-car-active');
+                if (car) {
+                    const bbl = document.getElementById('ui-bbl');
+                    if (bbl) {
+                        const buddyFloat = document.getElementById('buddy-float');
+                        if (buddyFloat) buddyFloat.appendChild(bbl);
+                        window.fitBubble();
+                    }
+                    car.remove();
+                }
+                const buddy = document.getElementById('buddy-container');
+                if (buddy) {
+                    buddy.style.display = '';
+                    buddy.style.transform = 'scale(1)';
+                    syncBuddy();
+                }
                 
                 fetchState(true);
             }
@@ -2187,7 +2252,7 @@
         let stateTimer;
         async function fetchState(force = false) {
             clearTimeout(stateTimer);
-            if (isTravelMode) return;
+            if (isTravelMode && !isPeekingHome) return;
             if (window.onDate || window.isRaving || window.isKaiju) {
                 stateTimer = setTimeout(() => fetchState(), 30000); // Reschedule before bailing!
                 return; 

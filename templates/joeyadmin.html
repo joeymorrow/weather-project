@@ -142,16 +142,39 @@
         <div class="card" style="grid-column: 1 / -1; border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.2);">
             <h2 style="color: #00ffff; border-bottom-color: #00ffff;">🚗 Travel Mode Testing</h2>
             <p style="font-size: 0.9rem; color: #888;">Override your session's IP Geolocation to test Travel Buddy in specific locations. Open the main dashboard in a new tab and click the Travel Mode toggle to see the effects.</p>
-            <form method="POST" style="display: flex; gap: 10px; align-items: center; background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2);">
+            <form method="POST" style="display: flex; gap: 10px; align-items: center; background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2); flex-wrap: wrap;">
                 <input type="hidden" name="action" value="update_travel_test">
-                <select name="travel_test_override" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; outline:none;">
+                <select name="travel_test_override" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; outline:none; min-width: 200px;">
                     <option value="none" {% if session.get('travel_test_override') == 'none' or not session.get('travel_test_override') %}selected{% endif %}>Off (Use My Real IP)</option>
+                    <option value="ssm" {% if session.get('travel_test_override') == 'ssm' %}selected{% endif %}>Sault Ste. Marie, MI (Home)</option>
                     <option value="progreso" {% if session.get('travel_test_override') == 'progreso' %}selected{% endif %}>Progreso Lakes, TX 78596</option>
                     <option value="racine" {% if session.get('travel_test_override') == 'racine' %}selected{% endif %}>Racine, Wisconsin</option>
                     <option value="disneyworld" {% if session.get('travel_test_override') == 'disneyworld' %}selected{% endif %}>Disneyworld, Florida</option>
+                    <option value="autodrive" {% if session.get('travel_test_override') == 'autodrive' %}selected{% endif %}>Auto-Drive Loop</option>
                 </select>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <label style="color:#00ffff; font-size: 0.8rem; white-space: nowrap;">Timer (Mins):</label>
+                    <input type="number" name="autodrive_interval" value="{{ session.get('travel_autodrive_interval', 10) }}" min="1" max="60" style="width: 60px; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; outline:none;">
+                </div>
                 <button type="submit" class="manage-btn">Set Test Location</button>
             </form>
+            
+            <div style="margin-top: 15px; padding: 15px; background: rgba(0,255,255,0.05); border: 1px solid rgba(0,255,255,0.2); border-radius: 8px;">
+                <h3 style="margin-top: 0; color: #00ffff; font-size: 1.1rem; display: flex; align-items: center; justify-content: space-between;">
+                    <span>🌍 Traveler Market Insights</span>
+                    <span style="font-size: 0.8rem; background: #00ffff; color: #000; padding: 3px 8px; border-radius: 12px; font-weight: bold;">Active: {{ active_travelers }}</span>
+                </h3>
+                <p style="font-size: 0.85rem; color: #aaa; margin-top: 0;">Tracking unique organic travel mode sessions in the last 6 hours.</p>
+                {% if top_travel_destinations %}
+                <ul style="font-size: 0.9rem; color: #ccc; padding-left: 20px; margin-bottom: 0;">
+                    {% for dest in top_travel_destinations %}
+                    <li style="margin-bottom: 5px;"><strong style="color: #fff;">{{ dest.city }}, {{ dest.region }}</strong> ({{ dest.pings }} pings)</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p style="font-size: 0.85rem; color: #666; font-style: italic; margin-bottom: 0;">No active organic travelers recorded in the last 6 hours.</p>
+                {% endif %}
+            </div>
         </div>
 
         <!-- System Insights & Heuristics -->

@@ -165,6 +165,13 @@ def init_db():
                                 text TEXT UNIQUE,
                                 location TEXT
                              )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS travel_log (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                ip TEXT,
+                                city TEXT,
+                                region TEXT
+                             )''')
 
             for table in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
                 try:
@@ -1802,6 +1809,14 @@ def monitor_loop():
         except Exception as e:
             pass
 
+        # 6. Cleanup old travel logs (keep 6 hours to prevent DB bloat)
+        try:
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("DELETE FROM travel_log WHERE timestamp < datetime('now', '-6 hours')")
+        except: pass
+
+
 def hallucination_cleanup_loop():
     # Prevent multiple workers from running redundant loops
     lock = filelock.FileLock(os.path.join(DATA_DIR, "cleanup_loop.lock"))
@@ -2303,6 +2318,19 @@ def api_travel_mode():
             city, region, lat, lon = "Racine", "Wisconsin", 42.726, -87.7828
         elif test_override == 'disneyworld':
             city, region, lat, lon = "Bay Lake", "Florida", 28.3772, -81.5707
+        elif test_override == 'ssm':
+            city, region, lat, lon = "Sault Ste. Marie", "Michigan", 46.4953, -84.3453
+        elif test_override == 'autodrive':
+            routes = [
+                ("Sault Ste. Marie", "Michigan", 46.4953, -84.3453),
+                ("Racine", "Wisconsin", 42.726, -87.7828),
+                ("Progreso Lakes", "Texas", 26.0617, -97.9698),
+                ("Bay Lake", "Florida", 28.3772, -81.5707)
+            ]
+            interval_mins = session.get('travel_autodrive_interval', 10)
+            if interval_mins < 1: interval_mins = 1
+            idx = int(time.time() / (interval_mins * 60)) % len(routes)
+            city, region, lat, lon = routes[idx]
         else:
             geo_req = requests.get(f"http://ip-api.com/json/{client_ip}", timeout=5)
             geo_data = geo_req.json()
@@ -2313,6 +2341,13 @@ def api_travel_mode():
             region = geo_data.get("region", "")
             lat = geo_data.get("lat")
             lon = geo_data.get("lon")
+            
+            if not session.get('travel_test_override') or session.get('travel_test_override') == 'none':
+                try:
+                    with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                        with conn:
+                            conn.execute("INSERT INTO travel_log (ip, city, region) VALUES (?, ?, ?)", (client_ip, city, region))
+                except: pass
         
         w_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OWM_KEY}&units=imperial"
         w_res = safe_owm_get(w_url, caller_context="travel_mode", timeout=5).json()
@@ -3772,6 +3807,10 @@ def cooladmin():
             
         elif action == 'update_travel_test':
             session['travel_test_override'] = request.form.get('travel_test_override')
+            try:
+                session['travel_autodrive_interval'] = int(request.form.get('autodrive_interval', 10))
+            except:
+                session['travel_autodrive_interval'] = 10
             flash("Travel test location updated.", "success")
             return redirect('/cooladmin')
         
@@ -3898,6 +3937,16 @@ def cooladmin():
     except: scheduled_sources = []
 
     garage_sales = load_garage_sales() or []
+
+    try:
+        with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("SELECT COUNT(DISTINCT ip) FROM travel_log WHERE timestamp >= datetime('now', '-6 hours')")
+            active_travelers = c.fetchone()[0]
+            c.execute("SELECT city, region, COUNT(*) as pings FROM travel_log WHERE timestamp >= datetime('now', '-6 hours') GROUP BY city, region ORDER BY pings DESC LIMIT 5")
+            top_travel_destinations = [{"city": r[0], "region": r[1], "pings": r[2]} for r in c.fetchall()]
+    except:
+        active_travelers = 0; top_travel_destinations = []
     sault_tribe = load_sault_tribe() or []
     sault_schools = load_sault_schools() or []
         
@@ -3968,7 +4017,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, current_pulse_date=current_pulse_date, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded, job_queue_status=job_queue_status, pending_jobs_count=pending_jobs_count, heuristics=get_system_heuristics())
+    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, current_pulse_date=current_pulse_date, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded, job_queue_status=job_queue_status, pending_jobs_count=pending_jobs_count, heuristics=get_system_heuristics(), active_travelers=active_travelers, top_travel_destinations=top_travel_destinations)
 
 @app.route('/portfolio')
 def portfolio():
