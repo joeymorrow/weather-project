@@ -2296,15 +2296,23 @@ def api_travel_mode():
         client_ip = '8.8.8.8' # Fallback for local testing
         
     try:
-        geo_req = requests.get(f"http://ip-api.com/json/{client_ip}", timeout=5)
-        geo_data = geo_req.json()
-        if geo_data.get("status") != "success":
-            return jsonify(success=False, error="Geolocation failed."), 400
-            
-        city = geo_data.get("city", "Unknown")
-        region = geo_data.get("region", "")
-        lat = geo_data.get("lat")
-        lon = geo_data.get("lon")
+        test_override = session.get('travel_test_override')
+        if test_override == 'progreso':
+            city, region, lat, lon = "Progreso Lakes", "Texas", 26.0617, -97.9698
+        elif test_override == 'racine':
+            city, region, lat, lon = "Racine", "Wisconsin", 42.726, -87.7828
+        elif test_override == 'disneyworld':
+            city, region, lat, lon = "Bay Lake", "Florida", 28.3772, -81.5707
+        else:
+            geo_req = requests.get(f"http://ip-api.com/json/{client_ip}", timeout=5)
+            geo_data = geo_req.json()
+            if geo_data.get("status") != "success":
+                return jsonify(success=False, error="Geolocation failed."), 400
+                
+            city = geo_data.get("city", "Unknown")
+            region = geo_data.get("region", "")
+            lat = geo_data.get("lat")
+            lon = geo_data.get("lon")
         
         w_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OWM_KEY}&units=imperial"
         w_res = safe_owm_get(w_url, caller_context="travel_mode", timeout=5).json()
@@ -3760,6 +3768,11 @@ def cooladmin():
                         conn.execute("DELETE FROM job_queue WHERE status='completed'")
                 flash("Cleared all completed jobs from the queue.", "success")
             except: pass
+            return redirect('/cooladmin')
+            
+        elif action == 'update_travel_test':
+            session['travel_test_override'] = request.form.get('travel_test_override')
+            flash("Travel test location updated.", "success")
             return redirect('/cooladmin')
         
     with state_lock:

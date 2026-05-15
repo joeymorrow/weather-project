@@ -138,6 +138,22 @@
             </ul>
         </div>
 
+        <!-- Travel Mode Testing -->
+        <div class="card" style="grid-column: 1 / -1; border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.2);">
+            <h2 style="color: #00ffff; border-bottom-color: #00ffff;">🚗 Travel Mode Testing</h2>
+            <p style="font-size: 0.9rem; color: #888;">Override your session's IP Geolocation to test Travel Buddy in specific locations. Open the main dashboard in a new tab and click the Travel Mode toggle to see the effects.</p>
+            <form method="POST" style="display: flex; gap: 10px; align-items: center; background: rgba(0,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(0,255,255,0.2);">
+                <input type="hidden" name="action" value="update_travel_test">
+                <select name="travel_test_override" style="flex:1; background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; outline:none;">
+                    <option value="none" {% if session.get('travel_test_override') == 'none' or not session.get('travel_test_override') %}selected{% endif %}>Off (Use My Real IP)</option>
+                    <option value="progreso" {% if session.get('travel_test_override') == 'progreso' %}selected{% endif %}>Progreso Lakes, TX 78596</option>
+                    <option value="racine" {% if session.get('travel_test_override') == 'racine' %}selected{% endif %}>Racine, Wisconsin</option>
+                    <option value="disneyworld" {% if session.get('travel_test_override') == 'disneyworld' %}selected{% endif %}>Disneyworld, Florida</option>
+                </select>
+                <button type="submit" class="manage-btn">Set Test Location</button>
+            </form>
+        </div>
+
         <!-- System Insights & Heuristics -->
         <div id="section-insights" class="card" style="grid-column: 1 / -1; border-color: #ffaa00; box-shadow: 0 0 15px rgba(255,170,0,0.2);">
             <h2 style="color: #ffaa00; border-bottom-color: #ffaa00;">💡 System Insights & Heuristics</h2>

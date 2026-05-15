@@ -82,6 +82,8 @@
         #school-trigger:hover, #school-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         #route-trigger { position: absolute; top: 20px; left: 300px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
         #route-trigger:hover, #route-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+        #travel-trigger { position: absolute; top: 20px; left: 335px; font-size: 1.2rem; opacity: 0.55; border: 1px solid var(--accent); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 3500; cursor: pointer; color: var(--accent); transition: 0.3s; background: rgba(0,0,0,0.5); font-family: monospace; font-weight: bold; text-decoration: none; }
+        #travel-trigger:hover, #travel-trigger:focus { opacity: 1; box-shadow: 0 0 10px var(--accent); }
         #hourly-container { opacity: 0; } #hourly-container.active { opacity: 0.45; }
         #mobile-nav-btn { position: absolute; top: 20px; right: 20px; font-size: 1.2rem; color: var(--accent); z-index: 3500; cursor: pointer; display: none; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 50%; background: rgba(0,0,0,0.5); transition: 0.3s; }
         #mobile-nav-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 10px var(--accent); }
@@ -309,7 +311,8 @@
             #tribe-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 156px) !important; }
             #school-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 182px) !important; }
             #route-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 208px) !important; }
-            #lore-trigger, #weekly-trigger, #agenda-trigger, #docs-trigger, #graph-trigger, #garage-trigger, #tribe-trigger, #school-trigger, #route-trigger {
+            #travel-trigger { left: calc(max(20px, env(safe-area-inset-left, 0px)) + 234px) !important; }
+            #lore-trigger, #weekly-trigger, #agenda-trigger, #docs-trigger, #graph-trigger, #garage-trigger, #tribe-trigger, #school-trigger, #route-trigger, #travel-trigger {
                 width: 22px !important; height: 22px !important; font-size: 0.85rem !important;
             }
             #center-info { align-items: center !important; }
@@ -449,6 +452,7 @@
     <div id="school-trigger" class="ambient-hide" role="button" tabindex="0" onclick="document.getElementById('school-modal').style.display='flex'" onkeydown="if(event.key==='Enter')document.getElementById('school-modal').style.display='flex'" title="Sault Schools Archive">🏫</div>
     {% endif %}
     <div id="route-trigger" class="ambient-hide" role="button" tabindex="0" onclick="launchRoute()" onkeydown="if(event.key==='Enter')launchRoute()" title="Build Route">🛣️</div>
+    <div id="travel-trigger" class="ambient-hide" role="button" tabindex="0" onclick="toggleTravelMode()" onkeydown="if(event.key==='Enter')toggleTravelMode()" title="Travel Mode">🚗</div>
     <div id="mobile-nav-btn" class="ambient-hide" role="button" tabindex="0" onclick="toggleMainGraph()" onkeydown="if(event.key==='Enter')toggleMainGraph()" title="View Hourly Graph">▶</div>
     <div id="fs-toggle-main" class="ambient-hide" role="button" tabindex="0" onclick="toggleFullscreen()" onkeydown="if(event.key==='Enter')toggleFullscreen()" title="Toggle Fullscreen">⛶</div>
     <div id="build-stamp" role="button" tabindex="0" onclick="handleCastTap()" onkeydown="if(event.key==='Enter')handleCastTap()" title="Tap 5 times to Cast to TV">BUILD: {{ build_timestamp }}</div>
@@ -2100,9 +2104,90 @@
             const now = new Date();
             document.getElementById('ui-clock').innerText = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         }
+
+        let isTravelMode = false;
+        let travelTimer = null;
+
+        async function toggleTravelMode() {
+            isTravelMode = !isTravelMode;
+            const btn = document.getElementById('travel-trigger');
+            const locEl = document.getElementById('location');
+            const tEl = document.getElementById('ui-desc-tomorrow');
+            const fEl = document.getElementById('ui-forecast');
+            const sugg = document.getElementById('ui-sugg');
+            const nwsBanner = document.getElementById('nws-alert-banner');
+            const closings = document.getElementById('school-closings-container');
+
+            if (isTravelMode) {
+                btn.innerText = '🏠';
+                btn.title = "Return Home";
+                btn.style.background = 'var(--accent)';
+                btn.style.color = '#000';
+                if (locEl) locEl.style.display = 'none';
+                if (tEl) tEl.style.display = 'none';
+                if (fEl) fEl.style.display = 'none';
+                if (sugg) sugg.style.display = 'none';
+                if (nwsBanner) nwsBanner.style.display = 'none';
+                if (closings) closings.style.display = 'none';
+                
+                clearTimeout(stateTimer);
+                
+                document.querySelectorAll('.pod').forEach(p => p.style.display = 'none');
+                const bedPod = document.getElementById('pos-bed');
+                if (bedPod) bedPod.style.display = 'none';
+
+                setBubbleText("Navigating...");
+                fetchTravelData();
+            } else {
+                btn.innerText = '🚗';
+                btn.title = "Travel Mode";
+                btn.style.background = 'rgba(0,0,0,0.5)';
+                btn.style.color = 'var(--accent)';
+                if (locEl) locEl.style.display = '';
+                if (fEl) fEl.style.display = '';
+                if (sugg) sugg.style.display = 'inline-block';
+                
+                clearTimeout(travelTimer);
+                
+                document.querySelectorAll('.pod').forEach(p => p.style.display = '');
+                const bedPod = document.getElementById('pos-bed');
+                if (bedPod) bedPod.style.display = '';
+                
+                fetchState(true);
+            }
+        }
+
+        async function fetchTravelData() {
+            if (!isTravelMode) return;
+            try {
+                const res = await fetch('/api/travel_mode');
+                const data = await res.json();
+                
+                if (data.success) {
+                    softUpdate('ui-temp', data.temp);
+                    softUpdate('ui-desc', data.desc);
+                    if (data.icon) softUpdate('ui-icon', `https://openweathermap.org/img/wn/${data.icon}@4x.png`, true);
+                    
+                    const headerEl = document.getElementById('header');
+                    if (headerEl) headerEl.innerText = data.city.toUpperCase();
+                    
+                    softUpdate('ui-pulse', data.pulse);
+                    setBubbleText(data.bubble);
+                    
+                    softUpdate('ui-hl-desc', `Traveling through ${data.region}`);
+                } else {
+                    setBubbleText("Lost signal...");
+                }
+            } catch (e) {
+                setBubbleText("Lost GPS signal...");
+            }
+            travelTimer = setTimeout(fetchTravelData, 600000); // 10 minutes
+        }
+
         let stateTimer;
         async function fetchState(force = false) {
             clearTimeout(stateTimer);
+            if (isTravelMode) return;
             if (window.onDate || window.isRaving || window.isKaiju) {
                 stateTimer = setTimeout(() => fetchState(), 30000); // Reschedule before bailing!
                 return; 
