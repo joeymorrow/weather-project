@@ -241,6 +241,7 @@ def init_db():
             pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (3, 'pulses', 'Sault News', 'https://www.sooeveningnews.com')")
             pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (4, 'sault_tribe', 'Sault Tribe News', 'https://saulttribe.com/news')")
             pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (5, 'pulses', '9&10 News Sault', 'https://www.9and10news.com')")
+            pulse_conn.execute("INSERT OR IGNORE INTO vetted_sources (id, topic, source_name, source_url) VALUES (6, 'garage_sales', 'Sault Garage Sales FB Group', 'https://www.facebook.com/groups/YOUR_GROUP_ID_HERE')")
             try:
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN type TEXT DEFAULT 'User'")
                 pulse_conn.execute("ALTER TABLE rbac_users ADD COLUMN override_group BOOLEAN DEFAULT 0")
@@ -1163,7 +1164,7 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False, is_r
         
         block_extra = f" CRITICAL: DO NOT use or search these blocked sources: {', '.join(blocked_src)}." if blocked_src else ""
 
-        gs_default = f"SEARCH exclusively for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan (Zip code 49783) or nearby towns within a 45-minute drive (e.g., Brimley, Kinross, Pickford, Dafter, Rudyard) scheduled in the NEXT 7 DAYS. STRICT CRITICAL RULE: You MUST EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario). If you cannot find any publicly indexed sales in the Eastern Upper Peninsula of Michigan, return an empty array []. DO NOT substitute with Canadian sales or sales from far away cities. The 'location' must contain a valid Michigan street/road name and city."
+        gs_default = f"SEARCH exclusively for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan (Zip code 49783) or nearby towns within a 45-minute drive (e.g., Brimley, Kinross, Pickford, Dafter, Rudyard) scheduled in the NEXT 7 DAYS. STRICT CRITICAL RULE: You MUST EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario). Explicitly include searches across public Facebook groups (e.g., site:facebook.com). If you cannot find any publicly indexed sales in the Eastern Upper Peninsula of Michigan, return an empty array []. DO NOT substitute with Canadian sales or sales from far away cities. The 'location' must contain a valid Michigan street/road name and city."
         gs_prompt = custom_prompts.get("garage_sales", gs_default)
 
         st_default = f"SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS."
