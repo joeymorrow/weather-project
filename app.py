@@ -655,6 +655,10 @@ I will provide a JSON list of events. For EACH event, use Google Search to verif
 If it is real/verified: Extract the 5 Ws (Who, What, Where, When, Why) and any source URLs.
 If it is fake, hallucinated, or you cannot find proof: set "hallucinated": true.{block_extra}
 
+CRITICAL RULES:
+- For garage sales or local events: if the event is located in Canada (e.g., Sault Ste. Marie, Ontario) or a far-away city (more than 45 minutes from Sault Ste. Marie, Michigan), set "hallucinated": true.
+- The event MUST be in Michigan's Eastern Upper Peninsula (e.g., Sault Ste. Marie, Brimley, Kinross, Pickford).
+
 Input Events:
 {json.dumps(events_to_verify)}
 
@@ -1131,7 +1135,7 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False, is_r
         
         block_extra = f" CRITICAL: DO NOT use or search these blocked sources: {', '.join(blocked_src)}." if blocked_src else ""
 
-        gs_default = f"SEARCH exclusively for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan (Zip code 49783) or Chippewa County scheduled in the NEXT 7 DAYS. STRICT RULE: You MUST EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario). If you cannot find any publicly indexed sales in Michigan, return an empty array []. DO NOT substitute with Canadian sales. The 'location' must contain a valid Michigan street/road name."
+        gs_default = f"SEARCH exclusively for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan (Zip code 49783) or nearby towns within a 45-minute drive (e.g., Brimley, Kinross, Pickford, Dafter, Rudyard) scheduled in the NEXT 7 DAYS. STRICT CRITICAL RULE: You MUST EXCLUDE Canadian garage sales (Sault Ste. Marie, Ontario). If you cannot find any publicly indexed sales in the Eastern Upper Peninsula of Michigan, return an empty array []. DO NOT substitute with Canadian sales or sales from far away cities. The 'location' must contain a valid Michigan street/road name and city."
         gs_prompt = custom_prompts.get("garage_sales", gs_default)
 
         st_default = f"SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS."
@@ -2407,7 +2411,7 @@ def api_suggest_prompt():
                     if topic == 'main_pulse':
                         current_prompt = "Adopt the persona of an inspiring community leader. SEARCH for recent local news, community successes, or acts of kindness happening TODAY. Provide a 2-sentence update weaving the current weather seamlessly. DO NOT use first-person pronouns (I, me, my). Wrap specific locations in <i> tags."
                     elif topic == 'garage_sales':
-                        current_prompt = "SEARCH exclusively for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan (Zip code 49783) scheduled in the NEXT 7 DAYS. STRICT RULE: EXCLUDE Canadian garage sales."
+                        current_prompt = "SEARCH exclusively for real Garage/Yard/Estate Sales in Sault Ste. Marie, Michigan (Zip code 49783) or nearby towns within 45 minutes scheduled in the NEXT 7 DAYS. STRICT RULE: EXCLUDE Canadian garage sales and far-away cities."
                     elif topic == 'sault_tribe':
                         current_prompt = "SEARCH for Sault Tribe of Chippewa Indians news, board meetings, or events in the NEXT 7 DAYS."
                     elif topic == 'sault_schools':
