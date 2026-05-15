@@ -2711,13 +2711,26 @@ def api_usage_data():
         with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
             c.execute("""
-                SELECT date(timestamp), api_name, COUNT(*), SUM(tokens_used) 
+                SELECT date(timestamp), api_name, COUNT(*)
                 FROM api_usage_log 
                 WHERE timestamp >= date('now', '-7 days') 
                 GROUP BY date(timestamp), api_name 
                 ORDER BY date(timestamp) ASC
             """)
-            data = [{"date": r[0], "api": r[1], "calls": r[2], "tokens": r[3] or 0} for r in c.fetchall()]
+            
+            # Group by date so the frontend charting library can parse the axes correctly
+            grouped_data = {}
+            for r in c.fetchall():
+                d_str = r[0]
+                api_name = r[1]
+                calls = r[2]
+                
+                if d_str not in grouped_data:
+                    grouped_data[d_str] = {"date": d_str, "gemini": 0, "openweathermap": 0}
+                
+                grouped_data[d_str][api_name] = calls
+                
+            data = [grouped_data[k] for k in sorted(grouped_data.keys())]
             return jsonify(data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
