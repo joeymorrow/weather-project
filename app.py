@@ -2508,6 +2508,26 @@ def api_health_endpoint():
     _health_cache["last_check"] = time.time()
     return jsonify(health)
 
+@app.route('/api/internal/api_usage')
+def api_usage_data():
+    if not session.get("admin_auth") and session.get("role") != "Admin":
+        return jsonify(success=False, error="Unauthorized"), 403
+        
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT date(timestamp), api_name, COUNT(*), SUM(tokens_used) 
+                FROM api_usage_log 
+                WHERE timestamp >= date('now', '-7 days') 
+                GROUP BY date(timestamp), api_name 
+                ORDER BY date(timestamp) ASC
+            """)
+            data = [{"date": r[0], "api": r[1], "calls": r[2], "tokens": r[3] or 0} for r in c.fetchall()]
+            return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/internal/api_history')
 def api_history_data():
     if not session.get("admin_auth") and session.get("role") != "Admin":
