@@ -106,7 +106,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           if [ -d "tests" ] || ls test_*.py 1> /dev/null 2>&1; then
-            pytest --maxfail=1 --disable-warnings -v
+            pytest --cov=. --cov-fail-under=80 --maxfail=1 --disable-warnings -v
           else
             echo "No test files found, skipping."
           fi

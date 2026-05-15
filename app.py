@@ -315,6 +315,11 @@ def init_db():
                 log_conn.execute("ALTER TABLE job_queue ADD COLUMN priority INTEGER DEFAULT 5")
             except sqlite3.OperationalError:
                 pass
+                
+            try:
+                log_conn.execute("ALTER TABLE job_queue ADD COLUMN job_label TEXT")
+            except sqlite3.OperationalError:
+                pass
             
             log_conn.execute('''CREATE TABLE IF NOT EXISTS job_queue (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -325,7 +330,8 @@ def init_db():
                                 last_attempt DATETIME,
                                 attempts INTEGER DEFAULT 0,
                                 error_msg TEXT,
-                                priority INTEGER DEFAULT 5
+                                priority INTEGER DEFAULT 5,
+                                job_label TEXT
                              )''')
 init_db()
 
@@ -1428,11 +1434,26 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False, is_r
         if not success:
             if not skip_ai and not is_retry:
                 priority = 1 if slug == "main" else 2
+                job_label = f"sync_{slug}"
                 try:
                     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as q_conn:
-                        with q_conn:
-                            q_conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
-                                ('retry_sync_pulse', json.dumps({'slug': slug, 'location': loc_name, 'query': query}), priority))
+                        c = q_conn.cursor()
+                        try:
+                            c.execute("SELECT COUNT(*) FROM job_queue WHERE job_label=? AND status IN ('pending', 'retrying')", (job_label,))
+                            count = c.fetchone()[0]
+                        except sqlite3.OperationalError:
+                            count = 0
+                            
+                        if count == 0:
+                            with q_conn:
+                                try:
+                                    q_conn.execute("INSERT INTO job_queue (job_type, payload, priority, job_label) VALUES (?, ?, ?, ?)", 
+                                        ('retry_sync_pulse', json.dumps({'slug': slug, 'location': loc_name, 'query': query}), priority, job_label))
+                                except sqlite3.OperationalError:
+                                    q_conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
+                                        ('retry_sync_pulse', json.dumps({'slug': slug, 'location': loc_name, 'query': query}), priority))
+                        else:
+                            print(f"[QUEUE] Skipped redundant retry job for {slug}", flush=True)
                 except Exception as eq: print(f"[QUEUE] Failed to enqueue retry: {eq}", flush=True)
 
             if gemini_disabled or skip_ai:
@@ -2735,19 +2756,34 @@ def api_history_data():
             
             # Fetch Background Jobs (BEACON Core)
             if service_filter in ['all', 'beacon core', 'app.py', 'local']:
-                q_jobs = "SELECT id, added_at, last_attempt, 'BEACON Core', job_type, status, error_msg FROM job_queue WHERE 1=1"
-                j_params = []
-                if context_filter != 'all':
-                    q_jobs += " AND LOWER(job_type) LIKE ?"
-                    j_params.append(f"%{context_filter}%")
-                q_jobs += " ORDER BY id DESC LIMIT 50"
-                c.execute(q_jobs, j_params)
-                
-                for r in c.fetchall():
-                    logs.append({
-                        "id": f"job_{r[0]}", "started_at": r[1], "ended_at": r[2] or "--",
-                        "service": r[3], "context": r[4], "status": r[5], "tokens": "--", "details": r[6] or ""
-                    })
+                try:
+                    q_jobs = "SELECT id, added_at, last_attempt, 'BEACON Core', job_type, status, error_msg, job_label FROM job_queue WHERE 1=1"
+                    j_params = []
+                    if context_filter != 'all':
+                        q_jobs += " AND (LOWER(job_type) LIKE ? OR LOWER(job_label) LIKE ?)"
+                        j_params.extend([f"%{context_filter}%", f"%{context_filter}%"])
+                    q_jobs += " ORDER BY id DESC LIMIT 50"
+                    c.execute(q_jobs, j_params)
+                    
+                    for r in c.fetchall():
+                        logs.append({
+                            "id": f"job_{r[0]}", "started_at": r[1], "ended_at": r[2] or "--",
+                            "service": r[3], "context": r[7] or r[4], "status": r[5], "tokens": "--", "details": r[6] or ""
+                        })
+                except sqlite3.OperationalError:
+                    q_jobs = "SELECT id, added_at, last_attempt, 'BEACON Core', job_type, status, error_msg FROM job_queue WHERE 1=1"
+                    j_params = []
+                    if context_filter != 'all':
+                        q_jobs += " AND LOWER(job_type) LIKE ?"
+                        j_params.append(f"%{context_filter}%")
+                    q_jobs += " ORDER BY id DESC LIMIT 50"
+                    c.execute(q_jobs, j_params)
+                    
+                    for r in c.fetchall():
+                        logs.append({
+                            "id": f"job_{r[0]}", "started_at": r[1], "ended_at": r[2] or "--",
+                            "service": r[3], "context": r[4], "status": r[5], "tokens": "--", "details": r[6] or ""
+                        })
                     
             # Sort combined descending
             logs.sort(key=lambda x: x['started_at'], reverse=True)
@@ -3553,18 +3589,34 @@ def cooladmin():
             table = request.form.get('table')
             text = request.form.get('text')
             real_id = re.sub(r'^[a-z]+_', '', str(item_id)) if item_id else None
+            job_label = f"refresh_details_{table}_{real_id}"
             
             with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
-                with conn:
-                    conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
-                        ('refresh_details', json.dumps({'table': table, 'real_id': real_id, 'text': text}), 3))
-            flash("Single item 5Ws refresh queued. Monitor the API & Job Queue for progress.", "success")
+                c = conn.cursor()
+                try:
+                    c.execute("SELECT COUNT(*) FROM job_queue WHERE job_label=? AND status IN ('pending', 'retrying')", (job_label,))
+                    count = c.fetchone()[0]
+                except sqlite3.OperationalError:
+                    count = 0
+                    
+                if count == 0:
+                    with conn:
+                        try:
+                            conn.execute("INSERT INTO job_queue (job_type, payload, priority, job_label) VALUES (?, ?, ?, ?)", 
+                                ('refresh_details', json.dumps({'table': table, 'real_id': real_id, 'text': text}), 3, job_label))
+                        except sqlite3.OperationalError:
+                            conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
+                                ('refresh_details', json.dumps({'table': table, 'real_id': real_id, 'text': text}), 3))
+                    flash("Single item 5Ws refresh queued. Monitor the API & Job Queue for progress.", "success")
+                else:
+                    flash("A refresh for this item is already in the queue.", "warning")
             
             return redirect('/cooladmin')
 
         elif action == 'refresh_tower':
             table = request.form.get('table')
             if table in ['pulses', 'garage_sales', 'sault_tribe', 'sault_schools']:
+                job_label = f"refresh_tower_{table}"
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as db_conn:
                         c = db_conn.cursor()
@@ -3573,10 +3625,24 @@ def cooladmin():
                     events_to_verify = [{"id": str(r[0]), "text": r[1]} for r in rows]
                     
                     with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
-                        with conn:
-                            conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
-                                ('refresh_tower', json.dumps({'table': table, 'events': events_to_verify}), 4))
-                    flash(f"Full tower refresh queued for {table}. Monitor the API & Job Queue for progress.", "success")
+                        c = conn.cursor()
+                        try:
+                            c.execute("SELECT COUNT(*) FROM job_queue WHERE job_label=? AND status IN ('pending', 'retrying')", (job_label,))
+                            count = c.fetchone()[0]
+                        except sqlite3.OperationalError:
+                            count = 0
+                            
+                        if count == 0:
+                            with conn:
+                                try:
+                                    conn.execute("INSERT INTO job_queue (job_type, payload, priority, job_label) VALUES (?, ?, ?, ?)", 
+                                        ('refresh_tower', json.dumps({'table': table, 'events': events_to_verify}), 4, job_label))
+                                except sqlite3.OperationalError:
+                                    conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
+                                        ('refresh_tower', json.dumps({'table': table, 'events': events_to_verify}), 4))
+                            flash(f"Full tower refresh queued for {table}. Monitor the API & Job Queue for progress.", "success")
+                        else:
+                            flash(f"A full tower refresh is already queued for {table}.", "warning")
                 except Exception as e: print(e, flush=True)
             return redirect('/cooladmin')
 
@@ -3851,12 +3917,27 @@ def cooladmin():
             return redirect('/cooladmin')
 
         elif action == 'refresh_missing_details':
+            job_label = "refresh_missing_details"
             with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
-                with conn:
-                    conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
-                        ('refresh_missing_details', json.dumps({}), 5))
-            log_system_event("MAINTENANCE", "Admin queued background 5Ws backfill extraction.")
-            flash("Background 5Ws extraction queued! You can monitor its progress in the API & Job Queue.", "success")
+                c = conn.cursor()
+                try:
+                    c.execute("SELECT COUNT(*) FROM job_queue WHERE job_label=? AND status IN ('pending', 'retrying')", (job_label,))
+                    count = c.fetchone()[0]
+                except sqlite3.OperationalError:
+                    count = 0
+                    
+                if count == 0:
+                    with conn:
+                        try:
+                            conn.execute("INSERT INTO job_queue (job_type, payload, priority, job_label) VALUES (?, ?, ?, ?)", 
+                                ('refresh_missing_details', json.dumps({}), 5, job_label))
+                        except sqlite3.OperationalError:
+                            conn.execute("INSERT INTO job_queue (job_type, payload, priority) VALUES (?, ?, ?)", 
+                                ('refresh_missing_details', json.dumps({}), 5))
+                    log_system_event("MAINTENANCE", "Admin queued background 5Ws backfill extraction.")
+                    flash("Background 5Ws extraction queued! You can monitor its progress in the API & Job Queue.", "success")
+                else:
+                    flash("Background 5Ws extraction is already queued.", "warning")
             return redirect('/cooladmin')
 
         elif action == 'clear_completed_jobs':
@@ -3988,8 +4069,12 @@ def cooladmin():
     try:
         with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
-            c.execute("SELECT id, added_at, job_type, status, attempts, error_msg FROM job_queue ORDER BY id DESC LIMIT 15")
-            job_queue_status = [{"id": r[0], "added_at": to_local_time(r[1]), "job_type": r[2], "status": r[3], "attempts": r[4], "error": r[5]} for r in c.fetchall()]
+            try:
+                c.execute("SELECT id, added_at, job_type, status, attempts, error_msg, job_label FROM job_queue ORDER BY id DESC LIMIT 15")
+                job_queue_status = [{"id": r[0], "added_at": to_local_time(r[1]), "job_type": r[6] or r[2], "status": r[3], "attempts": r[4], "error": r[5]} for r in c.fetchall()]
+            except sqlite3.OperationalError:
+                c.execute("SELECT id, added_at, job_type, status, attempts, error_msg FROM job_queue ORDER BY id DESC LIMIT 15")
+                job_queue_status = [{"id": r[0], "added_at": to_local_time(r[1]), "job_type": r[2], "status": r[3], "attempts": r[4], "error": r[5]} for r in c.fetchall()]
             
             c.execute("SELECT COUNT(*) FROM job_queue WHERE status IN ('pending', 'retrying')")
             pending_jobs_count = c.fetchone()[0]
