@@ -10,7 +10,7 @@ This file tracks architectural debt, scaling upgrades, and "nice-to-have" enterp
 ## 🧠 AI & Logic
 - [ ] **Vector Database for Memory:** Instead of basic string-matching for deduplicating pulses and checking history, implement a lightweight Vector DB (like ChromaDB or pgvector) to give Buddy actual long-term semantic memory.
 - [ ] **Model Auto-Routing (Cost Optimization):** Dynamically route simpler 5W extraction tasks to highly efficient models (like `gemini-1.5-flash-8b` or local Ollama instances), and reserve heavier reasoning for creative pulse generation.
-- [ ] **AD/Entra Group Sync:** Automate RBAC user provisioning by syncing security groups directly from Microsoft Entra ID or On-Prem Active Directory.
+- [ ] **AD/Entra Group Sync:** Automate RBAC user provisioning by syncing security groups directly from Microsoft Entra ID or On-Prem Active Directory. 
 
 ## 🌐 Endpoints & Edge
 - [ ] **Global CDN Edge Caching:** Cache the OpenWeatherMap payload representations at the Cloudflare edge so thousands of concurrent TVs don't even hit our server for weather updates.
