@@ -266,6 +266,11 @@ def init_db():
                                 last_run DATETIME,
                                 is_active BOOLEAN DEFAULT 1
                              )''')
+            pulse_conn.execute('''CREATE TABLE IF NOT EXISTS ai_weather_cache (
+                                cache_key TEXT PRIMARY KEY,
+                                response_json TEXT,
+                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                             )''')
             # Seed the default dynamic schools to replace the old static ones
             pulse_conn.execute("INSERT OR IGNORE INTO beacon_pages (slug, title, zipcode) VALUES ('sault-schools', 'Sault Schools', '49783,US')")
             pulse_conn.execute("INSERT OR IGNORE INTO beacon_pages (slug, title, zipcode) VALUES ('pickford-schools', 'Pickford Schools', '49774,US')")
@@ -1211,19 +1216,55 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False, is_r
 
         tools_config = types.GenerateContentConfig(tools=[{"google_search": {}}]) if do_deep_search else types.GenerateContentConfig()
         
+        # Define cache key based on stable environmental factors
+        temp_block = int(w['main']['temp']) // 5
+        weather_icon = w['weather'][0]['icon']
+        cache_key = f"{slug}_{date_str}_{st_id}_{weather_icon}_{temp_block}"
+        cached_json_str = None
+        
+        if not do_deep_search:
+            try:
+                with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT response_json FROM ai_weather_cache WHERE cache_key = ? AND created_at >= datetime('now', '-2 hours')", (cache_key,))
+                    row = c.fetchone()
+                    if row:
+                        cached_json_str = row[0]
+            except Exception: pass
+
         with state_lock:
             gemini_disabled = state.get("gemini_api_disabled", False)
             
         if not gemini_disabled and not skip_ai:
-            for m_id in get_best_models():
+            json_str = None
+            used_cached = False
+            
+            if cached_json_str:
+                json_str = cached_json_str
+                used_cached = True
+                print(f"[CACHE HIT] Reusing AI weather pulse for {slug} (Key: {cache_key})", flush=True)
+            else:
+                for m_id in get_best_models():
+                    try:
+                        resp = safe_gemini_generate_content(model=m_id, contents=prompt, config=tools_config, caller_context=f"sync_pulse_{slug}")
+                        text = resp.text or ""
+                        json_start = text.find('{')
+                        json_end = text.rfind('}')
+                        if json_start == -1 or json_end == -1:
+                            raise ValueError("Invalid JSON boundaries from AI")
+                        json_str = text[json_start:json_end+1]
+                        break
+                    except Exception as e:
+                        close_api_log('gemini', f"sync_pulse_{slug}", status="failed", details=str(e)[:100])
+                        if handle_gemini_error(e):
+                            gemini_disabled = True
+                            break
+                        print(f"[API] Generation failed with {m_id}: {e}", flush=True)
+                        log_system_event("AI_GENERATION_ERROR", f"Failed with {m_id} on {slug}", str(e))
+                        continue
+
+            if json_str:
                 try:
-                    resp = safe_gemini_generate_content(model=m_id, contents=prompt, config=tools_config, caller_context=f"sync_pulse_{slug}")
-                    text = resp.text or ""
-                    json_start = text.find('{')
-                    json_end = text.rfind('}')
-                    if json_start == -1 or json_end == -1:
-                        raise ValueError("Invalid JSON boundaries from AI")
-                    json_str = text[json_start:json_end+1]
                     ai = json.loads(json_str)
                     
                     new_pulse = str(ai.get("pulse", new_pulse)).replace('**', '')
@@ -1371,16 +1412,18 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False, is_r
                         for event in valid_sault_schools:
                             if event.get("text"): merge_or_insert("sault_schools", full_date_str, event.get("text"), event.get("location", ""), event.get("details", {}))
                     
-                    print(f"[API] Success via {m_id} for {slug}", flush=True)
-                    success = True; break
+                    if not used_cached and not do_deep_search:
+                        try:
+                            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                                with conn:
+                                    conn.execute("INSERT OR REPLACE INTO ai_weather_cache (cache_key, response_json) VALUES (?, ?)", (cache_key, json_str))
+                        except Exception as e:
+                            print(f"[CACHE] Error writing to cache: {e}")
+
+                    print(f"[API] Sync successful for {slug} (Cached: {used_cached})", flush=True)
+                    success = True
                 except Exception as e:
-                    close_api_log('gemini', f"sync_pulse_{slug}", status="failed", details=str(e)[:100])
-                    if handle_gemini_error(e):
-                        gemini_disabled = True
-                        break
-                    print(f"[API] Generation failed with {m_id}: {e}", flush=True)
-                    log_system_event("AI_GENERATION_ERROR", f"Failed with {m_id} on {slug}", str(e))
-                    continue
+                    print(f"[API] Error parsing/processing AI JSON for {slug}: {e}", flush=True)
         
         if not success:
             if not skip_ai and not is_retry:
@@ -1795,6 +1838,13 @@ def monitor_loop():
             with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
                 with conn:
                     conn.execute("DELETE FROM logs WHERE timestamp < datetime('now', '-30 days')")
+        except: pass
+
+        # 4.5 Cleanup old AI cache (keep last 24 hours)
+        try:
+            with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
+                with conn:
+                    conn.execute("DELETE FROM ai_weather_cache WHERE created_at < datetime('now', '-24 hours')")
         except: pass
 
         # 5. Cleanup expired demos
