@@ -2311,7 +2311,10 @@ def api_travel_mode():
         client_ip = '8.8.8.8' # Fallback for local testing
         
     try:
-        test_override = session.get('travel_test_override')
+        with state_lock:
+            test_override = state.get('travel_test_override')
+            interval_mins = state.get('travel_autodrive_interval', 10)
+            
         if test_override == 'progreso':
             city, region, lat, lon = "Progreso Lakes", "Texas", 26.0617, -97.9698
         elif test_override == 'racine':
@@ -2327,7 +2330,6 @@ def api_travel_mode():
                 ("Progreso Lakes", "Texas", 26.0617, -97.9698),
                 ("Bay Lake", "Florida", 28.3772, -81.5707)
             ]
-            interval_mins = session.get('travel_autodrive_interval', 10)
             if interval_mins < 1: interval_mins = 1
             idx = int(time.time() / (interval_mins * 60)) % len(routes)
             city, region, lat, lon = routes[idx]
@@ -2342,7 +2344,7 @@ def api_travel_mode():
             lat = geo_data.get("lat")
             lon = geo_data.get("lon")
             
-            if not session.get('travel_test_override') or session.get('travel_test_override') == 'none':
+            if not test_override or test_override == 'none':
                 try:
                     with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
                         with conn:
@@ -3807,10 +3809,16 @@ def cooladmin():
             
         elif action == 'update_travel_test':
             session['travel_test_override'] = request.form.get('travel_test_override')
-            try:
-                session['travel_autodrive_interval'] = int(request.form.get('autodrive_interval', 10))
-            except:
-                session['travel_autodrive_interval'] = 10
+            with state_lock:
+                state['travel_test_override'] = request.form.get('travel_test_override')
+                try:
+                    val = int(request.form.get('autodrive_interval', 10))
+                    session['travel_autodrive_interval'] = val
+                    state['travel_autodrive_interval'] = val
+                except:
+                    session['travel_autodrive_interval'] = 10
+                    state['travel_autodrive_interval'] = 10
+                save_state()
             flash("Travel test location updated.", "success")
             return redirect('/cooladmin')
         
