@@ -136,7 +136,7 @@ def get_best_models():
             n_clean = m.name.replace("models/", "")
             
             # Block multimodal/experimental models from draining quota on text tasks
-            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath", "veo"]):
+            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath", "veo", "preview", "live", "experimental"]):
                 continue
                 
             if hasattr(m, 'supported_generation_methods') and m.supported_generation_methods:
@@ -309,7 +309,7 @@ Evaluate if the following generated text is a hallucination or an intended respo
                     conn.commit()
             except Exception: pass
 
-            resp_text = response.text
+            resp_text = response.text or ""
             json_start = resp_text.find('{')
             json_end = resp_text.rfind('}')
             if json_start == -1 or json_end == -1:

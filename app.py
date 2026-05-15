@@ -40,6 +40,7 @@ def send_alert_email(subject, body, to_email="joseph@morrowedge.com"):
 
 client_alerts = {"last_sent": 0}
 api_alerts = {"last_sent": 0}
+cb_log_cache = {}
 
 http_session = requests.Session()
 
@@ -515,7 +516,10 @@ def check_and_log_api_usage(api_name, caller_context):
                     if state.get("api_limits", {}).get("auto_free_tier", True):
                         g_daily = min(g_daily, 1400)
                 if daily_count >= g_daily or hourly_count >= g_hourly:
-                    log_system_event("CIRCUIT_BREAKER", f"Gemini API limit reached! Daily: {daily_count}/{g_daily}, Hourly: {hourly_count}/{g_hourly}. Caller: {caller_context}")
+                    now_ts = time.time()
+                    if now_ts - cb_log_cache.get("gemini_cb", 0) > 3600:
+                        log_system_event("CIRCUIT_BREAKER", f"Gemini API limit reached! Daily: {daily_count}/{g_daily}, Hourly: {hourly_count}/{g_hourly}. Caller: {caller_context}")
+                        cb_log_cache["gemini_cb"] = now_ts
                     print(f"[CIRCUIT BREAKER] Gemini Limit Hit by {caller_context} (Day: {daily_count}/{g_daily}, Hour: {hourly_count}/{g_hourly})", flush=True)
                     return False
             elif api_name == 'openweathermap':
@@ -525,7 +529,10 @@ def check_and_log_api_usage(api_name, caller_context):
                     if o_hourly <= 60: # Fix legacy confusion between 60/min and 60/hr
                         o_hourly = 300
                 if daily_count >= o_daily or hourly_count >= o_hourly:
-                    log_system_event("CIRCUIT_BREAKER", f"OWM API limit reached! Daily: {daily_count}/{o_daily}, Hourly: {hourly_count}/{o_hourly}. Caller: {caller_context}")
+                    now_ts = time.time()
+                    if now_ts - cb_log_cache.get("owm_cb", 0) > 3600:
+                        log_system_event("CIRCUIT_BREAKER", f"OWM API limit reached! Daily: {daily_count}/{o_daily}, Hourly: {hourly_count}/{o_hourly}. Caller: {caller_context}")
+                        cb_log_cache["owm_cb"] = now_ts
                     print(f"[CIRCUIT BREAKER] OWM Limit Hit by {caller_context} (Day: {daily_count}/{o_daily}, Hour: {hourly_count}/{o_hourly})", flush=True)
                     return False
                     
@@ -693,7 +700,7 @@ Return ONLY a valid JSON array of objects matching this exact structure:
         try:
             config = types.GenerateContentConfig(tools=tools) if tools else types.GenerateContentConfig()
             check_resp = safe_gemini_generate_content(model=m_check, contents=check_prompt, config=config, caller_context=f"verify_events_{'manual' if is_manual else 'auto'}")
-            check_text = check_resp.text
+            check_text = check_resp.text or ""
             c_start = check_text.find('[')
             c_end = check_text.rfind(']')
             if c_start == -1 or c_end == -1: raise ValueError("No JSON array in check")
@@ -762,7 +769,7 @@ def get_best_models():
             n_clean = m.name.replace("models/", "")
             
             # Block multimodal/experimental models from draining quota on text tasks
-            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath", "veo"]):
+            if any(x in n for x in ["tts", "image", "audio", "vision", "embedding", "pro", "ultra", "learnmath", "veo", "preview", "live", "experimental"]):
                 continue
                 
             if hasattr(m, 'supported_generation_methods') and m.supported_generation_methods:
@@ -839,6 +846,9 @@ def handle_gemini_error(e):
     err_str = str(e).lower()
     if "429" in err_str or "exhausted" in err_str or "quota" in err_str or "circuit breaker" in err_str:
         if "circuit breaker" not in err_str:
+            if "quota exceeded" in err_str and "free_tier" in err_str:
+                print(f"[WARNING] Gemini Daily Quota hit: {e}. Skipping sleep.", flush=True)
+                return False
             print(f"[WARNING] Gemini Rate Limit hit: {e}. Pausing briefly without disabling API.", flush=True)
             time.sleep(15)
             return False
@@ -1208,7 +1218,7 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False, is_r
             for m_id in get_best_models():
                 try:
                     resp = safe_gemini_generate_content(model=m_id, contents=prompt, config=tools_config, caller_context=f"sync_pulse_{slug}")
-                    text = resp.text
+                    text = resp.text or ""
                     json_start = text.find('{')
                     json_end = text.rfind('}')
                     if json_start == -1 or json_end == -1:
@@ -1632,7 +1642,7 @@ Return ONLY a valid JSON array of objects matching this exact structure:
             for m_id in best_models:
                 try:
                     resp = safe_gemini_generate_content(model=m_id, contents=[pdf_part, prompt], config=config, caller_context="fetch_annual_calendar")
-                    text = resp.text
+                    text = resp.text or ""
                     json_start = text.find('[')
                     json_end = text.rfind(']')
                     if json_start != -1 and json_end != -1:
@@ -1760,10 +1770,11 @@ def monitor_loop():
                 for m_id in get_best_models():
                     try:
                         resp = safe_gemini_generate_content(model=m_id, contents=prompt, caller_context="monitor_leak_eval")
-                        t_start = resp.text.find('{')
-                        t_end = resp.text.rfind('}')
+                        text = resp.text or ""
+                        t_start = text.find('{')
+                        t_end = text.rfind('}')
                         if t_start == -1 or t_end == -1: raise ValueError("No JSON in eval")
-                        ai_eval = json.loads(resp.text[t_start:t_end+1])
+                        ai_eval = json.loads(text[t_start:t_end+1])
                     
                         if ai_eval.get("critical"):
                             send_alert_email("[CRITICAL - BEACON BUDDY] - Memory Leak", f"Reason: {ai_eval.get('reason')}\n\nPaste this into gemini to find the solution: \n{leak_details}\n\nPrompt Suggestion: \n{ai_eval.get('prompt_suggestion')} \n\n(Geared for your specific chat history context!)")
