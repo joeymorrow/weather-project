@@ -2711,7 +2711,7 @@ def api_usage_data():
         with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
             c = conn.cursor()
             c.execute("""
-                SELECT date(timestamp), api_name, COUNT(*)
+                SELECT date(timestamp), api_name, COUNT(*), SUM(tokens_used)
                 FROM api_usage_log 
                 WHERE timestamp >= date('now', '-7 days') 
                 GROUP BY date(timestamp), api_name 
@@ -2724,11 +2724,14 @@ def api_usage_data():
                 d_str = r[0]
                 api_name = r[1]
                 calls = r[2]
+                tokens = r[3] or 0
                 
                 if d_str not in grouped_data:
-                    grouped_data[d_str] = {"date": d_str, "gemini": 0, "openweathermap": 0}
+                    grouped_data[d_str] = {"date": d_str, "gemini": 0, "openweathermap": 0, "gemini_tokens": 0}
                 
                 grouped_data[d_str][api_name] = calls
+                if api_name == 'gemini':
+                    grouped_data[d_str]["gemini_tokens"] += tokens
                 
             data = [grouped_data[k] for k in sorted(grouped_data.keys())]
             return jsonify(data)
