@@ -465,7 +465,7 @@ jobs:
                 return await res.json();
             });
             for (const [service, info] of Object.entries(healthRes)) {
-                if (info.status !== 'OK') {
+                if (!info.status.startsWith('OK')) {
                     logError('[QA API ERROR] ' + service + ' is reporting status ' + info.status + ': ' + info.warnings.join(', '));
                 } else if (info.warnings && info.warnings.length > 0) {
                     console.warn('[QA API WARNING] ' + service + ' returned warnings: ' + info.warnings.join(', '));

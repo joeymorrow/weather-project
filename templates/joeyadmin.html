@@ -1730,7 +1730,7 @@
                     </tr>`;
                     
                 for (const [service, info] of Object.entries(data)) {
-                    let statusColor = info.status === 'OK' ? '#00ff00' : '#ff4444';
+                    let statusColor = info.status.startsWith('OK') ? '#00ff00' : '#ff4444';
                     let warningsHtml = info.warnings.length > 0 ? info.warnings.join('<br>') : '<span style="color:#666;">None</span>';
                     html += `<tr style="border-bottom: 1px solid rgba(170,0,255,0.2);">
                         <td style="padding: 10px; color: #fff; text-transform: capitalize;">${service}</td>
