@@ -877,11 +877,12 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
                     c = conn.cursor()
                     c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 minute')")
                     recent_calls = c.fetchone()[0]
-                        if recent_calls >= rpm_limit:
-                            print(f"[THROTTLE] Gemini RPM is at {recent_calls}/{rpm_limit}. Sleeping 5s before retry (Context: {caller_context})...", flush=True)
-                        time.sleep(5)
-                    else:
-                        break # Safe to proceed
+                    
+            if recent_calls >= rpm_limit:
+                print(f"[THROTTLE] Gemini RPM is at {recent_calls}/{rpm_limit}. Sleeping 5s before retry (Context: {caller_context})...", flush=True)
+                time.sleep(5)
+            else:
+                break # Safe to proceed
             except Exception: 
                 break
 
@@ -920,6 +921,10 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
             state["api_limits"]["prepay_balance"] = new_bal
             save_state()
             print(f"[BUDGET] Call cost ${actual_cost:.6f}. Remaining: ${new_bal:.6f}", flush=True)
+            
+            if new_bal <= 1.0 and current_bal > 1.0:
+                send_alert_email("[WARNING - BEACON BUDDY] Low Prepay Budget", f"Prepay balance has dropped to ${new_bal:.4f}. Please refill soon to avoid service interruption.")
+                
             if new_bal <= 0:
                 state["gemini_api_disabled"] = True
                 save_state()
@@ -2754,6 +2759,12 @@ def api_health_endpoint():
         start = time.time()
         if not check_and_log_api_usage('gemini', 'health_check_gemini'):
             raise Exception("Governor Disabled API Check")
+            
+        with state_lock:
+            api_limits = state.get("api_limits", {})
+            gemini_mode = api_limits.get("gemini_mode", "free")
+            prepay_balance = api_limits.get("prepay_balance", 0.0)
+            
         global gemini_client
         if not gemini_client: gemini_client = genai.Client(api_key=get_gemini_key())
         
@@ -2761,8 +2772,10 @@ def api_health_endpoint():
         elapsed = round((time.time() - start) * 1000)
         health["gemini"]["latency"] = f"{elapsed}ms"
         
-        if m_list:
-            health["gemini"]["status"] = "OK"
+        if gemini_mode == "prepay":
+            health["gemini"]["status"] = f"OK (Prepay: ${prepay_balance:.4f})"
+        elif m_list:
+            health["gemini"]["status"] = "OK (Free Tier)"
         else:
             health["gemini"]["status"] = "Error"
             health["gemini"]["warnings"].append("No models returned")
@@ -4743,3 +4756,4 @@ if __name__ == '__main__':
     threading.Thread(target=eap_multicast_listener, daemon=True).start()
     threading.Thread(target=job_queue_loop, daemon=True).start()
     app.run(host='0.0.0.0', port=5000, debug=False)  # nosec B104
+
