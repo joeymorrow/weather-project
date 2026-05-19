@@ -205,7 +205,7 @@
         <!-- API Circuit Breaker & Usage -->
         <div id="section-api" class="card" style="grid-column: 1 / -1; border-color: #ff00ff; box-shadow: 0 0 15px rgba(255,0,255,0.2);">
             <h2 style="color: #ff00ff; border-bottom-color: #ff00ff;">⚡ API Circuit Breakers & Usage Tracking</h2>
-s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context to catch runaway loops and prevent budget burn.</p>
+            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context to catch runaway loops and prevent budget burn.</p>
             
             <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px;">
                 <div style="background: rgba(170,0,255,0.1); border: 1px solid rgba(170,0,255,0.3); padding: 15px; border-radius: 6px; flex: 1;">
@@ -238,6 +238,15 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                         <input type="hidden" name="action" value="update_api_limits">
                         <h4 style="margin-top: 0; color: #00ffff;">Dynamic Governor Limits</h4>
                         
+                        <label style="color: #00ffff; font-size: 0.9rem; display: block; margin-bottom: 5px;">Gemini Billing Mode:</label>
+                        <select name="gemini_mode" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom: 15px; outline:none;" onchange="updateLimitEstimates()">
+                            <option value="free" {% if api_limits.get('gemini_mode', 'free') == 'free' %}selected{% endif %}>Strict Free Tier (12 RPM, Token Caps)</option>
+                            <option value="prepay" {% if api_limits.get('gemini_mode', 'free') == 'prepay' %}selected{% endif %}>Prepay Budget Mode (Pay-as-you-go)</option>
+                        </select>
+                        
+                        <label style="color: #00ffff; font-size: 0.9rem; display: block; margin-bottom: 5px;">Prepay Balance ($):</label>
+                        <input type="number" step="0.0001" name="prepay_balance" value="{{ api_limits.get('prepay_balance', 0.0) }}" style="background:rgba(0,0,0,0.5); border:1px solid #00ffff; color:#fff; padding:8px; border-radius:4px; width:100%; margin-bottom: 15px; box-sizing:border-box;">
+
                         <label style="color: #00ffff; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; margin-bottom: 15px; border-bottom: 1px solid rgba(0,255,255,0.2); padding-bottom: 10px; cursor: pointer;">
                             <input type="checkbox" name="auto_free_tier" id="auto_free_tier" value="yes" {% if api_limits.get('auto_free_tier', True) %}checked{% endif %} onchange="updateLimitEstimates()" style="width: auto; margin: 0;">
                             Auto-Adjust to stay within Free Tier Limits (Clamps max to 1400)
@@ -285,7 +294,20 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
                         Usage Month: {{ api_stats.o_month }} calls
                     </p>
                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
-                        <span style="color: #00ff00; font-weight: bold;">Status: ACTIVE (CIRCUIT CLOSED)</span>
+                        <span style="color: {% if owm_api_disabled %}#ff4444{% else %}#00ff00{% endif %}; font-weight: bold;">
+                            Status: {% if owm_api_disabled %}DISABLED (CIRCUIT OPEN){% else %}ACTIVE (CIRCUIT CLOSED){% endif %}
+                        </span>
+                        {% if owm_api_disabled %}
+                        <form method="POST" style="margin: 0;">
+                            <input type="hidden" name="action" value="reenable_owm">
+                            <button type="submit" class="manage-btn" style="background: rgba(0, 255, 0, 0.2); border-color: #00ff00; color: #00ff00;">Re-enable OWM</button>
+                        </form>
+                        {% else %}
+                        <form method="POST" style="margin: 0;">
+                            <input type="hidden" name="action" value="disable_owm">
+                            <button type="submit" class="danger-btn" style="padding: 5px 10px;">Cutoff OWM</button>
+                        </form>
+                        {% endif %}
                     </div>
 
                     <form method="POST" style="margin-top: 20px; background: rgba(255,170,0,0.05); padding: 15px; border-radius: 6px; border: 1px solid rgba(255,170,0,0.2);">
@@ -1769,28 +1791,34 @@ s            <p style="font-size: 0.9rem; color: #aaa;">Tracks calls by context 
             const dailySlider = document.getElementById('gemini_daily_slider');
             if (!dailySlider) return;
             const autoFree = document.getElementById('auto_free_tier');
+            const modeSelect = document.querySelector('select[name="gemini_mode"]');
+            const costBox = document.getElementById('cost_estimate');
             
             let dailyVal = parseInt(dailySlider.value);
             
-            if (autoFree && autoFree.checked && dailyVal > 1400) {
-                dailySlider.value = 1400;
-                dailyVal = 1400;
-            }
-            document.getElementById('g_daily_val').innerText = dailyVal;
-            
-            const costBox = document.getElementById('cost_estimate');
-            if (dailyVal <= 1400) {
-                costBox.style.borderLeftColor = '#00ff00';
-                costBox.innerHTML = `<strong>Status: Below Free Tier Safety</strong><br>Estimated Cost: $0.00/day. You are well protected from surprise billing.`;
-            } else if (dailyVal <= 1500) {
-                costBox.style.borderLeftColor = '#ffaa00';
-                costBox.innerHTML = `<strong>Status: At Free Tier Limit</strong><br>Estimated Cost: $0.00/day. You are riding the exact line of the free tier.`;
+            if (modeSelect && modeSelect.value === 'prepay') {
+                costBox.style.borderLeftColor = '#00ffff';
+                costBox.innerHTML = `<strong>Status: Prepay Budget Mode</strong><br>Using balance tracking. Hard daily caps act as secondary safety nets.`;
             } else {
-                costBox.style.borderLeftColor = '#ff4444';
-                const overage = dailyVal - 1500;
-                const est = (overage * 0.0002).toFixed(2);
-                const estMonth = (overage * 0.0002 * 30).toFixed(2);
-                costBox.innerHTML = `<strong>Status: Above Free Tier (Pay-As-You-Go)</strong><br>Overage: ${overage} calls/day.<br>Estimated Cost: <span style="color:#ff4444;">~$${est}/day (~$${estMonth}/month)</span>.`;
+                if (autoFree && autoFree.checked && dailyVal > 1400) {
+                    dailySlider.value = 1400;
+                    dailyVal = 1400;
+                }
+                document.getElementById('g_daily_val').innerText = dailyVal;
+                
+                if (dailyVal <= 1400) {
+                    costBox.style.borderLeftColor = '#00ff00';
+                    costBox.innerHTML = `<strong>Status: Below Free Tier Safety</strong><br>Estimated Cost: $0.00/day. You are well protected from surprise billing.`;
+                } else if (dailyVal <= 1500) {
+                    costBox.style.borderLeftColor = '#ffaa00';
+                    costBox.innerHTML = `<strong>Status: At Free Tier Limit</strong><br>Estimated Cost: $0.00/day. You are riding the exact line of the free tier.`;
+                } else {
+                    costBox.style.borderLeftColor = '#ff4444';
+                    const overage = dailyVal - 1500;
+                    const est = (overage * 0.0002).toFixed(2);
+                    const estMonth = (overage * 0.0002 * 30).toFixed(2);
+                    costBox.innerHTML = `<strong>Status: Above Free Tier (Pay-As-You-Go)</strong><br>Overage: ${overage} calls/day.<br>Estimated Cost: <span style="color:#ff4444;">~$${est}/day (~$${estMonth}/month)</span>.`;
+                }
             }
         }
         

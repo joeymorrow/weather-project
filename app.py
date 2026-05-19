@@ -515,8 +515,8 @@ def check_and_log_api_usage(api_name, caller_context):
             with state_lock:
                 context_limit = state.get("api_limits", {}).get("per_endpoint_hourly", 30)
 
-            # Automagical Endpoint Governor
-            if context_hourly_count >= context_limit and caller_context != 'model_discovery':
+            # Automagical Endpoint Governor (Ignored for internal health checks)
+            if context_hourly_count >= context_limit and caller_context not in ('model_discovery', 'health_check_owm', 'health_check_gemini'):
                 log_system_event("AUTO_THROTTLE", f"Endpoint '{caller_context}' exceeded {context_limit} calls/hr for {api_name}. Governing calls.", caller_context)
                 print(f"[GOVERNOR] Auto-throttling {caller_context} on {api_name} ({context_hourly_count}/{context_limit} calls/hr)", flush=True)
                 return False
@@ -609,6 +609,10 @@ def get_system_heuristics():
     return suggestions
 
 def safe_owm_get(url, caller_context="unknown", timeout=10):
+    with state_lock:
+        if state.get("owm_api_disabled", False):
+            raise CircuitBreakerError("OpenWeatherMap API is manually disabled.")
+            
     # 1. Strict RPM Throttle (OWM Free tier: 60 Requests Per Minute)
     throttle_lock = filelock.FileLock(os.path.join(DATA_DIR, "owm_rpm.lock"))
     with throttle_lock:
@@ -628,9 +632,17 @@ def safe_owm_get(url, caller_context="unknown", timeout=10):
                 break
                 
     if not check_and_log_api_usage('openweathermap', caller_context):
+        with state_lock:
+            if not state.get("owm_api_disabled", False):
+                state["owm_api_disabled"] = True
+                try:
+                    with open(STATE_FILE, 'w') as sf: json.dump(state, sf)
+                except: pass
+        send_alert_email("[CRITICAL - BEACON BUDDY] API Circuit Breaker Tripped", f"OpenWeatherMap API exceeded limits (Caller: {caller_context}). It has been disabled to prevent runaway costs. View the CoolAdmin dashboard to investigate and re-enable.")
         raise CircuitBreakerError(f"OpenWeatherMap API Circuit Breaker Limit Reached by {caller_context}.")
     try:
         response = http_session.get(url, timeout=timeout)
+        response.raise_for_status() # Crucial: ensures health check catches 4xx/5xx HTTP errors properly
         close_api_log('openweathermap', caller_context, status="completed", details=f"HTTP {response.status_code}")
         return response
     except Exception as e:
@@ -727,6 +739,24 @@ Return ONLY a valid JSON array of objects matching this exact structure:
             continue
     return verified_details, check_prompt
 
+def estimate_tokens(text):
+    """Simple fallback local token estimation (1 token ~= 4 chars)"""
+    return len(text) // 4
+
+def calculate_cost(input_tokens, output_tokens=0, model="gemini-2.5-flash"):
+    """Calculate cost based on Gemini pricing per 1M tokens"""
+    if "flash" in model:
+        in_cost = 0.075 / 1000000
+        out_cost = 0.30 / 1000000
+    elif "pro" in model:
+        in_cost = 1.25 / 1000000
+        out_cost = 5.00 / 1000000
+    else:
+        in_cost = 0.075 / 1000000
+        out_cost = 0.30 / 1000000
+        
+    return (input_tokens * in_cost) + (output_tokens * out_cost)
+
 state = {
     "temp": 0, "suggestion": "Initializing...", "station": "office", 
     "desc": "Syncing...", "high": 0, "low": 0, "date": "", "time": "--", "icon": "01d",
@@ -791,6 +821,7 @@ def get_best_models():
             score = 0
             if "lite" in n: score += 100
             if "flash" in n: score += 200
+            if "2.5" in n: score += 5000  # Prioritize 2.5 flash explicitly
             if "preview" in n: score -= 500  # Penalize previews to avoid 404s
             
             match = re.search(r'(\d+\.\d+)', n)
@@ -810,9 +841,34 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
     with state_lock:
         if state.get("gemini_api_disabled", False):
             raise CircuitBreakerError("Gemini API is manually disabled.")
+        api_limits = state.get("api_limits", {})
+        gemini_mode = api_limits.get("gemini_mode", "free")
+        prepay_balance = api_limits.get("prepay_balance", 0.0)
+        
+    content_text = ""
+    if isinstance(contents, str):
+        content_text = contents
+    elif isinstance(contents, list):
+        content_text = " ".join([str(c) for c in contents if isinstance(c, str)])
+        
+    est_input_tokens = estimate_tokens(content_text)
+    
+    if gemini_mode == "prepay":
+        max_out = config.max_output_tokens if config and hasattr(config, 'max_output_tokens') and config.max_output_tokens else 8192
+        est_cost = calculate_cost(est_input_tokens, max_out, model)
+        if prepay_balance - est_cost < 0:
+            with state_lock:
+                if not state.get("gemini_api_disabled", False):
+                    state["gemini_api_disabled"] = True
+                    save_state()
+            send_alert_email("[CRITICAL - BEACON BUDDY] Budget Exhausted", f"Prepay balance (${prepay_balance:.4f}) is insufficient for this call (${est_cost:.4f}). Gemini API disabled.")
+            raise CircuitBreakerError(f"Insufficient Prepay Budget. Need ${est_cost:.4f}, have ${prepay_balance:.4f}.")
+    else:
+        if est_input_tokens > 750000:
+            raise CircuitBreakerError(f"Input tokens ({est_input_tokens}) exceed Free Tier safe limit of 750,000.")
             
-    # 1. RPM Strict Throttle (Free Tier limit: 15 Requests Per Minute)
-    # FileLock ensures multiple Gunicorn workers don't concurrently pass the 14 limit
+    # 1. RPM Strict Throttle (Free Tier limit: 15 RPM, Prepay: 300 RPM)
+    rpm_limit = 12 if gemini_mode == "free" else 300
     throttle_lock = filelock.FileLock(os.path.join(DATA_DIR, "gemini_rpm.lock"))
     with throttle_lock:
         while True:
@@ -821,8 +877,8 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
                     c = conn.cursor()
                     c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 minute')")
                     recent_calls = c.fetchone()[0]
-                    if recent_calls >= 14:
-                        print(f"[THROTTLE] Gemini RPM is at {recent_calls}/15. Sleeping 5s before retry (Context: {caller_context})...", flush=True)
+                        if recent_calls >= rpm_limit:
+                            print(f"[THROTTLE] Gemini RPM is at {recent_calls}/{rpm_limit}. Sleeping 5s before retry (Context: {caller_context})...", flush=True)
                         time.sleep(5)
                     else:
                         break # Safe to proceed
@@ -844,14 +900,32 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
     
     response = gemini_client.models.generate_content(model=model, contents=contents, config=config) if config else gemini_client.models.generate_content(model=model, contents=contents)
     
-    # 2. Track Exact Token Usage (1 Million TPM limit)
-    tokens = 0
+    # 2. Post-Execution Token & Budget Accounting
+    in_tokens = 0
+    out_tokens = 0
     try:
         if hasattr(response, 'usage_metadata') and response.usage_metadata and response.usage_metadata.total_token_count:
-            tokens = response.usage_metadata.total_token_count
+            in_tokens = response.usage_metadata.prompt_token_count or est_input_tokens
+            out_tokens = response.usage_metadata.candidates_token_count or 0
     except Exception: pass
     
-    close_api_log('gemini', caller_context, status="completed", tokens=tokens)
+    total_tokens = in_tokens + out_tokens
+    
+    if gemini_mode == "prepay":
+        actual_cost = calculate_cost(in_tokens, out_tokens, model)
+        with state_lock:
+            state.setdefault("api_limits", {})
+            current_bal = state["api_limits"].get("prepay_balance", 0.0)
+            new_bal = current_bal - actual_cost
+            state["api_limits"]["prepay_balance"] = new_bal
+            save_state()
+            print(f"[BUDGET] Call cost ${actual_cost:.6f}. Remaining: ${new_bal:.6f}", flush=True)
+            if new_bal <= 0:
+                state["gemini_api_disabled"] = True
+                save_state()
+                send_alert_email("[CRITICAL - BEACON BUDDY] Budget Empty", f"Prepay balance has reached ${new_bal:.4f}. Gemini API disabled.")
+                
+    close_api_log('gemini', caller_context, status="completed", tokens=total_tokens)
     return response
 
 def handle_gemini_error(e):
@@ -3867,6 +3941,20 @@ def cooladmin():
             log_system_event("GEMINI_API_DISABLED", "Admin manually disabled Gemini API")
             return redirect('/cooladmin')
 
+        elif action == 'reenable_owm':
+            with state_lock:
+                state["owm_api_disabled"] = False
+                save_state()
+            log_system_event("OWM_API_ENABLED", "Admin manually re-enabled OWM API")
+            return redirect('/cooladmin')
+
+        elif action == 'disable_owm':
+            with state_lock:
+                state["owm_api_disabled"] = True
+                save_state()
+            log_system_event("OWM_API_DISABLED", "Admin manually disabled OWM API")
+            return redirect('/cooladmin')
+
         elif action == 'update_api_limits':
             with state_lock:
                 if 'api_limits' not in state:
@@ -3883,6 +3971,11 @@ def cooladmin():
                     state['api_limits']['rogue_endpoint_threshold'] = int(request.form.get('rogue_endpoint_threshold', 300))
                     state['api_limits']['failed_job_threshold'] = int(request.form.get('failed_job_threshold', 5))
                     state['api_limits']['per_endpoint_hourly'] = int(request.form.get('per_endpoint_hourly', 30))
+                    state['api_limits']['gemini_mode'] = request.form.get('gemini_mode', 'free')
+                    try:
+                        state['api_limits']['prepay_balance'] = float(request.form.get('prepay_balance', 0.0))
+                    except ValueError:
+                        pass
                     if state['api_limits'].get('owm_hourly', 0) <= 60: state['api_limits']['owm_hourly'] = 300
                     save_state()
                     log_system_event("API_LIMITS_UPDATED", f"Admin updated API limits to Daily: {state['api_limits']['gemini_daily']}")
@@ -4002,6 +4095,7 @@ def cooladmin():
         eap_pin = state.get('eap_pin', '123456')
         agenda_votes = state.get('agenda_votes', {})
         gemini_api_disabled = state.get('gemini_api_disabled', False)
+        owm_api_disabled = state.get('owm_api_disabled', False)
         api_limits = state.get('api_limits', {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 300, "auto_free_tier": True})
         if api_limits.get("owm_hourly", 0) <= 60:
             api_limits["owm_hourly"] = 300
@@ -4188,7 +4282,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, current_pulse_date=current_pulse_date, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded, job_queue_status=job_queue_status, pending_jobs_count=pending_jobs_count, heuristics=get_system_heuristics(), active_travelers=active_travelers, top_travel_destinations=top_travel_destinations)
+    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, current_pulse_date=current_pulse_date, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, owm_api_disabled=owm_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded, job_queue_status=job_queue_status, pending_jobs_count=pending_jobs_count, heuristics=get_system_heuristics(), active_travelers=active_travelers, top_travel_destinations=top_travel_destinations)
 
 @app.route('/portfolio')
 def portfolio():
