@@ -877,14 +877,14 @@ def safe_gemini_generate_content(model, contents, config=None, caller_context="u
                     c = conn.cursor()
                     c.execute("SELECT COUNT(*) FROM api_usage_log WHERE api_name='gemini' AND timestamp >= datetime('now', '-1 minute')")
                     recent_calls = c.fetchone()[0]
-                    
+            except Exception: 
+                break
+                
             if recent_calls >= rpm_limit:
                 print(f"[THROTTLE] Gemini RPM is at {recent_calls}/{rpm_limit}. Sleeping 5s before retry (Context: {caller_context})...", flush=True)
                 time.sleep(5)
             else:
                 break # Safe to proceed
-            except Exception: 
-                break
 
         if not check_and_log_api_usage('gemini', caller_context):
             with state_lock:
@@ -4756,4 +4756,3 @@ if __name__ == '__main__':
     threading.Thread(target=eap_multicast_listener, daemon=True).start()
     threading.Thread(target=job_queue_loop, daemon=True).start()
     app.run(host='0.0.0.0', port=5000, debug=False)  # nosec B104
-
