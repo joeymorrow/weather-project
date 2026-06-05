@@ -51,7 +51,9 @@ jobs:
           "
 
       - name: Validate Docker Compose config
-        run: docker compose -f docker-compose.yml config
+        run: |
+          touch .env
+          docker compose -f docker-compose.yml config
 
   security:
     name: Security Scanning
@@ -634,7 +636,9 @@ jobs:
           clean: false
 
       - name: Pre-build Docker Image
-        run: docker compose build
+        run: |
+          touch .env
+          docker compose build
 
   deploy:
     needs: [lint, security, unittest, e2e, build_image]
