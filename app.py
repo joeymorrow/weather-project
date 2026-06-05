@@ -1669,7 +1669,15 @@ def run_sync():
     owm_cache = {} # Short-lived cache across all tenants for this specific sync loop tick
     for loc in locations:
         with state_lock: # Acquire lock to safely read disabled_pages
-            if loc['slug'] in state.get('disabled_pages', []):
+            disabled = state.get('disabled_pages', [])
+            safe_mode = state.get('safe_mode', False)
+            route = f"/schools/{loc['slug']}" if loc['slug'] not in ['main', 'sault-schools', 'pickford-schools'] else (f"/{loc['slug']}" if loc['slug'] != 'main' else "/")
+            
+            if safe_mode and loc['slug'] != 'main':
+                print(f"[SYNC] Safe Mode Active: Skipping {loc['slug']}", flush=True)
+                continue
+                
+            if loc['slug'] in disabled or route in disabled or (route != '/' and route.rstrip('/') in disabled):
                 print(f"[SYNC] Skipping disabled page: {loc['slug']}", flush=True)
                 continue # Skip calling sync_for_location for disabled pages
         
@@ -2901,6 +2909,9 @@ def check_disabled_pages():
         return
     with state_lock:
         disabled = state.get("disabled_pages", [])
+        safe_mode = state.get("safe_mode", False)
+    if safe_mode and request.path not in ['/', '/auto'] and not request.path.startswith('/login') and not request.path.startswith('/auth'):
+        return "<body style='background:#010103; color:#00ffff; font-family:monospace; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0;'><h2>[ SAFE MODE ACTIVE ]</h2><p style='color:#fff; opacity:0.5;'>The system is in Safe Mode. Only the main dashboard is available.</p></body>", 503
     if request.path in disabled or (request.path != '/' and request.path.rstrip('/') in disabled):
         return "<body style='background:#010103; color:#00ffff; font-family:monospace; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0;'><h2>[ SYSTEM OFFLINE ]</h2><p style='color:#fff; opacity:0.5;'>This page has been temporarily disabled.</p></body>", 503
 
@@ -3953,6 +3964,20 @@ def cooladmin():
                 save_state()
             log_system_event("GEMINI_API_DISABLED", "Admin manually disabled Gemini API")
             return redirect('/cooladmin')
+            
+        elif action == 'enable_safe_mode':
+            with state_lock:
+                state['safe_mode'] = True
+                save_state()
+            log_system_event("SAFE_MODE_ENABLED", "Admin enabled Global Safe Mode.")
+            return redirect('/cooladmin')
+            
+        elif action == 'disable_safe_mode':
+            with state_lock:
+                state['safe_mode'] = False
+                save_state()
+            log_system_event("SAFE_MODE_DISABLED", "Admin disabled Global Safe Mode.")
+            return redirect('/cooladmin')
 
         elif action == 'reenable_owm':
             with state_lock:
@@ -4109,6 +4134,7 @@ def cooladmin():
         agenda_votes = state.get('agenda_votes', {})
         gemini_api_disabled = state.get('gemini_api_disabled', False)
         owm_api_disabled = state.get('owm_api_disabled', False)
+        safe_mode = state.get('safe_mode', False)
         api_limits = state.get('api_limits', {"gemini_daily": 1400, "gemini_hourly": 100, "owm_daily": 900, "owm_hourly": 300, "auto_free_tier": True})
         if api_limits.get("owm_hourly", 0) <= 60:
             api_limits["owm_hourly"] = 300
@@ -4141,6 +4167,21 @@ def cooladmin():
     except Exception as e:
         print(f"Error getting api stats: {e}", flush=True)
         api_stats = {"g_hour": 0, "g_tokens_hour": 0, "g_day": 0, "g_tokens_day": 0, "g_month": 0, "g_tokens_month": 0, "o_hour": 0, "o_day": 0, "o_month": 0}
+
+    try:
+        with closing(sqlite3.connect(LOG_DB_FILE, timeout=10)) as conn:
+            c = conn.cursor()
+            c.execute("""
+                SELECT caller_context, api_name, COUNT(*), SUM(tokens_used) 
+                FROM api_usage_log 
+                WHERE timestamp >= datetime('now', '-24 hours') 
+                GROUP BY caller_context, api_name 
+                ORDER BY COUNT(*) DESC
+            """)
+            api_drivers = [{"context": r[0], "api": r[1], "calls": r[2], "tokens": r[3] or 0} for r in c.fetchall()]
+    except Exception as e:
+        print(f"Error getting api drivers: {e}", flush=True)
+        api_drivers = []
 
     try:
         with closing(sqlite3.connect(DB_FILE, timeout=10)) as conn:
@@ -4295,7 +4336,7 @@ def cooladmin():
             site_hierarchy["Dynamic Pages"].append({"name": f"{page['title']} (Custom)", "url": url})
             added_urls.add(url)
 
-    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, current_pulse_date=current_pulse_date, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, owm_api_disabled=owm_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded, job_queue_status=job_queue_status, pending_jobs_count=pending_jobs_count, heuristics=get_system_heuristics(), active_travelers=active_travelers, top_travel_destinations=top_travel_destinations)
+    return render_template('joeyadmin.html', build_timestamp=os.environ.get("BUILD_TIMESTAMP", "Local Dev"), services=service_status, metrics=metrics, beacon_pages=get_beacon_pages(), eap_subs=get_eap_subscriptions(), current_pulse=current_pulse, current_pulse_date=current_pulse_date, pulse_history=pulse_history, disabled_pages=disabled_pages, hallucinations=hallucinations, cleanup_summary=cleanup_summary, site_hierarchy=site_hierarchy, sso_configs=sso_configs, rbac_users=rbac_users, eap_pin=eap_pin, garage_sales=garage_sales, sault_tribe=sault_tribe, sault_schools=sault_schools, agenda_votes=agenda_votes, pending_submissions=pending_submissions, banned_ips=banned_ips, active_prompts=active_prompts, vetted_sources=vetted_sources, scheduled_sources=scheduled_sources, gemini_api_disabled=gemini_api_disabled, owm_api_disabled=owm_api_disabled, api_limits=api_limits, api_stats=api_stats, service_degraded=service_degraded, job_queue_status=job_queue_status, pending_jobs_count=pending_jobs_count, heuristics=get_system_heuristics(), active_travelers=active_travelers, top_travel_destinations=top_travel_destinations, safe_mode=safe_mode, api_drivers=api_drivers)
 
 @app.route('/portfolio')
 def portfolio():

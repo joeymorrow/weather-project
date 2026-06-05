@@ -1388,6 +1388,54 @@
             });
         </script>
 
+        <!-- Global Safe Mode -->
+        <div class="card" style="grid-column: 1 / -1; border-color: #ffaa00; box-shadow: 0 0 15px rgba(255, 170, 0, 0.2);">
+            <h2 style="color: #ffaa00; border-bottom-color: #ffaa00;">🛡️ Global Safe Mode</h2>
+            <p style="font-size: 0.9rem; color: #aaa;">Enable Safe Mode to immediately halt all background data syncing and API calls for any page other than the main dashboard. This acts as a global killswitch for dynamic pages.</p>
+            {% if safe_mode %}
+            <form method="POST" action="/cooladmin" style="margin-top: 15px;">
+                <input type="hidden" name="action" value="disable_safe_mode">
+                <button type="submit" class="manage-btn" style="background: #ff4444; color: white; padding: 10px; font-size: 1rem; border-width: 2px;">Disable Safe Mode (Restore Operations)</button>
+            </form>
+            {% else %}
+            <form method="POST" action="/cooladmin" style="margin-top: 15px;">
+                <input type="hidden" name="action" value="enable_safe_mode">
+                <button type="submit" class="manage-btn" style="background: #ffaa00; color: #000; padding: 10px; font-size: 1rem; border-width: 2px;">Enable Safe Mode (Halt Dynamic Pages)</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- API Drivers Matrix -->
+        <div class="card" style="grid-column: 1 / -1; border-color: #ff00ff; box-shadow: 0 0 15px rgba(255,0,255,0.2);">
+            <h2 style="color: #ff00ff; border-bottom-color: #ff00ff;">📊 API Driver Matrix (Last 24 Hours)</h2>
+            <p style="font-size: 0.9rem; color: #aaa;">Identify which specific endpoints or background tasks are consuming the most API calls.</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                    <tr style="background: rgba(255,0,255,0.1); border-bottom: 2px solid #ff00ff;">
+                        <th style="padding: 10px; text-align: left; color: #ff00ff;">Caller Context</th>
+                        <th style="padding: 10px; text-align: left; color: #ff00ff;">API Service</th>
+                        <th style="padding: 10px; text-align: center; color: #ff00ff;">Total Calls</th>
+                        <th style="padding: 10px; text-align: right; color: #ff00ff;">Tokens Used</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for driver in api_drivers %}
+                    <tr style="border-bottom: 1px solid rgba(255, 0, 255, 0.2);">
+                        <td style="padding: 10px; color: #fff;"><code>{{ driver.context }}</code></td>
+                        <td style="padding: 10px; color: #aaa;">{{ driver.api }}</td>
+                        <td style="padding: 10px; text-align: center; color: {% if driver.calls > 300 %}#ffaa00{% else %}#00ff00{% endif %}; font-weight: bold;">{{ driver.calls }}</td>
+                        <td style="padding: 10px; text-align: right; color: #00ffff;">{{ driver.tokens }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" style="padding: 20px; text-align: center; color: #aaa; font-style: italic;">No API calls recorded in the last 24 hours.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
         <!-- Nuclear Option -->
         <div class="card" style="border-color: #ff0000; box-shadow: 0 0 15px rgba(255, 0, 0, 0.2);">
             <h2 style="color: #ff0000; border-bottom-color: #ff0000; display: flex; align-items: center;">☢️ Nuclear Option <span class="help-tip" style="border-color: #ff0000; color: #ff0000; margin-left: 10px;" title="This safely kills the web server. Docker will automatically reboot a fresh, clean instance. Use if memory freezes.">?</span></h2>
