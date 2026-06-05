@@ -2,6 +2,8 @@ services:
   weather-dashboard:
     build: .
     restart: always
+    env_file:
+      - .env
     volumes:
       - ./data:/app/data # Mount persistent data securely
       - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro
@@ -14,6 +16,8 @@ services:
     command: python slim_proxy.py
     network_mode: "host" # Proxy also binds to host to proxy port 8080 -> 5000
     restart: always
+    env_file:
+      - .env
     volumes:
       - ./data:/app/data # Allows the proxy to log dropped traffic to the SQLite database!
     depends_on:
