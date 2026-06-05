@@ -689,7 +689,7 @@ jobs:
 
       - name: Deploy Container
         run: |
-          docker compose up -d --force-recreate
+          docker compose up -d --build --force-recreate
 
       - name: Post-deploy smoke test
         run: |
