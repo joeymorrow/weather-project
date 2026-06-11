@@ -44,6 +44,7 @@
         <a href="#section-emergency" style="background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.8rem; white-space: nowrap; transition: 0.2s;" onmouseover="this.style.background='#00ffff'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='#00ffff';">🚨 Emergency</a>
         <a href="#section-branding" style="background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.8rem; white-space: nowrap; transition: 0.2s;" onmouseover="this.style.background='#00ffff'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='#00ffff';">🛠️ Branding</a>
         <a href="#section-integrations" style="background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.8rem; white-space: nowrap; transition: 0.2s;" onmouseover="this.style.background='#00ffff'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='#00ffff';">🏫 Integrations</a>
+        <a href="#section-theme" style="background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.8rem; white-space: nowrap; transition: 0.2s;" onmouseover="this.style.background='#00ffff'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='#00ffff';">🎨 Theme</a>
         <a href="#section-slides" style="background: transparent; color: #00ffff; border: 1px solid #00ffff; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.8rem; white-space: nowrap; transition: 0.2s;" onmouseover="this.style.background='#00ffff'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='#00ffff';">📺 Slides</a>
     </div>
     
@@ -104,6 +105,26 @@
                 <input type="color" name="branding_color" value="{{ branding.color if branding else '#00ffff' }}" style="width: 100px; padding: 0;">
             </div>
             <button type="submit">Save Branding</button>
+        </form>
+        </div>
+
+        <div id="section-theme">
+        <h2>🎨 Dashboard Theme</h2>
+        <form method="POST">
+            <input type="hidden" name="action" value="update_theme">
+            <div class="form-group">
+                <label>Managed Theme <span class="help-tip" title="Forces a default theme for this dashboard. Users can still temporarily override it via the secret menu.">?</span></label>
+                <select name="managed_theme">
+                    <option value="" {% if not managed_theme %}selected{% endif %}>User Preference / Native Yooper (Default)</option>
+                    <option value="native-yooper-mode" {% if managed_theme == 'native-yooper-mode' %}selected{% endif %}>Native Yooper</option>
+                    <option value="classic-dark-mode" {% if managed_theme == 'classic-dark-mode' %}selected{% endif %}>Classic Dark Mode</option>
+                    <option value="ocean-mode" {% if managed_theme == 'ocean-mode' %}selected{% endif %}>Deep Sea</option>
+                    <option value="groovy-mode" {% if managed_theme == 'groovy-mode' %}selected{% endif %}>Groovy</option>
+                    <option value="day-mode" {% if managed_theme == 'day-mode' %}selected{% endif %}>Day Mode</option>
+                    <option value="golden-mode" {% if managed_theme == 'golden-mode' %}selected{% endif %}>Golden Hour</option>
+                </select>
+            </div>
+            <button type="submit">Save Theme</button>
         </form>
         </div>
 

@@ -1270,7 +1270,7 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False, is_r
                 pulse_task = f"Task 2 (Pulse): {mp_norm_default}"
 
         extra_tasks = ""
-        json_format = '{ "tip": "attire", "bubble": "Task 1 (3-5 words ONLY)", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
+        json_format = '{ "suggestion": "attire", "bubble": "Task 1 (3-5 words ONLY)", "pulse": "vibe", "acc": "tool/none", "forecast": "summary", "weekly_summary": "outlook", "is_news": true'
         
         if do_deep_search:
             last_deep_search[slug] = now_ts_sec
@@ -1577,7 +1577,7 @@ def sync_for_location(slug, loc_name, query, owm_cache=None, skip_ai=False, is_r
                 "hourly_list": hourly_list,
                 "sunrise": sunrise_str, "sunset": sunset_str,
                 "weekly_list": weekly_list,
-                "suggestion": ai.get("tip") or "Stay safe.", "bubble": ai.get("say") or ai.get("bubble") or "...", 
+                "suggestion": ai.get("suggestion") or ai.get("tip") or "Stay safe.", "bubble": ai.get("say") or ai.get("bubble") or "...", 
                 "pulse": new_pulse, "pulse_date": ai.get("pulse_date", now.strftime('%B %d, %I:%M %p')),
                 "acc_css": "zzz" if is_sleep else (ai.get("acc") or "none"),
                 "forecast": ai.get("forecast") or "Weather data processing...", 
@@ -4392,6 +4392,9 @@ def admin(slug="main"):
                     "text": request.form.get('branding_text', '').strip(),
                     "color": request.form.get('branding_color', '#00ffff')
                 }
+                target_state.setdefault('main_config', {})['header'] = request.form.get('header_text', target_state.get('main_config', {}).get('header', 'MORROW EDGE | BEACON Buddy')).strip()
+                target_state.setdefault('main_config', {})['location'] = request.form.get('location_text', target_state.get('main_config', {}).get('location', 'SAULT STE. MARIE, MICHIGAN')).strip()
+
             elif action == 'update_main_config':
                 target_state['main_config'] = {
                     "header": request.form.get('header_text', 'MORROW EDGE | BEACON Buddy').strip(),

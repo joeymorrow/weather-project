@@ -428,7 +428,7 @@
         #buddy-container.dragging { transition: none !important; z-index: 3000 !important; cursor: grabbing !important; }
     </style>
 </head>
-<body class="preload-theme {% if is_day %}day-mode{% elif is_golden %}golden-mode{% endif %}">
+<body class="preload-theme native-yooper-mode">
     <div id="hourly-container" aria-hidden="true" style="position: absolute; top: 0; left: 0; width: 100%; height: 100dvh; z-index: 1; pointer-events: none; transition: opacity 1s ease;">
         <canvas id="hourly-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
     </div>
@@ -481,7 +481,7 @@
             <div class="egg-btn" id="theme-golden" tabindex="0" onclick="setThemePack('golden-mode')" onkeydown="if(event.key==='Enter')setThemePack('golden-mode')">Golden Hour</div>
             <div class="egg-btn" id="theme-contrast" tabindex="0" onclick="toggleContrast()" onkeydown="if(event.key==='Enter')toggleContrast()">High Contrast</div>
             <div class="egg-btn" id="theme-fullscreen" tabindex="0" onclick="toggleFullscreen()" onkeydown="if(event.key==='Enter')toggleFullscreen()">Fullscreen</div>
-            <div class="egg-btn" id="theme-standard" tabindex="0" onclick="clearThemes()" onkeydown="if(event.key==='Enter')clearThemes()">Reset Theme</div>
+            <div class="egg-btn" id="theme-standard" tabindex="0" onclick="setThemePack('classic-dark-mode')" onkeydown="if(event.key==='Enter')setThemePack('classic-dark-mode')">Classic Dark Mode</div>
         </div>
 
         <div class="egg-btn" tabindex="0" onclick="triggerEgg('close')" onkeydown="if(event.key==='Enter')triggerEgg('close')" style="margin-top:clamp(10px, 2vh, 20px); border-color:gray; color:gray;">Close</div>
@@ -1269,12 +1269,12 @@
 
             if (oceanBtn) oceanBtn.innerHTML = (tp === 'ocean-mode' ? '✓ ' : '') + 'Deep Sea';
             if (groovyBtn) groovyBtn.innerHTML = (tp === 'groovy-mode' ? '✓ ' : '') + 'Groovy';
-            if (nativeBtn) nativeBtn.innerHTML = (tp === 'native-yooper-mode' ? '✓ ' : '') + 'Native Yooper';
+        if (nativeBtn) nativeBtn.innerHTML = (tp === 'native-yooper-mode' || (!tp && !hc) ? '✓ ' : '') + 'Native Yooper';
             if (dayBtn) dayBtn.innerHTML = (tp === 'day-mode' ? '✓ ' : '') + 'Day Mode';
             if (goldenBtn) goldenBtn.innerHTML = (tp === 'golden-mode' ? '✓ ' : '') + 'Golden Hour';
             if (contrastBtn) contrastBtn.innerHTML = (hc ? '✓ ' : '') + 'High Contrast';
             if (fullBtn) fullBtn.innerHTML = (document.fullscreenElement ? '✓ ' : '') + 'Fullscreen';
-            if (standardBtn) standardBtn.innerHTML = ((!tp || tp === '') && !hc ? '✓ ' : '') + 'Reset Theme';
+        if (standardBtn) standardBtn.innerHTML = (tp === 'classic-dark-mode' ? '✓ ' : '') + 'Classic Dark Mode';
         };
 
         window.toggleContrast = function() {
@@ -1287,9 +1287,11 @@
             document.body.classList.add('high-contrast-mode');
         }
         
-        let activeThemePack = localStorage.getItem('beacon_themepack') || null;
-        if (activeThemePack) {
-            document.body.classList.remove('day-mode', 'golden-mode');
+        let activeThemePack = localStorage.getItem('beacon_themepack');
+        if (activeThemePack === null) activeThemePack = 'native-yooper-mode';
+        
+        document.body.classList.remove('day-mode', 'golden-mode', 'ocean-mode', 'groovy-mode', 'high-contrast-mode', 'native-yooper-mode', 'classic-dark-mode');
+        if (activeThemePack !== 'classic-dark-mode') {
             document.body.classList.add(activeThemePack);
         }
         
@@ -2446,10 +2448,8 @@
                 else if (serverTheme) appliedTheme = serverTheme;
 
                 const allThemes = ['day-mode', 'golden-mode', 'ocean-mode', 'groovy-mode', 'high-contrast-mode', 'native-yooper-mode'];
-                let targetTheme = null;
+                let targetTheme = 'native-yooper-mode';
                 if (appliedTheme && appliedTheme !== "") targetTheme = appliedTheme;
-                else if (s.is_day) targetTheme = 'day-mode';
-                else if (s.is_golden) targetTheme = 'golden-mode';
 
                 allThemes.forEach(theme => {
                     if (theme === targetTheme) {
